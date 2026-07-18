@@ -1,0 +1,613 @@
+openapi: 3.0.3
+info:
+  title: servdesk API
+  description: >
+    ITSM ticketing API. This file is the hand-authored contract (contract-first, no
+    code generation in either direction) — the implementation under
+    dev.alkolhar.servdesk is written to match it, not generated from it.
+  version: "1"
+servers:
+  - url: http://localhost:8080/
+security:
+  - basicAuth: []
+tags:
+  - name: setup
+    description: One-shot, pre-auth bootstrap of the first agent account.
+  - name: persons
+    description: Agents and customers.
+  - name: tickets
+    description: Incidents, service requests, problems and changes.
+paths:
+  /api/setup:
+    get:
+      tags: [setup]
+      summary: Check whether the first-run setup still needs to be completed.
+      security: []
+      responses:
+        "200":
+          description: Setup status.
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/SetupStatus"
+    post:
+      tags: [setup]
+      summary: Create the first agent account. Refuses to run a second time.
+      security: []
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/SetupRequest"
+      responses:
+        "201":
+          description: The first agent was created.
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/PersonModel"
+        "400":
+          $ref: "#/components/responses/ValidationProblem"
+        "409":
+          description: Setup was already completed.
+          content:
+            application/problem+json:
+              schema:
+                $ref: "#/components/schemas/ProblemDetail"
+  /api/persons:
+    parameters:
+      - $ref: "#/components/parameters/ApiVersionHeader"
+    get:
+      tags: [persons]
+      summary: List persons (paginated, optionally filtered by role).
+      parameters:
+        - name: role
+          in: query
+          required: false
+          schema:
+            $ref: "#/components/schemas/PersonRole"
+        - $ref: "#/components/parameters/PageParam"
+        - $ref: "#/components/parameters/SizeParam"
+        - $ref: "#/components/parameters/SortParam"
+      responses:
+        "200":
+          description: A page of persons.
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/PersonPage"
+        "401":
+          $ref: "#/components/responses/Unauthorized"
+    post:
+      tags: [persons]
+      summary: Create a person (agent or customer).
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/PersonCreateRequest"
+      responses:
+        "201":
+          description: Person created.
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/PersonModel"
+        "400":
+          $ref: "#/components/responses/ValidationProblem"
+        "401":
+          $ref: "#/components/responses/Unauthorized"
+  /api/persons/{id}:
+    parameters:
+      - $ref: "#/components/parameters/ApiVersionHeader"
+      - name: id
+        in: path
+        required: true
+        schema:
+          type: integer
+          format: int64
+    get:
+      tags: [persons]
+      summary: Fetch a person by id.
+      responses:
+        "200":
+          description: The person.
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/PersonModel"
+        "404":
+          $ref: "#/components/responses/NotFoundProblem"
+    put:
+      tags: [persons]
+      summary: Replace a person's editable fields.
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/PersonUpdateRequest"
+      responses:
+        "200":
+          description: The updated person.
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/PersonModel"
+        "400":
+          $ref: "#/components/responses/ValidationProblem"
+        "404":
+          $ref: "#/components/responses/NotFoundProblem"
+    delete:
+      tags: [persons]
+      summary: Soft-delete a person.
+      responses:
+        "204":
+          description: Deleted.
+        "404":
+          $ref: "#/components/responses/NotFoundProblem"
+  /api/tickets:
+    parameters:
+      - $ref: "#/components/parameters/ApiVersionHeader"
+    get:
+      tags: [tickets]
+      summary: List tickets (paginated, optionally filtered by status/type).
+      parameters:
+        - name: status
+          in: query
+          required: false
+          schema:
+            $ref: "#/components/schemas/TicketStatus"
+        - name: type
+          in: query
+          required: false
+          schema:
+            $ref: "#/components/schemas/TicketType"
+        - $ref: "#/components/parameters/PageParam"
+        - $ref: "#/components/parameters/SizeParam"
+        - $ref: "#/components/parameters/SortParam"
+      responses:
+        "200":
+          description: A page of tickets.
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/TicketPage"
+        "401":
+          $ref: "#/components/responses/Unauthorized"
+    post:
+      tags: [tickets]
+      summary: Create a ticket. The ticket number is server-assigned.
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/TicketCreateRequest"
+      responses:
+        "201":
+          description: Ticket created.
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/TicketModel"
+        "400":
+          $ref: "#/components/responses/ValidationProblem"
+        "401":
+          $ref: "#/components/responses/Unauthorized"
+  /api/tickets/{id}:
+    parameters:
+      - $ref: "#/components/parameters/ApiVersionHeader"
+      - name: id
+        in: path
+        required: true
+        schema:
+          type: integer
+          format: int64
+    get:
+      tags: [tickets]
+      summary: Fetch a ticket by id.
+      responses:
+        "200":
+          description: The ticket.
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/TicketModel"
+        "404":
+          $ref: "#/components/responses/NotFoundProblem"
+    put:
+      tags: [tickets]
+      summary: Replace a ticket's editable fields, including status.
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/TicketUpdateRequest"
+      responses:
+        "200":
+          description: The updated ticket.
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/TicketModel"
+        "400":
+          $ref: "#/components/responses/ValidationProblem"
+        "404":
+          $ref: "#/components/responses/NotFoundProblem"
+    delete:
+      tags: [tickets]
+      summary: Soft-delete a ticket.
+      responses:
+        "204":
+          description: Deleted.
+        "404":
+          $ref: "#/components/responses/NotFoundProblem"
+components:
+  securitySchemes:
+    basicAuth:
+      type: http
+      scheme: basic
+  parameters:
+    ApiVersionHeader:
+      name: X-API-Version
+      in: header
+      required: false
+      description: Defaults to "1" if omitted (see ApiVersioningConfig).
+      schema:
+        type: string
+        default: "1"
+    PageParam:
+      name: page
+      in: query
+      required: false
+      schema:
+        type: integer
+        minimum: 0
+        default: 0
+    SizeParam:
+      name: size
+      in: query
+      required: false
+      schema:
+        type: integer
+        minimum: 1
+        default: 20
+    SortParam:
+      name: sort
+      in: query
+      required: false
+      description: 'e.g. "name,asc" — repeatable for multi-field sort.'
+      schema:
+        type: string
+  responses:
+    Unauthorized:
+      description: Missing or invalid credentials.
+    ValidationProblem:
+      description: Request body failed Jakarta Bean Validation.
+      content:
+        application/problem+json:
+          schema:
+            $ref: "#/components/schemas/ProblemDetail"
+    NotFoundProblem:
+      description: No resource with that id.
+      content:
+        application/problem+json:
+          schema:
+            $ref: "#/components/schemas/ProblemDetail"
+  schemas:
+    ProblemDetail:
+      type: object
+      description: RFC 7807 Problem Details, as produced by common.web.RestExceptionHandler.
+      properties:
+        type:
+          type: string
+          format: uri
+        title:
+          type: string
+        status:
+          type: integer
+        detail:
+          type: string
+        instance:
+          type: string
+          format: uri
+    PersonRole:
+      type: string
+      enum: [AGENT, CUSTOMER]
+    PersonModel:
+      type: object
+      properties:
+        id:
+          type: integer
+          format: int64
+        role:
+          $ref: "#/components/schemas/PersonRole"
+        name:
+          type: string
+        email:
+          type: string
+          format: email
+        phone:
+          type: string
+          nullable: true
+        username:
+          type: string
+          nullable: true
+        enabled:
+          type: boolean
+        teamId:
+          type: integer
+          format: int64
+          nullable: true
+        createdAt:
+          type: string
+          format: date-time
+        updatedAt:
+          type: string
+          format: date-time
+        createdBy:
+          type: string
+          nullable: true
+        updatedBy:
+          type: string
+          nullable: true
+        _links:
+          type: object
+          description: HATEOAS links (self).
+    PersonCreateRequest:
+      type: object
+      required: [role, name, email]
+      properties:
+        role:
+          $ref: "#/components/schemas/PersonRole"
+        name:
+          type: string
+        email:
+          type: string
+          format: email
+        phone:
+          type: string
+          nullable: true
+        username:
+          type: string
+          nullable: true
+        password:
+          type: string
+          nullable: true
+        teamId:
+          type: integer
+          format: int64
+          nullable: true
+    PersonUpdateRequest:
+      type: object
+      required: [role, name, email, enabled]
+      properties:
+        role:
+          $ref: "#/components/schemas/PersonRole"
+        name:
+          type: string
+        email:
+          type: string
+          format: email
+        phone:
+          type: string
+          nullable: true
+        username:
+          type: string
+          nullable: true
+        password:
+          type: string
+          nullable: true
+          description: Null leaves the existing password unchanged.
+        enabled:
+          type: boolean
+        teamId:
+          type: integer
+          format: int64
+          nullable: true
+    PersonPage:
+      type: object
+      description: Spring HATEOAS PagedModel<PersonModel>.
+      properties:
+        _embedded:
+          type: object
+          properties:
+            personModelList:
+              type: array
+              items:
+                $ref: "#/components/schemas/PersonModel"
+        _links:
+          type: object
+          description: first/prev/self/next/last, as available.
+        page:
+          $ref: "#/components/schemas/PageMetadata"
+    TicketType:
+      type: string
+      enum: [INCIDENT, SERVICE_REQUEST, PROBLEM, CHANGE]
+    TicketStatus:
+      type: string
+      enum: [OPEN, IN_PROGRESS, PENDING, RESOLVED, CLOSED]
+    TicketModel:
+      type: object
+      properties:
+        id:
+          type: integer
+          format: int64
+        ticketNumber:
+          type: string
+          example: TCK-001000
+        type:
+          $ref: "#/components/schemas/TicketType"
+        status:
+          $ref: "#/components/schemas/TicketStatus"
+        subject:
+          type: string
+        description:
+          type: string
+          nullable: true
+        categoryId:
+          type: integer
+          format: int64
+          nullable: true
+        priorityId:
+          type: integer
+          format: int64
+          nullable: true
+        requesterId:
+          type: integer
+          format: int64
+        assigneeId:
+          type: integer
+          format: int64
+          nullable: true
+        teamId:
+          type: integer
+          format: int64
+          nullable: true
+        resolvedAt:
+          type: string
+          format: date-time
+          nullable: true
+        closedAt:
+          type: string
+          format: date-time
+          nullable: true
+        createdAt:
+          type: string
+          format: date-time
+        updatedAt:
+          type: string
+          format: date-time
+        createdBy:
+          type: string
+          nullable: true
+        updatedBy:
+          type: string
+          nullable: true
+        _links:
+          type: object
+          description: HATEOAS links (self, requester, assignee).
+    TicketCreateRequest:
+      type: object
+      required: [type, subject, requesterId]
+      properties:
+        type:
+          $ref: "#/components/schemas/TicketType"
+        subject:
+          type: string
+        description:
+          type: string
+          nullable: true
+        categoryId:
+          type: integer
+          format: int64
+          nullable: true
+        priorityId:
+          type: integer
+          format: int64
+          nullable: true
+        requesterId:
+          type: integer
+          format: int64
+        assigneeId:
+          type: integer
+          format: int64
+          nullable: true
+        teamId:
+          type: integer
+          format: int64
+          nullable: true
+    TicketUpdateRequest:
+      type: object
+      required: [type, status, subject, requesterId]
+      properties:
+        type:
+          $ref: "#/components/schemas/TicketType"
+        status:
+          $ref: "#/components/schemas/TicketStatus"
+        subject:
+          type: string
+        description:
+          type: string
+          nullable: true
+        categoryId:
+          type: integer
+          format: int64
+          nullable: true
+        priorityId:
+          type: integer
+          format: int64
+          nullable: true
+        requesterId:
+          type: integer
+          format: int64
+        assigneeId:
+          type: integer
+          format: int64
+          nullable: true
+        teamId:
+          type: integer
+          format: int64
+          nullable: true
+        resolvedAt:
+          type: string
+          format: date-time
+          nullable: true
+        closedAt:
+          type: string
+          format: date-time
+          nullable: true
+    TicketPage:
+      type: object
+      description: Spring HATEOAS PagedModel<TicketModel>.
+      properties:
+        _embedded:
+          type: object
+          properties:
+            ticketModelList:
+              type: array
+              items:
+                $ref: "#/components/schemas/TicketModel"
+        _links:
+          type: object
+          description: first/prev/self/next/last, as available.
+        page:
+          $ref: "#/components/schemas/PageMetadata"
+    PageMetadata:
+      type: object
+      properties:
+        size:
+          type: integer
+        totalElements:
+          type: integer
+          format: int64
+        totalPages:
+          type: integer
+        number:
+          type: integer
+    SetupStatus:
+      type: object
+      properties:
+        setupRequired:
+          type: boolean
+    SetupRequest:
+      type: object
+      required: [name, email, username, password]
+      properties:
+        name:
+          type: string
+        email:
+          type: string
+          format: email
+        phone:
+          type: string
+          nullable: true
+        username:
+          type: string
+        password:
+          type: string
+          format: password

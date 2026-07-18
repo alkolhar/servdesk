@@ -1,0 +1,32 @@
+services:
+  db:
+    image: mariadb:latest
+    environment:
+      MARIADB_DATABASE: servdesk
+      MARIADB_USER: servdesk
+      MARIADB_PASSWORD: servdesk
+      MARIADB_ROOT_PASSWORD: root
+    ports:
+      - "3306:3306"
+    volumes:
+      - servdesk-db-data:/var/lib/mysql
+    healthcheck:
+      test: ["CMD", "healthcheck.sh", "--connect", "--innodb_initialized"]
+      interval: 5s
+      timeout: 5s
+      retries: 10
+
+  app:
+    build: .
+    depends_on:
+      db:
+        condition: service_healthy
+    environment:
+      SPRING_DATASOURCE_URL: jdbc:mariadb://db:3306/servdesk
+      SPRING_DATASOURCE_USERNAME: servdesk
+      SPRING_DATASOURCE_PASSWORD: servdesk
+    ports:
+      - "8080:8080"
+
+volumes:
+  servdesk-db-data:

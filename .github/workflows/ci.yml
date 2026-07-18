@@ -1,0 +1,49 @@
+name: CI
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+    branches: [main]
+  workflow_dispatch:
+
+jobs:
+  build-and-test:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Set up JDK 25
+        uses: actions/setup-java@v4
+        with:
+          distribution: temurin
+          java-version: "25"
+          cache: maven
+
+      # Runs compile, unit + Testcontainers/MariaDB integration tests, ArchUnit rules, Spotless
+      # format check and JaCoCo coverage reporting (all wired into the verify phase — see pom.xml).
+      # The Docker daemon Testcontainers needs is preinstalled on GitHub-hosted ubuntu runners.
+      - name: Build and verify
+        run: ./mvnw --batch-mode verify
+
+      - name: Upload JaCoCo coverage report
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: jacoco-report
+          path: target/site/jacoco/
+
+      # Not a blocking gate yet: this is the first time SpotBugs runs against a JDK it was actually
+      # built to support (the project's own machine used to author this pipeline is on a newer JDK
+      # where SpotBugs's bundled ASM can't parse the platform's own class files — see pom.xml).
+      # Remove continue-on-error once a real run here has been observed green.
+      - name: Static analysis (SpotBugs)
+        continue-on-error: true
+        run: ./mvnw --batch-mode spotbugs:check
+
+  docker-build:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - name: Build container image
+        run: docker build -t servdesk:ci .
