@@ -370,3 +370,17 @@ the entity.
   bytecode-level dependency resolution flags the transient `assembler.toModel(queryService.findById(id))`
   call chain as a dependency on the entity, which would fail on exactly the pattern this codebase
   recommends rather than the one it forbids.
+
+## Agent skills
+
+### Issue tracker
+
+Issues live in GitHub Issues (github.com/alkolhar/servdesk), using the `gh` CLI. See `docs/agents/issue-tracker.md`.
+
+### Triage labels
+
+Default five-role vocabulary (`needs-triage`, `needs-info`, `ready-for-agent`, `ready-for-human`, `wontfix`). See `docs/agents/triage-labels.md`.
+
+### Domain docs
+
+Single-context — one `CONTEXT.md` + `docs/adr/` at the repo root. See `docs/agents/domain.md`.
