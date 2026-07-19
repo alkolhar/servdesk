@@ -1,5 +1,6 @@
 package dev.alkolhar.servdesk.ticket.servicerequest;
 
+import dev.alkolhar.servdesk.classification.PriorityDefinitionRepository;
 import dev.alkolhar.servdesk.ticket.AbstractTicketSubtypeCommandService;
 import dev.alkolhar.servdesk.ticket.Ticket;
 import dev.alkolhar.servdesk.ticket.TicketRepository;
@@ -15,8 +16,9 @@ public class ServiceRequestCommandService extends AbstractTicketSubtypeCommandSe
 
 	public ServiceRequestCommandService(ServiceRequestRepository serviceRequestRepository,
 			ServiceRequestQueryService serviceRequestQueryService, TicketRepository ticketRepository,
-			EntityManager entityManager, ApplicationEventPublisher events) {
-		super(ticketRepository, entityManager, events);
+			EntityManager entityManager, ApplicationEventPublisher events,
+			PriorityDefinitionRepository priorityDefinitionRepository) {
+		super(ticketRepository, entityManager, events, priorityDefinitionRepository);
 		this.serviceRequestRepository = serviceRequestRepository;
 		this.serviceRequestQueryService = serviceRequestQueryService;
 	}

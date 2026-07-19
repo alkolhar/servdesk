@@ -1,7 +1,9 @@
 package dev.alkolhar.servdesk.ticket;
 
 import dev.alkolhar.servdesk.classification.Category;
+import dev.alkolhar.servdesk.classification.Impact;
 import dev.alkolhar.servdesk.classification.Priority;
+import dev.alkolhar.servdesk.classification.Urgency;
 import dev.alkolhar.servdesk.common.BaseEntity;
 import dev.alkolhar.servdesk.directory.Person;
 import dev.alkolhar.servdesk.directory.Team;
@@ -49,6 +51,21 @@ public class Ticket extends BaseEntity {
 	@JoinColumn(name = "category_id")
 	private @Nullable Category category;
 
+	@ManyToOne(fetch = FetchType.LAZY)
+	@JoinColumn(name = "impact_id")
+	private @Nullable Impact impact;
+
+	@ManyToOne(fetch = FetchType.LAZY)
+	@JoinColumn(name = "urgency_id")
+	private @Nullable Urgency urgency;
+
+	/**
+	 * Server-derived from {@link #impact}/{@link #urgency} via a
+	 * {@code PriorityDefinition} matrix lookup — never client-supplied, same as
+	 * {@link #resolvedAt}/{@link #closedAt}. Stays {@code null} if either input is
+	 * unset, or if the pair has no matching {@code PriorityDefinition} (a gap in
+	 * the matrix is treated as "no priority yet", not an error).
+	 */
 	@ManyToOne(fetch = FetchType.LAZY)
 	@JoinColumn(name = "priority_id")
 	private @Nullable Priority priority;
@@ -99,6 +116,22 @@ public class Ticket extends BaseEntity {
 
 	public void setCategory(@Nullable Category category) {
 		this.category = category;
+	}
+
+	public @Nullable Impact getImpact() {
+		return impact;
+	}
+
+	public void setImpact(@Nullable Impact impact) {
+		this.impact = impact;
+	}
+
+	public @Nullable Urgency getUrgency() {
+		return urgency;
+	}
+
+	public void setUrgency(@Nullable Urgency urgency) {
+		this.urgency = urgency;
 	}
 
 	public @Nullable Priority getPriority() {

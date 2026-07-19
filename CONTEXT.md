@@ -46,8 +46,18 @@ A hierarchical classification a ticket can be tagged with (e.g. "Hardware → La
 _Avoid_: Tag, type (a ticket's type is which subtype it is — [[Incident]]/[[Problem]]/[[Change]]/[[Service Request]] — not a Category value)
 
 **Priority**:
-A flat, manually-picked ranking (`sortOrder`, lower = more severe) a ticket can be given. Currently a single directly-selected value with no Impact/Urgency split — a placeholder expected to become a value derived from separate Impact and Urgency fields (classic ITIL priority matrix) once that's built.
-_Avoid_: Severity, urgency, impact (not yet distinct concepts in this domain)
+A flat ranking (`sortOrder`, lower = more severe) a ticket can be given. No longer directly selected — server-derived from a ticket's [[Impact]] and [[Urgency]] pair via [[Priority Definition]] (classic ITIL priority matrix), the same "never client-supplied" treatment as [[Resolved]]/[[Closed]]'s timestamps. Stays unset if either input is missing, or if the pair has no matching Priority Definition — a gap in the matrix is a data-quality concern for whoever maintains it, not a reason to reject the ticket write.
+_Avoid_: Severity (not yet a distinct concept in this domain)
+
+**Impact**:
+One axis of the priority matrix — how broadly a ticket's underlying issue affects the business (e.g. one person vs. a whole department). A flat, admin-configurable lookup (`sortOrder`, lower = more severe), same shape as [[Priority]] itself.
+
+**Urgency**:
+The other axis of the priority matrix — how quickly a ticket's underlying issue needs addressing, independent of how broadly it's felt. Same flat, admin-configurable shape as [[Impact]].
+
+**Priority Definition**:
+One cell of the priority matrix: maps a single ([[Impact]], [[Urgency]]) pair to the [[Priority]] a ticket carrying that pair should be given. Unique per (Impact, Urgency) pair, but multiple pairs may resolve to the same Priority (e.g. both Low/Low and Medium/Low could both mean "Low priority").
+_Avoid_: Priority matrix (describes the whole mapping table this entity is one row of, not a separate concept)
 
 **Comment**:
 An entry in a ticket's activity/conversation history, written by an Agent or Requester. The `internal` flag distinguishes an Agent-only note from a reply visible to the Requester — one concept with a visibility attribute, not two different kinds of thing. Only an Agent can author an internal Comment — a Customer's own comment is always visible, since "internal" means "hidden from the requester," which is meaningless for a comment the requester wrote themselves. Enforced in code: `CommentCommandService.create` rejects `internal=true` from a non-Agent caller, and `CommentQueryService.findByTicket` filters internal comments out of a Customer's view.

@@ -26,6 +26,8 @@ public class IncidentModelAssembler implements RepresentationModelAssembler<Inci
 		model.setSubject(ticket.getSubject());
 		model.setDescription(ticket.getDescription());
 		model.setCategoryId(idOf(ticket.getCategory()));
+		model.setImpactId(idOf(ticket.getImpact()));
+		model.setUrgencyId(idOf(ticket.getUrgency()));
 		model.setPriorityId(idOf(ticket.getPriority()));
 		model.setRequesterId(idOf(ticket.getRequester()));
 		model.setAssigneeId(idOf(ticket.getAssignee()));

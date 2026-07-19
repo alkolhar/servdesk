@@ -18,7 +18,17 @@ tags:
   - name: categories
     description: Hierarchical, self-referencing ticket classification lookup data.
   - name: priorities
-    description: Flat, manually-ranked ticket priority lookup data.
+    description: >
+      Flat ticket priority lookup data. No longer directly settable on a ticket — derived
+      server-side from its Impact/Urgency pair via PriorityDefinition.
+  - name: impacts
+    description: One axis of the Impact x Urgency priority matrix — how broadly an issue affects the business.
+  - name: urgencies
+    description: The other axis of the Impact x Urgency priority matrix — how quickly an issue needs addressing.
+  - name: priority-definitions
+    description: >
+      The Impact x Urgency priority matrix itself: maps each (impact, urgency) pair to the
+      Priority a ticket carrying that pair should be given.
   - name: incidents
     description: Unplanned interruptions or reductions in quality of a service.
   - name: problems
@@ -387,6 +397,330 @@ paths:
     delete:
       tags: [priorities]
       summary: Soft-delete a Priority. Agent-only.
+      responses:
+        "default":
+          $ref: "#/components/responses/DefaultProblem"
+        "204":
+          description: Deleted.
+        "403":
+          $ref: "#/components/responses/ForbiddenProblem"
+        "404":
+          $ref: "#/components/responses/NotFoundProblem"
+  /api/impacts:
+    parameters:
+      - $ref: "#/components/parameters/ApiVersionHeader"
+    get:
+      tags: [impacts]
+      summary: List Impacts (paginated).
+      parameters:
+        - $ref: "#/components/parameters/PageParam"
+        - $ref: "#/components/parameters/SizeParam"
+        - $ref: "#/components/parameters/SortParam"
+      responses:
+        "default":
+          $ref: "#/components/responses/DefaultProblem"
+        "200":
+          description: A page of Impacts.
+          content:
+            application/hal+json:
+              schema:
+                $ref: "#/components/schemas/ImpactPage"
+        "401":
+          $ref: "#/components/responses/Unauthorized"
+    post:
+      tags: [impacts]
+      summary: Create an Impact. Agent-only.
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/ImpactCreateRequest"
+      responses:
+        "default":
+          $ref: "#/components/responses/DefaultProblem"
+        "201":
+          description: Impact created.
+          content:
+            application/hal+json:
+              schema:
+                $ref: "#/components/schemas/ImpactModel"
+        "400":
+          $ref: "#/components/responses/ValidationProblem"
+        "401":
+          $ref: "#/components/responses/Unauthorized"
+        "403":
+          $ref: "#/components/responses/ForbiddenProblem"
+        "409":
+          $ref: "#/components/responses/ConflictProblem"
+  /api/impacts/{id}:
+    parameters:
+      - $ref: "#/components/parameters/ApiVersionHeader"
+      - name: id
+        in: path
+        required: true
+        schema:
+          type: integer
+          format: int64
+    get:
+      tags: [impacts]
+      summary: Fetch an Impact by id.
+      responses:
+        "default":
+          $ref: "#/components/responses/DefaultProblem"
+        "200":
+          description: The Impact.
+          content:
+            application/hal+json:
+              schema:
+                $ref: "#/components/schemas/ImpactModel"
+        "404":
+          $ref: "#/components/responses/NotFoundProblem"
+    put:
+      tags: [impacts]
+      summary: Replace an Impact's editable fields. Agent-only.
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/ImpactUpdateRequest"
+      responses:
+        "default":
+          $ref: "#/components/responses/DefaultProblem"
+        "200":
+          description: The updated Impact.
+          content:
+            application/hal+json:
+              schema:
+                $ref: "#/components/schemas/ImpactModel"
+        "400":
+          $ref: "#/components/responses/ValidationProblem"
+        "403":
+          $ref: "#/components/responses/ForbiddenProblem"
+        "404":
+          $ref: "#/components/responses/NotFoundProblem"
+        "409":
+          $ref: "#/components/responses/ConflictProblem"
+    delete:
+      tags: [impacts]
+      summary: Soft-delete an Impact. Agent-only.
+      responses:
+        "default":
+          $ref: "#/components/responses/DefaultProblem"
+        "204":
+          description: Deleted.
+        "403":
+          $ref: "#/components/responses/ForbiddenProblem"
+        "404":
+          $ref: "#/components/responses/NotFoundProblem"
+  /api/urgencies:
+    parameters:
+      - $ref: "#/components/parameters/ApiVersionHeader"
+    get:
+      tags: [urgencies]
+      summary: List Urgencies (paginated).
+      parameters:
+        - $ref: "#/components/parameters/PageParam"
+        - $ref: "#/components/parameters/SizeParam"
+        - $ref: "#/components/parameters/SortParam"
+      responses:
+        "default":
+          $ref: "#/components/responses/DefaultProblem"
+        "200":
+          description: A page of Urgencies.
+          content:
+            application/hal+json:
+              schema:
+                $ref: "#/components/schemas/UrgencyPage"
+        "401":
+          $ref: "#/components/responses/Unauthorized"
+    post:
+      tags: [urgencies]
+      summary: Create an Urgency. Agent-only.
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/UrgencyCreateRequest"
+      responses:
+        "default":
+          $ref: "#/components/responses/DefaultProblem"
+        "201":
+          description: Urgency created.
+          content:
+            application/hal+json:
+              schema:
+                $ref: "#/components/schemas/UrgencyModel"
+        "400":
+          $ref: "#/components/responses/ValidationProblem"
+        "401":
+          $ref: "#/components/responses/Unauthorized"
+        "403":
+          $ref: "#/components/responses/ForbiddenProblem"
+        "409":
+          $ref: "#/components/responses/ConflictProblem"
+  /api/urgencies/{id}:
+    parameters:
+      - $ref: "#/components/parameters/ApiVersionHeader"
+      - name: id
+        in: path
+        required: true
+        schema:
+          type: integer
+          format: int64
+    get:
+      tags: [urgencies]
+      summary: Fetch an Urgency by id.
+      responses:
+        "default":
+          $ref: "#/components/responses/DefaultProblem"
+        "200":
+          description: The Urgency.
+          content:
+            application/hal+json:
+              schema:
+                $ref: "#/components/schemas/UrgencyModel"
+        "404":
+          $ref: "#/components/responses/NotFoundProblem"
+    put:
+      tags: [urgencies]
+      summary: Replace an Urgency's editable fields. Agent-only.
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/UrgencyUpdateRequest"
+      responses:
+        "default":
+          $ref: "#/components/responses/DefaultProblem"
+        "200":
+          description: The updated Urgency.
+          content:
+            application/hal+json:
+              schema:
+                $ref: "#/components/schemas/UrgencyModel"
+        "400":
+          $ref: "#/components/responses/ValidationProblem"
+        "403":
+          $ref: "#/components/responses/ForbiddenProblem"
+        "404":
+          $ref: "#/components/responses/NotFoundProblem"
+        "409":
+          $ref: "#/components/responses/ConflictProblem"
+    delete:
+      tags: [urgencies]
+      summary: Soft-delete an Urgency. Agent-only.
+      responses:
+        "default":
+          $ref: "#/components/responses/DefaultProblem"
+        "204":
+          description: Deleted.
+        "403":
+          $ref: "#/components/responses/ForbiddenProblem"
+        "404":
+          $ref: "#/components/responses/NotFoundProblem"
+  /api/priority-definitions:
+    parameters:
+      - $ref: "#/components/parameters/ApiVersionHeader"
+    get:
+      tags: [priority-definitions]
+      summary: List PriorityDefinitions (paginated).
+      parameters:
+        - $ref: "#/components/parameters/PageParam"
+        - $ref: "#/components/parameters/SizeParam"
+        - $ref: "#/components/parameters/SortParam"
+      responses:
+        "default":
+          $ref: "#/components/responses/DefaultProblem"
+        "200":
+          description: A page of PriorityDefinitions.
+          content:
+            application/hal+json:
+              schema:
+                $ref: "#/components/schemas/PriorityDefinitionPage"
+        "401":
+          $ref: "#/components/responses/Unauthorized"
+    post:
+      tags: [priority-definitions]
+      summary: Create a PriorityDefinition. Agent-only.
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/PriorityDefinitionCreateRequest"
+      responses:
+        "default":
+          $ref: "#/components/responses/DefaultProblem"
+        "201":
+          description: PriorityDefinition created.
+          content:
+            application/hal+json:
+              schema:
+                $ref: "#/components/schemas/PriorityDefinitionModel"
+        "400":
+          $ref: "#/components/responses/ValidationProblem"
+        "401":
+          $ref: "#/components/responses/Unauthorized"
+        "403":
+          $ref: "#/components/responses/ForbiddenProblem"
+        "409":
+          $ref: "#/components/responses/ConflictProblem"
+  /api/priority-definitions/{id}:
+    parameters:
+      - $ref: "#/components/parameters/ApiVersionHeader"
+      - name: id
+        in: path
+        required: true
+        schema:
+          type: integer
+          format: int64
+    get:
+      tags: [priority-definitions]
+      summary: Fetch a PriorityDefinition by id.
+      responses:
+        "default":
+          $ref: "#/components/responses/DefaultProblem"
+        "200":
+          description: The PriorityDefinition.
+          content:
+            application/hal+json:
+              schema:
+                $ref: "#/components/schemas/PriorityDefinitionModel"
+        "404":
+          $ref: "#/components/responses/NotFoundProblem"
+    put:
+      tags: [priority-definitions]
+      summary: Replace a PriorityDefinition's editable fields. Agent-only.
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/PriorityDefinitionUpdateRequest"
+      responses:
+        "default":
+          $ref: "#/components/responses/DefaultProblem"
+        "200":
+          description: The updated PriorityDefinition.
+          content:
+            application/hal+json:
+              schema:
+                $ref: "#/components/schemas/PriorityDefinitionModel"
+        "400":
+          $ref: "#/components/responses/ValidationProblem"
+        "403":
+          $ref: "#/components/responses/ForbiddenProblem"
+        "404":
+          $ref: "#/components/responses/NotFoundProblem"
+        "409":
+          $ref: "#/components/responses/ConflictProblem"
+    delete:
+      tags: [priority-definitions]
+      summary: Soft-delete a PriorityDefinition. Agent-only.
       responses:
         "default":
           $ref: "#/components/responses/DefaultProblem"
@@ -1185,7 +1519,11 @@ components:
           $ref: "#/components/schemas/PageMetadata"
     PriorityModel:
       type: object
-      description: A flat, manually-picked ranking a ticket can be given (lower sortOrder = more severe).
+      description: >
+        A flat ranking a ticket can be given (lower sortOrder = more severe). No longer
+        directly settable on a ticket — derived server-side from its Impact/Urgency pair via
+        PriorityDefinition; this classification entity itself is still directly creatable/
+        editable, since PriorityDefinition rows reference it.
       properties:
         id:
           type: integer
@@ -1241,6 +1579,201 @@ components:
           description: first/prev/self/next/last, as available.
         page:
           $ref: "#/components/schemas/PageMetadata"
+    ImpactModel:
+      type: object
+      description: >
+        One axis of the Impact x Urgency priority matrix (lower sortOrder = more severe) —
+        how broadly a ticket's underlying issue affects the business.
+      properties:
+        id:
+          type: integer
+          format: int64
+        name:
+          type: string
+        sortOrder:
+          type: integer
+        createdAt:
+          type: string
+          format: date-time
+        updatedAt:
+          type: string
+          format: date-time
+        createdBy:
+          type: string
+          nullable: true
+        updatedBy:
+          type: string
+          nullable: true
+        _links:
+          type: object
+          description: HATEOAS links (self).
+    ImpactCreateRequest:
+      type: object
+      required: [name, sortOrder]
+      properties:
+        name:
+          type: string
+        sortOrder:
+          type: integer
+    ImpactUpdateRequest:
+      type: object
+      required: [name, sortOrder]
+      properties:
+        name:
+          type: string
+        sortOrder:
+          type: integer
+    ImpactPage:
+      type: object
+      description: Spring HATEOAS PagedModel<ImpactModel>.
+      properties:
+        _embedded:
+          type: object
+          properties:
+            impactModelList:
+              type: array
+              items:
+                $ref: "#/components/schemas/ImpactModel"
+        _links:
+          type: object
+          description: first/prev/self/next/last, as available.
+        page:
+          $ref: "#/components/schemas/PageMetadata"
+    UrgencyModel:
+      type: object
+      description: >
+        The other axis of the Impact x Urgency priority matrix (lower sortOrder = more
+        severe) — how quickly a ticket's underlying issue needs addressing.
+      properties:
+        id:
+          type: integer
+          format: int64
+        name:
+          type: string
+        sortOrder:
+          type: integer
+        createdAt:
+          type: string
+          format: date-time
+        updatedAt:
+          type: string
+          format: date-time
+        createdBy:
+          type: string
+          nullable: true
+        updatedBy:
+          type: string
+          nullable: true
+        _links:
+          type: object
+          description: HATEOAS links (self).
+    UrgencyCreateRequest:
+      type: object
+      required: [name, sortOrder]
+      properties:
+        name:
+          type: string
+        sortOrder:
+          type: integer
+    UrgencyUpdateRequest:
+      type: object
+      required: [name, sortOrder]
+      properties:
+        name:
+          type: string
+        sortOrder:
+          type: integer
+    UrgencyPage:
+      type: object
+      description: Spring HATEOAS PagedModel<UrgencyModel>.
+      properties:
+        _embedded:
+          type: object
+          properties:
+            urgencyModelList:
+              type: array
+              items:
+                $ref: "#/components/schemas/UrgencyModel"
+        _links:
+          type: object
+          description: first/prev/self/next/last, as available.
+        page:
+          $ref: "#/components/schemas/PageMetadata"
+    PriorityDefinitionModel:
+      type: object
+      description: >
+        One cell of the Impact x Urgency priority matrix: maps a single (impact, urgency)
+        pair to the Priority a ticket carrying that pair should be given.
+      properties:
+        id:
+          type: integer
+          format: int64
+        impactId:
+          type: integer
+          format: int64
+        urgencyId:
+          type: integer
+          format: int64
+        priorityId:
+          type: integer
+          format: int64
+        createdAt:
+          type: string
+          format: date-time
+        updatedAt:
+          type: string
+          format: date-time
+        createdBy:
+          type: string
+          nullable: true
+        updatedBy:
+          type: string
+          nullable: true
+        _links:
+          type: object
+          description: HATEOAS links (self, impact, urgency, priority).
+    PriorityDefinitionCreateRequest:
+      type: object
+      required: [impactId, urgencyId, priorityId]
+      properties:
+        impactId:
+          type: integer
+          format: int64
+        urgencyId:
+          type: integer
+          format: int64
+        priorityId:
+          type: integer
+          format: int64
+    PriorityDefinitionUpdateRequest:
+      type: object
+      required: [impactId, urgencyId, priorityId]
+      properties:
+        impactId:
+          type: integer
+          format: int64
+        urgencyId:
+          type: integer
+          format: int64
+        priorityId:
+          type: integer
+          format: int64
+    PriorityDefinitionPage:
+      type: object
+      description: Spring HATEOAS PagedModel<PriorityDefinitionModel>.
+      properties:
+        _embedded:
+          type: object
+          properties:
+            priorityDefinitionModelList:
+              type: array
+              items:
+                $ref: "#/components/schemas/PriorityDefinitionModel"
+        _links:
+          type: object
+          description: first/prev/self/next/last, as available.
+        page:
+          $ref: "#/components/schemas/PageMetadata"
     TicketStatus:
       type: string
       enum: [OPEN, IN_PROGRESS, PENDING, RESOLVED, CLOSED]
@@ -1265,6 +1798,14 @@ components:
           type: string
           nullable: true
         categoryId:
+          type: integer
+          format: int64
+          nullable: true
+        impactId:
+          type: integer
+          format: int64
+          nullable: true
+        urgencyId:
           type: integer
           format: int64
           nullable: true
@@ -1324,7 +1865,11 @@ components:
           type: integer
           format: int64
           nullable: true
-        priorityId:
+        impactId:
+          type: integer
+          format: int64
+          nullable: true
+        urgencyId:
           type: integer
           format: int64
           nullable: true
@@ -1358,7 +1903,11 @@ components:
           type: integer
           format: int64
           nullable: true
-        priorityId:
+        impactId:
+          type: integer
+          format: int64
+          nullable: true
+        urgencyId:
           type: integer
           format: int64
           nullable: true
@@ -1416,6 +1965,14 @@ components:
           type: integer
           format: int64
           nullable: true
+        impactId:
+          type: integer
+          format: int64
+          nullable: true
+        urgencyId:
+          type: integer
+          format: int64
+          nullable: true
         priorityId:
           type: integer
           format: int64
@@ -1467,7 +2024,11 @@ components:
           type: integer
           format: int64
           nullable: true
-        priorityId:
+        impactId:
+          type: integer
+          format: int64
+          nullable: true
+        urgencyId:
           type: integer
           format: int64
           nullable: true
@@ -1497,7 +2058,11 @@ components:
           type: integer
           format: int64
           nullable: true
-        priorityId:
+        impactId:
+          type: integer
+          format: int64
+          nullable: true
+        urgencyId:
           type: integer
           format: int64
           nullable: true
@@ -1552,6 +2117,14 @@ components:
           type: integer
           format: int64
           nullable: true
+        impactId:
+          type: integer
+          format: int64
+          nullable: true
+        urgencyId:
+          type: integer
+          format: int64
+          nullable: true
         priorityId:
           type: integer
           format: int64
@@ -1603,7 +2176,11 @@ components:
           type: integer
           format: int64
           nullable: true
-        priorityId:
+        impactId:
+          type: integer
+          format: int64
+          nullable: true
+        urgencyId:
           type: integer
           format: int64
           nullable: true
@@ -1633,7 +2210,11 @@ components:
           type: integer
           format: int64
           nullable: true
-        priorityId:
+        impactId:
+          type: integer
+          format: int64
+          nullable: true
+        urgencyId:
           type: integer
           format: int64
           nullable: true
@@ -1688,6 +2269,14 @@ components:
           type: integer
           format: int64
           nullable: true
+        impactId:
+          type: integer
+          format: int64
+          nullable: true
+        urgencyId:
+          type: integer
+          format: int64
+          nullable: true
         priorityId:
           type: integer
           format: int64
@@ -1739,7 +2328,11 @@ components:
           type: integer
           format: int64
           nullable: true
-        priorityId:
+        impactId:
+          type: integer
+          format: int64
+          nullable: true
+        urgencyId:
           type: integer
           format: int64
           nullable: true
@@ -1769,7 +2362,11 @@ components:
           type: integer
           format: int64
           nullable: true
-        priorityId:
+        impactId:
+          type: integer
+          format: int64
+          nullable: true
+        urgencyId:
           type: integer
           format: int64
           nullable: true

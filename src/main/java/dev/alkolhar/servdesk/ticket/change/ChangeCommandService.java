@@ -1,5 +1,6 @@
 package dev.alkolhar.servdesk.ticket.change;
 
+import dev.alkolhar.servdesk.classification.PriorityDefinitionRepository;
 import dev.alkolhar.servdesk.ticket.AbstractTicketSubtypeCommandService;
 import dev.alkolhar.servdesk.ticket.Ticket;
 import dev.alkolhar.servdesk.ticket.TicketRepository;
@@ -14,8 +15,9 @@ public class ChangeCommandService extends AbstractTicketSubtypeCommandService<Ch
 	private final ChangeQueryService changeQueryService;
 
 	public ChangeCommandService(ChangeRepository changeRepository, ChangeQueryService changeQueryService,
-			TicketRepository ticketRepository, EntityManager entityManager, ApplicationEventPublisher events) {
-		super(ticketRepository, entityManager, events);
+			TicketRepository ticketRepository, EntityManager entityManager, ApplicationEventPublisher events,
+			PriorityDefinitionRepository priorityDefinitionRepository) {
+		super(ticketRepository, entityManager, events, priorityDefinitionRepository);
 		this.changeRepository = changeRepository;
 		this.changeQueryService = changeQueryService;
 	}

@@ -1,5 +1,6 @@
 package dev.alkolhar.servdesk.ticket.problem;
 
+import dev.alkolhar.servdesk.classification.PriorityDefinitionRepository;
 import dev.alkolhar.servdesk.ticket.AbstractTicketSubtypeCommandService;
 import dev.alkolhar.servdesk.ticket.Ticket;
 import dev.alkolhar.servdesk.ticket.TicketRepository;
@@ -14,8 +15,9 @@ public class ProblemCommandService extends AbstractTicketSubtypeCommandService<P
 	private final ProblemQueryService problemQueryService;
 
 	public ProblemCommandService(ProblemRepository problemRepository, ProblemQueryService problemQueryService,
-			TicketRepository ticketRepository, EntityManager entityManager, ApplicationEventPublisher events) {
-		super(ticketRepository, entityManager, events);
+			TicketRepository ticketRepository, EntityManager entityManager, ApplicationEventPublisher events,
+			PriorityDefinitionRepository priorityDefinitionRepository) {
+		super(ticketRepository, entityManager, events, priorityDefinitionRepository);
 		this.problemRepository = problemRepository;
 		this.problemQueryService = problemQueryService;
 	}

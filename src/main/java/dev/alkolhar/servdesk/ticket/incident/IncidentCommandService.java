@@ -1,5 +1,6 @@
 package dev.alkolhar.servdesk.ticket.incident;
 
+import dev.alkolhar.servdesk.classification.PriorityDefinitionRepository;
 import dev.alkolhar.servdesk.ticket.AbstractTicketSubtypeCommandService;
 import dev.alkolhar.servdesk.ticket.Ticket;
 import dev.alkolhar.servdesk.ticket.TicketRepository;
@@ -15,8 +16,9 @@ public class IncidentCommandService extends AbstractTicketSubtypeCommandService<
 	private final IncidentQueryService incidentQueryService;
 
 	public IncidentCommandService(IncidentRepository incidentRepository, IncidentQueryService incidentQueryService,
-			TicketRepository ticketRepository, EntityManager entityManager, ApplicationEventPublisher events) {
-		super(ticketRepository, entityManager, events);
+			TicketRepository ticketRepository, EntityManager entityManager, ApplicationEventPublisher events,
+			PriorityDefinitionRepository priorityDefinitionRepository) {
+		super(ticketRepository, entityManager, events, priorityDefinitionRepository);
 		this.incidentRepository = incidentRepository;
 		this.incidentQueryService = incidentQueryService;
 	}

@@ -1,7 +1,11 @@
 package dev.alkolhar.servdesk.ticket;
 
 import dev.alkolhar.servdesk.classification.Category;
+import dev.alkolhar.servdesk.classification.Impact;
 import dev.alkolhar.servdesk.classification.Priority;
+import dev.alkolhar.servdesk.classification.PriorityDefinition;
+import dev.alkolhar.servdesk.classification.PriorityDefinitionRepository;
+import dev.alkolhar.servdesk.classification.Urgency;
 import dev.alkolhar.servdesk.common.MapsIdBaseEntity;
 import dev.alkolhar.servdesk.directory.Person;
 import dev.alkolhar.servdesk.directory.Team;
@@ -15,26 +19,30 @@ import org.springframework.data.jpa.repository.JpaRepository;
 /**
  * Shared CRUD for the fields every ticket subtype (Incident, Problem, Change,
  * Service Request) composes with via the shared {@link Ticket} record — see
- * ADR-0001. Handles resolving requester/assignee/team/category/priority ids to
- * managed references, and deriving {@code resolvedAt}/{@code closedAt} from a
- * status transition (publishing {@link TicketStatusChangedEvent} only when the
- * status actually changes, clearing the corresponding timestamp on reopen).
- * Each concrete subtype's own command service extends this for the shared-field
- * handling and adds only what's genuinely subtype-specific: instantiating its
- * own entity, assigning its own prefixed display number from its own DB
- * sequence, and any field of its own (e.g. {@code Incident.relatedProblem}).
+ * ADR-0001. Handles resolving requester/assignee/team/category/impact/urgency
+ * ids to managed references, deriving {@code priority} from the impact/urgency
+ * pair via a {@link PriorityDefinition} matrix lookup, and deriving
+ * {@code resolvedAt}/{@code closedAt} from a status transition (publishing
+ * {@link TicketStatusChangedEvent} only when the status actually changes,
+ * clearing the corresponding timestamp on reopen). Each concrete subtype's own
+ * command service extends this for the shared-field handling and adds only
+ * what's genuinely subtype-specific: instantiating its own entity, assigning
+ * its own prefixed display number from its own DB sequence, and any field of
+ * its own (e.g. {@code Incident.relatedProblem}).
  */
 public abstract class AbstractTicketSubtypeCommandService<T extends MapsIdBaseEntity> {
 
 	protected final TicketRepository ticketRepository;
 	protected final EntityManager entityManager;
 	private final ApplicationEventPublisher events;
+	private final PriorityDefinitionRepository priorityDefinitionRepository;
 
 	protected AbstractTicketSubtypeCommandService(TicketRepository ticketRepository, EntityManager entityManager,
-			ApplicationEventPublisher events) {
+			ApplicationEventPublisher events, PriorityDefinitionRepository priorityDefinitionRepository) {
 		this.ticketRepository = ticketRepository;
 		this.entityManager = entityManager;
 		this.events = events;
+		this.priorityDefinitionRepository = priorityDefinitionRepository;
 	}
 
 	protected Ticket newTicket(TicketCreateFields fields) {
@@ -73,9 +81,10 @@ public abstract class AbstractTicketSubtypeCommandService<T extends MapsIdBaseEn
 	}
 
 	/**
-	 * Requests carry related entities (category/priority/requester/assignee/team,
-	 * and any subtype-specific reference like {@code relatedProblemId}) as plain
-	 * ids; resolve each to a managed proxy rather than loading the full row.
+	 * Requests carry related entities (category/impact/urgency/requester/
+	 * assignee/team, and any subtype-specific reference like
+	 * {@code relatedProblemId}) as plain ids; resolve each to a managed proxy
+	 * rather than loading the full row.
 	 */
 	protected <E> @Nullable E resolveReference(Class<E> type, @Nullable Long id) {
 		return id == null ? null : entityManager.getReference(type, id);
@@ -85,10 +94,28 @@ public abstract class AbstractTicketSubtypeCommandService<T extends MapsIdBaseEn
 		ticket.setSubject(fields.subject());
 		ticket.setDescription(fields.description());
 		ticket.setCategory(resolveReference(Category.class, fields.categoryId()));
-		ticket.setPriority(resolveReference(Priority.class, fields.priorityId()));
+		ticket.setImpact(resolveReference(Impact.class, fields.impactId()));
+		ticket.setUrgency(resolveReference(Urgency.class, fields.urgencyId()));
+		ticket.setPriority(derivePriority(fields.impactId(), fields.urgencyId()));
 		ticket.setRequester(entityManager.getReference(Person.class, fields.requesterId()));
 		ticket.setAssignee(resolveReference(Person.class, fields.assigneeId()));
 		ticket.setTeam(resolveReference(Team.class, fields.teamId()));
+	}
+
+	/**
+	 * Looked up by id pair, not by loading the {@code Impact}/{@code Urgency}
+	 * references first — {@code fields.impactId()}/{@code fields.urgencyId()} are
+	 * already the raw ids. Deliberately permissive: a null input or an unmapped
+	 * pair (no matching {@link PriorityDefinition}) both resolve to {@code null}
+	 * rather than rejecting the write — a gap in the matrix is an admin
+	 * data-quality concern, not a reason to block ticket creation/update.
+	 */
+	private @Nullable Priority derivePriority(@Nullable Long impactId, @Nullable Long urgencyId) {
+		if (impactId == null || urgencyId == null) {
+			return null;
+		}
+		return priorityDefinitionRepository.findByImpactIdAndUrgencyId(impactId, urgencyId)
+				.map(PriorityDefinition::getPriority).orElse(null);
 	}
 
 	/**
