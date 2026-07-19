@@ -65,8 +65,6 @@ CREATE TABLE priority
 CREATE TABLE ticket
 (
     id            BIGINT AUTO_INCREMENT PRIMARY KEY,
-    ticket_number VARCHAR(20)  NOT NULL,
-    type          VARCHAR(20)  NOT NULL,
     status        VARCHAR(20)  NOT NULL,
     subject       VARCHAR(255) NOT NULL,
     description   LONGTEXT,
@@ -83,7 +81,6 @@ CREATE TABLE ticket
     created_by    VARCHAR(100),
     updated_by    VARCHAR(100),
     deleted_at    TIMESTAMP NULL,
-    CONSTRAINT uk_ticket_number UNIQUE (ticket_number),
     CONSTRAINT fk_ticket_category FOREIGN KEY (category_id) REFERENCES category (id),
     CONSTRAINT fk_ticket_priority FOREIGN KEY (priority_id) REFERENCES priority (id),
     CONSTRAINT fk_ticket_requester FOREIGN KEY (requester_id) REFERENCES person (id),
@@ -107,5 +104,3 @@ CREATE TABLE ticket_comment
     CONSTRAINT fk_comment_ticket FOREIGN KEY (ticket_id) REFERENCES ticket (id),
     CONSTRAINT fk_comment_author FOREIGN KEY (author_id) REFERENCES person (id)
 );
-
-CREATE SEQUENCE ticket_number_seq START WITH 1000 INCREMENT BY 1;

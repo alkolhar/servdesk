@@ -20,24 +20,20 @@ import org.hibernate.annotations.SQLRestriction;
 import org.jspecify.annotations.Nullable;
 
 /**
+ * Fields shared by every ticket subtype (Incident, Problem, Change, Service
+ * Request) — see ADR-0001. A subtype entity composes with this one via
+ * {@code @OneToOne @MapsId}, sharing this record's primary key rather than
+ * extending it; {@code type}/a display number live on the subtype, not here,
+ * since a subtype's own existence already says what kind of ticket it is.
  * Persistence-only type — see the note on
  * {@link dev.alkolhar.servdesk.directory.Person} for why this is never bound to
- * a request body directly. Requests use {@link TicketCreateRequest}/
- * {@link TicketUpdateRequest}; responses are {@link TicketModel}, assembled by
- * {@link TicketModelAssembler}.
+ * a request body or serialized directly in a response.
  */
 @Entity
 @Table(name = "ticket")
 @SQLDelete(sql = "UPDATE ticket SET deleted_at = CURRENT_TIMESTAMP WHERE id = ? AND version = ?")
 @SQLRestriction("deleted_at IS NULL")
 public class Ticket extends BaseEntity {
-
-	@Column(name = "ticket_number", nullable = false, unique = true, length = 20)
-	private String ticketNumber;
-
-	@Column(nullable = false, length = 20)
-	@Enumerated(EnumType.STRING)
-	private TicketType type;
 
 	@Column(nullable = false, length = 20)
 	@Enumerated(EnumType.STRING)
@@ -72,22 +68,6 @@ public class Ticket extends BaseEntity {
 	private @Nullable Instant resolvedAt;
 
 	private @Nullable Instant closedAt;
-
-	public String getTicketNumber() {
-		return ticketNumber;
-	}
-
-	public void setTicketNumber(String ticketNumber) {
-		this.ticketNumber = ticketNumber;
-	}
-
-	public TicketType getType() {
-		return type;
-	}
-
-	public void setType(TicketType type) {
-		this.type = type;
-	}
 
 	public TicketStatus getStatus() {
 		return status;
