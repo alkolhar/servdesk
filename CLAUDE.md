@@ -47,11 +47,14 @@ Running the app or its integration tests requires Docker to be available — see
     bridge breaks on very new JDKs (`NoSuchMethodError` against `javac` internals) — Eclipse's
     formatter doesn't share that coupling. The existing code is tab-indented (Eclipse default), not
     space-indented — `.editorconfig` matches this.
-  - **SpotBugs** is configured but *not* bound to any lifecycle phase: its bundled ASM can't parse
-    class files newer than what it was built against, which breaks on a from-source JDK ahead of
-    what SpotBugs has caught up to (fails analyzing the JDK's own platform classes, independent of
-    this project's own `--release` target). Run manually (`./mvnw spotbugs:check`) once the
-    environment has a compatible JDK/SpotBugs pairing.
+  - **SpotBugs** is configured but *not* bound to any lifecycle phase. As of 4.10.3.0 its bundled ASM
+    can parse JDK 26 platform classes (earlier 4.9.x releases failed with "Unsupported class file
+    major version 70" analyzing the JDK itself, independent of this project's own `--release`
+    target) — `./mvnw spotbugs:check` now completes on both JDK 25 and JDK 26. It's still not bound
+    to `verify`, though: it reports 26 real findings (mostly `EI_EXPOSE_REP`/`EI_EXPOSE_REP2` on
+    entity getters/setters/constructors handing out or storing mutable references directly, plus one
+    `EQ_DOESNT_OVERRIDE_EQUALS`, one `NP_NULL_ON_SOME_PATH_FROM_RETURN_VALUE`, one `SE_BAD_FIELD`)
+    that haven't been triaged yet — run manually via `./mvnw spotbugs:check`.
   - **JaCoCo** reports coverage on every `test` run (`target/site/jacoco/index.html`); no minimum
     threshold is enforced yet.
   - **OWASP dependency-check-maven** is declared but not bound to a phase (needs network access to
@@ -304,11 +307,11 @@ the entity.
 - `.github/workflows/ci.yml` — `./mvnw verify` (compile, unit + Testcontainers/MariaDB integration
   tests, ArchUnit, Spotless, JaCoCo — GitHub-hosted `ubuntu-latest` runners have Docker preinstalled,
   which Testcontainers needs) plus a separate `docker build` validation job. SpotBugs runs too, but
-  with `continue-on-error: true`: it's never been observed passing in CI (the local dev machine used
-  during this project's early phases has a JDK too new for SpotBugs's bundled ASM to analyze at all,
-  so `spotbugs:check` was never actually exercised end-to-end there) — remove that flag once a real
-  CI run confirms it's green, rather than assuming it works because the JDK version is technically
-  older here.
+  with `continue-on-error: true`: as of spotbugs-maven-plugin 4.10.3.0 the ASM/JDK-parsing failure
+  that previously blocked analysis entirely is gone (verified `spotbugs:check` completes on both JDK
+  25 and JDK 26 now), but it still isn't green — it fails on 26 real, untriaged findings (mostly
+  `EI_EXPOSE_REP`/`EI_EXPOSE_REP2`). Remove the flag once those findings are fixed or explicitly
+  suppressed, not before.
 
 ### Testing
 

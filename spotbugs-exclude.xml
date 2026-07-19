@@ -1,0 +1,79 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!--
+    SpotBugs exclude filter. Each entry here is a reviewed design decision, not a workaround for
+    the tool being wrong - see CLAUDE.md's "Code quality tooling" section for the history of why
+    SpotBugs analysis couldn't even run until spotbugs-maven-plugin 4.10.3.0 (2026-07-19). These are
+    the findings from the first analysis that actually completed.
+-->
+<FindBugsFilter>
+
+    <!--
+        EI_EXPOSE_REP / EI_EXPOSE_REP2 on JPA entity association getters/setters. A @ManyToOne
+        reference IS the association - there's nothing to defensively copy, and copying would break
+        Hibernate's identity/dirty-checking. This is the standard, expected shape of a JPA entity,
+        not an encapsulation leak.
+    -->
+    <Match>
+        <Or>
+            <Class name="dev.alkolhar.servdesk.classification.Category"/>
+            <Class name="dev.alkolhar.servdesk.directory.Person"/>
+            <Class name="dev.alkolhar.servdesk.ticket.Ticket"/>
+            <Class name="dev.alkolhar.servdesk.ticket.TicketComment"/>
+        </Or>
+        <Or>
+            <Bug pattern="EI_EXPOSE_REP"/>
+            <Bug pattern="EI_EXPOSE_REP2"/>
+        </Or>
+    </Match>
+
+    <!--
+        EI_EXPOSE_REP2 on constructor-injected Spring singleton beans storing references to other
+        beans (EntityManager, a *CommandService, an assembler). This is plain constructor injection,
+        not a mutable-state leak - the stored reference is a shared collaborator, the same shape
+        every Spring-managed component takes.
+    -->
+    <Match>
+        <Or>
+            <Class name="dev.alkolhar.servdesk.directory.PersonCommandService"/>
+            <Class name="dev.alkolhar.servdesk.directory.PersonController"/>
+            <Class name="dev.alkolhar.servdesk.setup.SetupController"/>
+        </Or>
+        <Bug pattern="EI_EXPOSE_REP2"/>
+    </Match>
+
+    <!--
+        PersonUserDetails intentionally wraps and exposes the backing Person - getPerson() is how
+        controllers resolve the authenticated principal's id. That's the adapter's whole purpose,
+        not an accidental leak.
+    -->
+    <Match>
+        <Class name="dev.alkolhar.servdesk.directory.PersonUserDetails"/>
+        <Or>
+            <Bug pattern="EI_EXPOSE_REP"/>
+            <Bug pattern="EI_EXPOSE_REP2"/>
+        </Or>
+    </Match>
+
+    <!--
+        SE_BAD_FIELD: PersonUserDetails implements Serializable (via UserDetails) but holds a
+        non-Serializable Person. Only matters if a servlet container ever serializes/passivates the
+        HttpSession (e.g. clustering, Redis-backed sessions) - not the case today (default in-memory
+        Tomcat session store, single instance, HTTP Basic auth). Revisit if session persistence or
+        clustering is ever introduced.
+    -->
+    <Match>
+        <Class name="dev.alkolhar.servdesk.directory.PersonUserDetails"/>
+        <Bug pattern="SE_BAD_FIELD"/>
+    </Match>
+
+    <!--
+        PersonModel is a HATEOAS response DTO assembled fresh per request for JSON serialization -
+        it's never stored in a Set/Map or compared for equality anywhere in this codebase. If that
+        changes, implement equals()/hashCode() over all fields rather than re-suppressing this.
+    -->
+    <Match>
+        <Class name="dev.alkolhar.servdesk.directory.PersonModel"/>
+        <Bug pattern="EQ_DOESNT_OVERRIDE_EQUALS"/>
+    </Match>
+
+</FindBugsFilter>

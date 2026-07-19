@@ -19,7 +19,8 @@ public class PersonModelAssembler implements RepresentationModelAssembler<Person
 		model.setPhone(person.getPhone());
 		model.setUsername(person.getUsername());
 		model.setEnabled(person.isEnabled());
-		model.setTeamId(person.getTeam() == null ? null : person.getTeam().getId());
+		Team team = person.getTeam();
+		model.setTeamId(team == null ? null : team.getId());
 		model.setCreatedAt(person.getCreatedAt());
 		model.setUpdatedAt(person.getUpdatedAt());
 		model.setCreatedBy(person.getCreatedBy());
