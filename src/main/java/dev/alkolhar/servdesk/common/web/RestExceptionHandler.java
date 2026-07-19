@@ -1,6 +1,7 @@
 package dev.alkolhar.servdesk.common.web;
 
 import dev.alkolhar.servdesk.common.exception.ConflictException;
+import dev.alkolhar.servdesk.common.exception.ForbiddenException;
 import dev.alkolhar.servdesk.common.exception.NotFoundException;
 import org.springframework.dao.DataIntegrityViolationException;
 import org.springframework.http.HttpStatus;
@@ -28,6 +29,11 @@ public class RestExceptionHandler {
 	@ExceptionHandler(ConflictException.class)
 	ProblemDetail handleConflict(ConflictException ex) {
 		return ProblemDetail.forStatusAndDetail(HttpStatus.CONFLICT, ex.getMessage());
+	}
+
+	@ExceptionHandler(ForbiddenException.class)
+	ProblemDetail handleForbidden(ForbiddenException ex) {
+		return ProblemDetail.forStatusAndDetail(HttpStatus.FORBIDDEN, ex.getMessage());
 	}
 
 	/**

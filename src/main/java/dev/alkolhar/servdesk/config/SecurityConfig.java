@@ -37,13 +37,22 @@ public class SecurityConfig {
 	 * {@code ROLE_AGENT}/{@code ROLE_CUSTOMER} {@code GrantedAuthority} — the rules
 	 * below are the first thing that actually reads it. Policy: the person
 	 * directory (creating/editing/deleting agents and customers) is an AGENT-only
-	 * concern; tickets can be read and created by either role (a customer needs to
-	 * see and raise their own tickets), but only an AGENT can change a ticket's
-	 * status or delete it. Deliberately out of scope here: row-level ownership (a
-	 * customer seeing only *their own* tickets/profile) — that needs the caller's
-	 * identity compared against the loaded resource, which is a data-access
-	 * decision the service layer would have to make, not a static URL+role rule;
-	 * left as a documented follow-up rather than guessed at now.
+	 * concern. Ticket subtypes (Incident/Problem/Change/Service Request, see
+	 * ADR-0001) can be read by either role, but creating one, changing its status,
+	 * or deleting it is AGENT-only for this iteration — a deliberate narrowing from
+	 * the old flat {@code Ticket}'s policy, since customer self-service creation is
+	 * deferred until finer-grained RBAC and/or a future workflow/process engine
+	 * exist to support it properly. Comments
+	 * ({@code /api/tickets/*}{@code /comments}) can be read and created by either
+	 * role — a customer needs to reply on their own ticket — with the
+	 * {@code internal}-flag-is-Agent-only rule enforced by
+	 * {@code CommentCommandService} instead, since that's a data-dependent check
+	 * (the request body's {@code internal} flag together with the caller's role),
+	 * not a static URL+role rule. Deliberately out of scope here: row-level
+	 * ownership (a customer seeing only *their own* tickets/profile) — that needs
+	 * the caller's identity compared against the loaded resource, which is a
+	 * data-access decision the service layer would have to make, not a static
+	 * URL+role rule; left as a documented follow-up rather than guessed at now.
 	 * <p>
 	 * <b>OAuth2/OIDC migration path</b>: this method is the only place that would
 	 * change. Swap {@code .httpBasic(withDefaults())} for
@@ -83,13 +92,27 @@ public class SecurityConfig {
 				.requestMatchers("/error").permitAll()
 				// person directory management is AGENT-only
 				.requestMatchers("/api/persons/**").hasRole("AGENT")
-				// tickets: either role can read or raise one, only an AGENT can change
-				// status or delete
-				.requestMatchers(HttpMethod.GET, "/api/tickets/**").hasAnyRole("AGENT", "CUSTOMER")
-				.requestMatchers(HttpMethod.POST, "/api/tickets/**").hasAnyRole("AGENT", "CUSTOMER")
-				.requestMatchers(HttpMethod.PUT, "/api/tickets/**").hasRole("AGENT")
-				.requestMatchers(HttpMethod.DELETE, "/api/tickets/**").hasRole("AGENT").anyRequest().authenticated())
-				.httpBasic(withDefaults());
+				// ticket subtypes: either role can read, only an AGENT can create, change
+				// status, or delete (see ADR-0001; a deliberate narrowing from the old flat
+				// Ticket's policy — customer self-service creation is deferred)
+				.requestMatchers(HttpMethod.GET, "/api/incidents/**", "/api/problems/**", "/api/changes/**",
+						"/api/service-requests/**")
+				.hasAnyRole("AGENT", "CUSTOMER")
+				.requestMatchers(HttpMethod.POST, "/api/incidents/**", "/api/problems/**", "/api/changes/**",
+						"/api/service-requests/**")
+				.hasRole("AGENT")
+				.requestMatchers(HttpMethod.PUT, "/api/incidents/**", "/api/problems/**", "/api/changes/**",
+						"/api/service-requests/**")
+				.hasRole("AGENT")
+				.requestMatchers(HttpMethod.DELETE, "/api/incidents/**", "/api/problems/**", "/api/changes/**",
+						"/api/service-requests/**")
+				.hasRole("AGENT")
+				// comments: either role can read or add one (a customer needs to reply on
+				// their own ticket); the internal-flag-is-Agent-only rule is enforced by
+				// CommentCommandService, not here (see the class javadoc above)
+				.requestMatchers(HttpMethod.GET, "/api/tickets/*/comments").hasAnyRole("AGENT", "CUSTOMER")
+				.requestMatchers(HttpMethod.POST, "/api/tickets/*/comments").hasAnyRole("AGENT", "CUSTOMER")
+				.anyRequest().authenticated()).httpBasic(withDefaults());
 		return http.build();
 	}
 

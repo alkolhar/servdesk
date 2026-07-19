@@ -1,0 +1,13 @@
+package dev.alkolhar.servdesk.ticket.incident;
+
+import dev.alkolhar.servdesk.ticket.TicketStatus;
+import dev.alkolhar.servdesk.ticket.TicketUpdateFields;
+import jakarta.validation.constraints.NotBlank;
+import jakarta.validation.constraints.NotNull;
+import org.jspecify.annotations.Nullable;
+
+public record IncidentUpdateRequest(@NotNull TicketStatus status, @NotBlank String subject,
+		@Nullable String description, @Nullable Long categoryId, @Nullable Long priorityId, @NotNull Long requesterId,
+		@Nullable Long assigneeId, @Nullable Long teamId,
+		@Nullable Long relatedProblemId) implements TicketUpdateFields {
+}

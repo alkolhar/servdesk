@@ -104,3 +104,76 @@ CREATE TABLE ticket_comment
     CONSTRAINT fk_comment_ticket FOREIGN KEY (ticket_id) REFERENCES ticket (id),
     CONSTRAINT fk_comment_author FOREIGN KEY (author_id) REFERENCES person (id)
 );
+
+-- Ticket subtypes (ADR-0001): each shares its primary key with a `ticket` row via
+-- `@OneToOne @MapsId` rather than extending it, so `id` here is both this table's PK and
+-- an FK back to `ticket.id` — no AUTO_INCREMENT of its own. Each subtype gets its own
+-- display-number sequence/prefix, since human-facing ticket numbers are type-specific.
+
+CREATE SEQUENCE problem_number_seq START WITH 1000 INCREMENT BY 1;
+
+CREATE TABLE problem
+(
+    id              BIGINT PRIMARY KEY,
+    display_number  VARCHAR(20) NOT NULL,
+    created_at      TIMESTAMP   NOT NULL DEFAULT CURRENT_TIMESTAMP,
+    updated_at      TIMESTAMP   NOT NULL DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
+    version         BIGINT      NOT NULL DEFAULT 0,
+    created_by      VARCHAR(100),
+    updated_by      VARCHAR(100),
+    deleted_at      TIMESTAMP NULL,
+    CONSTRAINT uk_problem_display_number UNIQUE (display_number),
+    CONSTRAINT fk_problem_ticket FOREIGN KEY (id) REFERENCES ticket (id)
+);
+
+CREATE SEQUENCE incident_number_seq START WITH 1000 INCREMENT BY 1;
+
+CREATE TABLE incident
+(
+    id                 BIGINT PRIMARY KEY,
+    display_number     VARCHAR(20) NOT NULL,
+    related_problem_id BIGINT,
+    created_at         TIMESTAMP   NOT NULL DEFAULT CURRENT_TIMESTAMP,
+    updated_at         TIMESTAMP   NOT NULL DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
+    version            BIGINT      NOT NULL DEFAULT 0,
+    created_by         VARCHAR(100),
+    updated_by         VARCHAR(100),
+    deleted_at         TIMESTAMP NULL,
+    CONSTRAINT uk_incident_display_number UNIQUE (display_number),
+    CONSTRAINT fk_incident_ticket FOREIGN KEY (id) REFERENCES ticket (id),
+    CONSTRAINT fk_incident_related_problem FOREIGN KEY (related_problem_id) REFERENCES problem (id)
+);
+
+-- Table named `change_request`, not `change`: CHANGE is a reserved word in MariaDB's grammar
+-- (ALTER TABLE ... CHANGE COLUMN). The Java entity is still named `Change`.
+CREATE SEQUENCE change_number_seq START WITH 1000 INCREMENT BY 1;
+
+CREATE TABLE change_request
+(
+    id              BIGINT PRIMARY KEY,
+    display_number  VARCHAR(20) NOT NULL,
+    created_at      TIMESTAMP   NOT NULL DEFAULT CURRENT_TIMESTAMP,
+    updated_at      TIMESTAMP   NOT NULL DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
+    version         BIGINT      NOT NULL DEFAULT 0,
+    created_by      VARCHAR(100),
+    updated_by      VARCHAR(100),
+    deleted_at      TIMESTAMP NULL,
+    CONSTRAINT uk_change_display_number UNIQUE (display_number),
+    CONSTRAINT fk_change_ticket FOREIGN KEY (id) REFERENCES ticket (id)
+);
+
+CREATE SEQUENCE service_request_number_seq START WITH 1000 INCREMENT BY 1;
+
+CREATE TABLE service_request
+(
+    id              BIGINT PRIMARY KEY,
+    display_number  VARCHAR(20) NOT NULL,
+    created_at      TIMESTAMP   NOT NULL DEFAULT CURRENT_TIMESTAMP,
+    updated_at      TIMESTAMP   NOT NULL DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
+    version         BIGINT      NOT NULL DEFAULT 0,
+    created_by      VARCHAR(100),
+    updated_by      VARCHAR(100),
+    deleted_at      TIMESTAMP NULL,
+    CONSTRAINT uk_service_request_display_number UNIQUE (display_number),
+    CONSTRAINT fk_service_request_ticket FOREIGN KEY (id) REFERENCES ticket (id)
+);

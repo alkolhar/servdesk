@@ -15,8 +15,18 @@ tags:
     description: One-shot, pre-auth bootstrap of the first agent account.
   - name: persons
     description: Agents and customers.
-  - name: tickets
-    description: Incidents, service requests, problems and changes.
+  - name: incidents
+    description: Unplanned interruptions or reductions in quality of a service.
+  - name: problems
+    description: Root causes behind one or more Incidents.
+  - name: changes
+    description: Planned modifications to infrastructure or a service.
+  - name: service-requests
+    description: Routine requests for something, not a report of something broken.
+  - name: comments
+    description: >
+      Activity/conversation entries on a ticket, nested under the shared Ticket id (ADR-0001) —
+      serves all four subtypes uniformly.
 paths:
   /api/setup:
     get:
@@ -148,56 +158,53 @@ paths:
           description: Deleted.
         "404":
           $ref: "#/components/responses/NotFoundProblem"
-  /api/tickets:
+  /api/incidents:
     parameters:
       - $ref: "#/components/parameters/ApiVersionHeader"
     get:
-      tags: [tickets]
-      summary: List tickets (paginated, optionally filtered by status/type).
+      tags: [incidents]
+      summary: List Incidents (paginated, optionally filtered by status).
       parameters:
         - name: status
           in: query
           required: false
           schema:
             $ref: "#/components/schemas/TicketStatus"
-        - name: type
-          in: query
-          required: false
-          schema:
-            $ref: "#/components/schemas/TicketType"
         - $ref: "#/components/parameters/PageParam"
         - $ref: "#/components/parameters/SizeParam"
         - $ref: "#/components/parameters/SortParam"
       responses:
         "200":
-          description: A page of tickets.
+          description: A page of Incidents.
           content:
             application/json:
               schema:
-                $ref: "#/components/schemas/TicketPage"
+                $ref: "#/components/schemas/IncidentPage"
         "401":
           $ref: "#/components/responses/Unauthorized"
     post:
-      tags: [tickets]
-      summary: Create a ticket. The ticket number is server-assigned.
+      tags: [incidents]
+      summary: Create an Incident. Agent-only; the display number is server-assigned (INC-######).
       requestBody:
         required: true
         content:
           application/json:
             schema:
-              $ref: "#/components/schemas/TicketCreateRequest"
+              $ref: "#/components/schemas/IncidentCreateRequest"
       responses:
         "201":
-          description: Ticket created.
+          description: Incident created.
           content:
             application/json:
               schema:
-                $ref: "#/components/schemas/TicketModel"
+                $ref: "#/components/schemas/IncidentModel"
         "400":
           $ref: "#/components/responses/ValidationProblem"
         "401":
           $ref: "#/components/responses/Unauthorized"
-  /api/tickets/{id}:
+        "403":
+          $ref: "#/components/responses/ForbiddenProblem"
+  /api/incidents/{id}:
     parameters:
       - $ref: "#/components/parameters/ApiVersionHeader"
       - name: id
@@ -207,43 +214,399 @@ paths:
           type: integer
           format: int64
     get:
-      tags: [tickets]
-      summary: Fetch a ticket by id.
+      tags: [incidents]
+      summary: Fetch an Incident by id.
       responses:
         "200":
-          description: The ticket.
+          description: The Incident.
           content:
             application/json:
               schema:
-                $ref: "#/components/schemas/TicketModel"
+                $ref: "#/components/schemas/IncidentModel"
         "404":
           $ref: "#/components/responses/NotFoundProblem"
     put:
-      tags: [tickets]
-      summary: Replace a ticket's editable fields, including status.
+      tags: [incidents]
+      summary: Replace an Incident's editable fields, including status. Agent-only.
       requestBody:
         required: true
         content:
           application/json:
             schema:
-              $ref: "#/components/schemas/TicketUpdateRequest"
+              $ref: "#/components/schemas/IncidentUpdateRequest"
       responses:
         "200":
-          description: The updated ticket.
+          description: The updated Incident.
           content:
             application/json:
               schema:
-                $ref: "#/components/schemas/TicketModel"
+                $ref: "#/components/schemas/IncidentModel"
         "400":
           $ref: "#/components/responses/ValidationProblem"
+        "403":
+          $ref: "#/components/responses/ForbiddenProblem"
         "404":
           $ref: "#/components/responses/NotFoundProblem"
     delete:
-      tags: [tickets]
-      summary: Soft-delete a ticket.
+      tags: [incidents]
+      summary: Soft-delete an Incident. Agent-only.
       responses:
         "204":
           description: Deleted.
+        "403":
+          $ref: "#/components/responses/ForbiddenProblem"
+        "404":
+          $ref: "#/components/responses/NotFoundProblem"
+  /api/problems:
+    parameters:
+      - $ref: "#/components/parameters/ApiVersionHeader"
+    get:
+      tags: [problems]
+      summary: List Problems (paginated, optionally filtered by status).
+      parameters:
+        - name: status
+          in: query
+          required: false
+          schema:
+            $ref: "#/components/schemas/TicketStatus"
+        - $ref: "#/components/parameters/PageParam"
+        - $ref: "#/components/parameters/SizeParam"
+        - $ref: "#/components/parameters/SortParam"
+      responses:
+        "200":
+          description: A page of Problems.
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ProblemPage"
+        "401":
+          $ref: "#/components/responses/Unauthorized"
+    post:
+      tags: [problems]
+      summary: Create a Problem. Agent-only; the display number is server-assigned (PRB-######).
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/ProblemCreateRequest"
+      responses:
+        "201":
+          description: Problem created.
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ProblemModel"
+        "400":
+          $ref: "#/components/responses/ValidationProblem"
+        "401":
+          $ref: "#/components/responses/Unauthorized"
+        "403":
+          $ref: "#/components/responses/ForbiddenProblem"
+  /api/problems/{id}:
+    parameters:
+      - $ref: "#/components/parameters/ApiVersionHeader"
+      - name: id
+        in: path
+        required: true
+        schema:
+          type: integer
+          format: int64
+    get:
+      tags: [problems]
+      summary: Fetch a Problem by id.
+      responses:
+        "200":
+          description: The Problem.
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ProblemModel"
+        "404":
+          $ref: "#/components/responses/NotFoundProblem"
+    put:
+      tags: [problems]
+      summary: Replace a Problem's editable fields, including status. Agent-only.
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/ProblemUpdateRequest"
+      responses:
+        "200":
+          description: The updated Problem.
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ProblemModel"
+        "400":
+          $ref: "#/components/responses/ValidationProblem"
+        "403":
+          $ref: "#/components/responses/ForbiddenProblem"
+        "404":
+          $ref: "#/components/responses/NotFoundProblem"
+    delete:
+      tags: [problems]
+      summary: Soft-delete a Problem. Agent-only.
+      responses:
+        "204":
+          description: Deleted.
+        "403":
+          $ref: "#/components/responses/ForbiddenProblem"
+        "404":
+          $ref: "#/components/responses/NotFoundProblem"
+  /api/changes:
+    parameters:
+      - $ref: "#/components/parameters/ApiVersionHeader"
+    get:
+      tags: [changes]
+      summary: List Changes (paginated, optionally filtered by status).
+      parameters:
+        - name: status
+          in: query
+          required: false
+          schema:
+            $ref: "#/components/schemas/TicketStatus"
+        - $ref: "#/components/parameters/PageParam"
+        - $ref: "#/components/parameters/SizeParam"
+        - $ref: "#/components/parameters/SortParam"
+      responses:
+        "200":
+          description: A page of Changes.
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ChangePage"
+        "401":
+          $ref: "#/components/responses/Unauthorized"
+    post:
+      tags: [changes]
+      summary: >
+        Create a Change (Request for Change). Agent-only; the display number is server-assigned
+        (RFC-######).
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/ChangeCreateRequest"
+      responses:
+        "201":
+          description: Change created.
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ChangeModel"
+        "400":
+          $ref: "#/components/responses/ValidationProblem"
+        "401":
+          $ref: "#/components/responses/Unauthorized"
+        "403":
+          $ref: "#/components/responses/ForbiddenProblem"
+  /api/changes/{id}:
+    parameters:
+      - $ref: "#/components/parameters/ApiVersionHeader"
+      - name: id
+        in: path
+        required: true
+        schema:
+          type: integer
+          format: int64
+    get:
+      tags: [changes]
+      summary: Fetch a Change by id.
+      responses:
+        "200":
+          description: The Change.
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ChangeModel"
+        "404":
+          $ref: "#/components/responses/NotFoundProblem"
+    put:
+      tags: [changes]
+      summary: Replace a Change's editable fields, including status. Agent-only.
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/ChangeUpdateRequest"
+      responses:
+        "200":
+          description: The updated Change.
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ChangeModel"
+        "400":
+          $ref: "#/components/responses/ValidationProblem"
+        "403":
+          $ref: "#/components/responses/ForbiddenProblem"
+        "404":
+          $ref: "#/components/responses/NotFoundProblem"
+    delete:
+      tags: [changes]
+      summary: Soft-delete a Change. Agent-only.
+      responses:
+        "204":
+          description: Deleted.
+        "403":
+          $ref: "#/components/responses/ForbiddenProblem"
+        "404":
+          $ref: "#/components/responses/NotFoundProblem"
+  /api/service-requests:
+    parameters:
+      - $ref: "#/components/parameters/ApiVersionHeader"
+    get:
+      tags: [service-requests]
+      summary: List Service Requests (paginated, optionally filtered by status).
+      parameters:
+        - name: status
+          in: query
+          required: false
+          schema:
+            $ref: "#/components/schemas/TicketStatus"
+        - $ref: "#/components/parameters/PageParam"
+        - $ref: "#/components/parameters/SizeParam"
+        - $ref: "#/components/parameters/SortParam"
+      responses:
+        "200":
+          description: A page of Service Requests.
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ServiceRequestPage"
+        "401":
+          $ref: "#/components/responses/Unauthorized"
+    post:
+      tags: [service-requests]
+      summary: >
+        Create a Service Request. Agent-only; the display number is server-assigned (REQ-######).
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/ServiceRequestCreateRequest"
+      responses:
+        "201":
+          description: Service Request created.
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ServiceRequestModel"
+        "400":
+          $ref: "#/components/responses/ValidationProblem"
+        "401":
+          $ref: "#/components/responses/Unauthorized"
+        "403":
+          $ref: "#/components/responses/ForbiddenProblem"
+  /api/service-requests/{id}:
+    parameters:
+      - $ref: "#/components/parameters/ApiVersionHeader"
+      - name: id
+        in: path
+        required: true
+        schema:
+          type: integer
+          format: int64
+    get:
+      tags: [service-requests]
+      summary: Fetch a Service Request by id.
+      responses:
+        "200":
+          description: The Service Request.
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ServiceRequestModel"
+        "404":
+          $ref: "#/components/responses/NotFoundProblem"
+    put:
+      tags: [service-requests]
+      summary: Replace a Service Request's editable fields, including status. Agent-only.
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/ServiceRequestUpdateRequest"
+      responses:
+        "200":
+          description: The updated Service Request.
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ServiceRequestModel"
+        "400":
+          $ref: "#/components/responses/ValidationProblem"
+        "403":
+          $ref: "#/components/responses/ForbiddenProblem"
+        "404":
+          $ref: "#/components/responses/NotFoundProblem"
+    delete:
+      tags: [service-requests]
+      summary: Soft-delete a Service Request. Agent-only.
+      responses:
+        "204":
+          description: Deleted.
+        "403":
+          $ref: "#/components/responses/ForbiddenProblem"
+        "404":
+          $ref: "#/components/responses/NotFoundProblem"
+  /api/tickets/{ticketId}/comments:
+    parameters:
+      - $ref: "#/components/parameters/ApiVersionHeader"
+      - name: ticketId
+        in: path
+        required: true
+        description: The shared Ticket id (ADR-0001) — same value as any subtype's own `id`.
+        schema:
+          type: integer
+          format: int64
+    get:
+      tags: [comments]
+      summary: >
+        List a ticket's comments in one combined, chronological stream. A Customer caller only ever
+        sees non-internal comments; an Agent sees both.
+      responses:
+        "200":
+          description: The ticket's comments.
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/CommentCollection"
+        "401":
+          $ref: "#/components/responses/Unauthorized"
+        "404":
+          $ref: "#/components/responses/NotFoundProblem"
+    post:
+      tags: [comments]
+      summary: >
+        Add a comment to a ticket. `internal=true` is rejected (403) unless the caller is an Agent —
+        "internal" means "hidden from the requester," which a Customer can't set on their own comment.
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/CommentCreateRequest"
+      responses:
+        "201":
+          description: Comment created.
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/CommentModel"
+        "400":
+          $ref: "#/components/responses/ValidationProblem"
+        "401":
+          $ref: "#/components/responses/Unauthorized"
+        "403":
+          $ref: "#/components/responses/ForbiddenProblem"
         "404":
           $ref: "#/components/responses/NotFoundProblem"
 components:
@@ -294,6 +657,15 @@ components:
             $ref: "#/components/schemas/ProblemDetail"
     NotFoundProblem:
       description: No resource with that id.
+      content:
+        application/problem+json:
+          schema:
+            $ref: "#/components/schemas/ProblemDetail"
+    ForbiddenProblem:
+      description: >
+        The caller is authenticated but not allowed to perform this action — either a static
+        URL+role rule (e.g. Customer attempting an Agent-only write) or a data-dependent one (e.g. a
+        Customer's comment requesting internal=true).
       content:
         application/problem+json:
           schema:
@@ -425,23 +797,170 @@ components:
           description: first/prev/self/next/last, as available.
         page:
           $ref: "#/components/schemas/PageMetadata"
-    TicketType:
-      type: string
-      enum: [INCIDENT, SERVICE_REQUEST, PROBLEM, CHANGE]
     TicketStatus:
       type: string
       enum: [OPEN, IN_PROGRESS, PENDING, RESOLVED, CLOSED]
-    TicketModel:
+    IncidentModel:
       type: object
+      description: >
+        An unplanned interruption or reduction in quality of a service (ADR-0001: composes with the
+        shared Ticket record rather than extending it — `id` here is the same value as that shared
+        Ticket's id).
       properties:
         id:
           type: integer
           format: int64
-        ticketNumber:
+        displayNumber:
           type: string
-          example: TCK-001000
-        type:
-          $ref: "#/components/schemas/TicketType"
+          example: INC-001000
+        status:
+          $ref: "#/components/schemas/TicketStatus"
+        subject:
+          type: string
+        description:
+          type: string
+          nullable: true
+        categoryId:
+          type: integer
+          format: int64
+          nullable: true
+        priorityId:
+          type: integer
+          format: int64
+          nullable: true
+        requesterId:
+          type: integer
+          format: int64
+        assigneeId:
+          type: integer
+          format: int64
+          nullable: true
+        teamId:
+          type: integer
+          format: int64
+          nullable: true
+        relatedProblemId:
+          type: integer
+          format: int64
+          nullable: true
+          description: The Problem tracking this Incident's root cause, if identified.
+        resolvedAt:
+          type: string
+          format: date-time
+          nullable: true
+        closedAt:
+          type: string
+          format: date-time
+          nullable: true
+        createdAt:
+          type: string
+          format: date-time
+        updatedAt:
+          type: string
+          format: date-time
+        createdBy:
+          type: string
+          nullable: true
+        updatedBy:
+          type: string
+          nullable: true
+        _links:
+          type: object
+          description: HATEOAS links (self, requester, assignee, relatedProblem — as available).
+    IncidentCreateRequest:
+      type: object
+      required: [subject, requesterId]
+      properties:
+        subject:
+          type: string
+        description:
+          type: string
+          nullable: true
+        categoryId:
+          type: integer
+          format: int64
+          nullable: true
+        priorityId:
+          type: integer
+          format: int64
+          nullable: true
+        requesterId:
+          type: integer
+          format: int64
+        assigneeId:
+          type: integer
+          format: int64
+          nullable: true
+        teamId:
+          type: integer
+          format: int64
+          nullable: true
+        relatedProblemId:
+          type: integer
+          format: int64
+          nullable: true
+    IncidentUpdateRequest:
+      type: object
+      required: [status, subject, requesterId]
+      properties:
+        status:
+          $ref: "#/components/schemas/TicketStatus"
+        subject:
+          type: string
+        description:
+          type: string
+          nullable: true
+        categoryId:
+          type: integer
+          format: int64
+          nullable: true
+        priorityId:
+          type: integer
+          format: int64
+          nullable: true
+        requesterId:
+          type: integer
+          format: int64
+        assigneeId:
+          type: integer
+          format: int64
+          nullable: true
+        teamId:
+          type: integer
+          format: int64
+          nullable: true
+        relatedProblemId:
+          type: integer
+          format: int64
+          nullable: true
+    IncidentPage:
+      type: object
+      description: Spring HATEOAS PagedModel<IncidentModel>.
+      properties:
+        _embedded:
+          type: object
+          properties:
+            incidentModelList:
+              type: array
+              items:
+                $ref: "#/components/schemas/IncidentModel"
+        _links:
+          type: object
+          description: first/prev/self/next/last, as available.
+        page:
+          $ref: "#/components/schemas/PageMetadata"
+    ProblemModel:
+      type: object
+      description: >
+        The root cause behind one or more Incidents (ADR-0001: composes with the shared Ticket
+        record rather than extending it — `id` here is the same value as that shared Ticket's id).
+      properties:
+        id:
+          type: integer
+          format: int64
+        displayNumber:
+          type: string
+          example: PRB-001000
         status:
           $ref: "#/components/schemas/TicketStatus"
         subject:
@@ -491,12 +1010,10 @@ components:
         _links:
           type: object
           description: HATEOAS links (self, requester, assignee).
-    TicketCreateRequest:
+    ProblemCreateRequest:
       type: object
-      required: [type, subject, requesterId]
+      required: [subject, requesterId]
       properties:
-        type:
-          $ref: "#/components/schemas/TicketType"
         subject:
           type: string
         description:
@@ -521,12 +1038,65 @@ components:
           type: integer
           format: int64
           nullable: true
-    TicketUpdateRequest:
+    ProblemUpdateRequest:
       type: object
-      required: [type, status, subject, requesterId]
+      required: [status, subject, requesterId]
       properties:
-        type:
-          $ref: "#/components/schemas/TicketType"
+        status:
+          $ref: "#/components/schemas/TicketStatus"
+        subject:
+          type: string
+        description:
+          type: string
+          nullable: true
+        categoryId:
+          type: integer
+          format: int64
+          nullable: true
+        priorityId:
+          type: integer
+          format: int64
+          nullable: true
+        requesterId:
+          type: integer
+          format: int64
+        assigneeId:
+          type: integer
+          format: int64
+          nullable: true
+        teamId:
+          type: integer
+          format: int64
+          nullable: true
+    ProblemPage:
+      type: object
+      description: Spring HATEOAS PagedModel<ProblemModel>.
+      properties:
+        _embedded:
+          type: object
+          properties:
+            problemModelList:
+              type: array
+              items:
+                $ref: "#/components/schemas/ProblemModel"
+        _links:
+          type: object
+          description: first/prev/self/next/last, as available.
+        page:
+          $ref: "#/components/schemas/PageMetadata"
+    ChangeModel:
+      type: object
+      description: >
+        A planned modification to infrastructure or a service (ADR-0001: composes with the shared
+        Ticket record rather than extending it — `id` here is the same value as that shared Ticket's
+        id). The display number's RFC prefix stands for "Request for Change".
+      properties:
+        id:
+          type: integer
+          format: int64
+        displayNumber:
+          type: string
+          example: RFC-001000
         status:
           $ref: "#/components/schemas/TicketStatus"
         subject:
@@ -561,22 +1131,289 @@ components:
           type: string
           format: date-time
           nullable: true
-    TicketPage:
+        createdAt:
+          type: string
+          format: date-time
+        updatedAt:
+          type: string
+          format: date-time
+        createdBy:
+          type: string
+          nullable: true
+        updatedBy:
+          type: string
+          nullable: true
+        _links:
+          type: object
+          description: HATEOAS links (self, requester, assignee).
+    ChangeCreateRequest:
       type: object
-      description: Spring HATEOAS PagedModel<TicketModel>.
+      required: [subject, requesterId]
+      properties:
+        subject:
+          type: string
+        description:
+          type: string
+          nullable: true
+        categoryId:
+          type: integer
+          format: int64
+          nullable: true
+        priorityId:
+          type: integer
+          format: int64
+          nullable: true
+        requesterId:
+          type: integer
+          format: int64
+        assigneeId:
+          type: integer
+          format: int64
+          nullable: true
+        teamId:
+          type: integer
+          format: int64
+          nullable: true
+    ChangeUpdateRequest:
+      type: object
+      required: [status, subject, requesterId]
+      properties:
+        status:
+          $ref: "#/components/schemas/TicketStatus"
+        subject:
+          type: string
+        description:
+          type: string
+          nullable: true
+        categoryId:
+          type: integer
+          format: int64
+          nullable: true
+        priorityId:
+          type: integer
+          format: int64
+          nullable: true
+        requesterId:
+          type: integer
+          format: int64
+        assigneeId:
+          type: integer
+          format: int64
+          nullable: true
+        teamId:
+          type: integer
+          format: int64
+          nullable: true
+    ChangePage:
+      type: object
+      description: Spring HATEOAS PagedModel<ChangeModel>.
       properties:
         _embedded:
           type: object
           properties:
-            ticketModelList:
+            changeModelList:
               type: array
               items:
-                $ref: "#/components/schemas/TicketModel"
+                $ref: "#/components/schemas/ChangeModel"
         _links:
           type: object
           description: first/prev/self/next/last, as available.
         page:
           $ref: "#/components/schemas/PageMetadata"
+    ServiceRequestModel:
+      type: object
+      description: >
+        A routine request for something (e.g. a new account, access to a system), not a report of
+        something broken (ADR-0001: composes with the shared Ticket record rather than extending it
+        — `id` here is the same value as that shared Ticket's id).
+      properties:
+        id:
+          type: integer
+          format: int64
+        displayNumber:
+          type: string
+          example: REQ-001000
+        status:
+          $ref: "#/components/schemas/TicketStatus"
+        subject:
+          type: string
+        description:
+          type: string
+          nullable: true
+        categoryId:
+          type: integer
+          format: int64
+          nullable: true
+        priorityId:
+          type: integer
+          format: int64
+          nullable: true
+        requesterId:
+          type: integer
+          format: int64
+        assigneeId:
+          type: integer
+          format: int64
+          nullable: true
+        teamId:
+          type: integer
+          format: int64
+          nullable: true
+        resolvedAt:
+          type: string
+          format: date-time
+          nullable: true
+        closedAt:
+          type: string
+          format: date-time
+          nullable: true
+        createdAt:
+          type: string
+          format: date-time
+        updatedAt:
+          type: string
+          format: date-time
+        createdBy:
+          type: string
+          nullable: true
+        updatedBy:
+          type: string
+          nullable: true
+        _links:
+          type: object
+          description: HATEOAS links (self, requester, assignee).
+    ServiceRequestCreateRequest:
+      type: object
+      required: [subject, requesterId]
+      properties:
+        subject:
+          type: string
+        description:
+          type: string
+          nullable: true
+        categoryId:
+          type: integer
+          format: int64
+          nullable: true
+        priorityId:
+          type: integer
+          format: int64
+          nullable: true
+        requesterId:
+          type: integer
+          format: int64
+        assigneeId:
+          type: integer
+          format: int64
+          nullable: true
+        teamId:
+          type: integer
+          format: int64
+          nullable: true
+    ServiceRequestUpdateRequest:
+      type: object
+      required: [status, subject, requesterId]
+      properties:
+        status:
+          $ref: "#/components/schemas/TicketStatus"
+        subject:
+          type: string
+        description:
+          type: string
+          nullable: true
+        categoryId:
+          type: integer
+          format: int64
+          nullable: true
+        priorityId:
+          type: integer
+          format: int64
+          nullable: true
+        requesterId:
+          type: integer
+          format: int64
+        assigneeId:
+          type: integer
+          format: int64
+          nullable: true
+        teamId:
+          type: integer
+          format: int64
+          nullable: true
+    ServiceRequestPage:
+      type: object
+      description: Spring HATEOAS PagedModel<ServiceRequestModel>.
+      properties:
+        _embedded:
+          type: object
+          properties:
+            serviceRequestModelList:
+              type: array
+              items:
+                $ref: "#/components/schemas/ServiceRequestModel"
+        _links:
+          type: object
+          description: first/prev/self/next/last, as available.
+        page:
+          $ref: "#/components/schemas/PageMetadata"
+    CommentModel:
+      type: object
+      description: >
+        An entry in a ticket's activity/conversation history. No self link: unlike every other
+        resource in this API, an individual comment has no findById-style endpoint of its own — only
+        create + list on the collection.
+      properties:
+        id:
+          type: integer
+          format: int64
+        ticketId:
+          type: integer
+          format: int64
+        authorId:
+          type: integer
+          format: int64
+        body:
+          type: string
+        internal:
+          type: boolean
+          description: >
+            Hidden from the requester when true. Only an Agent-authored comment may set this — see
+            ForbiddenProblem.
+        createdAt:
+          type: string
+          format: date-time
+        updatedAt:
+          type: string
+          format: date-time
+        createdBy:
+          type: string
+          nullable: true
+        updatedBy:
+          type: string
+          nullable: true
+    CommentCreateRequest:
+      type: object
+      required: [body]
+      properties:
+        body:
+          type: string
+        internal:
+          type: boolean
+          default: false
+    CommentCollection:
+      type: object
+      description: Spring HATEOAS CollectionModel<CommentModel> — not paginated.
+      properties:
+        _embedded:
+          type: object
+          properties:
+            commentModelList:
+              type: array
+              items:
+                $ref: "#/components/schemas/CommentModel"
+        _links:
+          type: object
+          description: self.
     PageMetadata:
       type: object
       properties:
