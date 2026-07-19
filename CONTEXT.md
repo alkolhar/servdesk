@@ -50,7 +50,7 @@ A flat, manually-picked ranking (`sortOrder`, lower = more severe) a ticket can 
 _Avoid_: Severity, urgency, impact (not yet distinct concepts in this domain)
 
 **Comment**:
-An entry in a ticket's activity/conversation history, written by an Agent or Requester. The `internal` flag distinguishes an Agent-only note from a reply visible to the Requester — one concept with a visibility attribute, not two different kinds of thing. Only an Agent can author an internal Comment — a Customer's own comment is always visible, since "internal" means "hidden from the requester," which is meaningless for a comment the requester wrote themselves. **Known gap**: not yet enforced in code.
+An entry in a ticket's activity/conversation history, written by an Agent or Requester. The `internal` flag distinguishes an Agent-only note from a reply visible to the Requester — one concept with a visibility attribute, not two different kinds of thing. Only an Agent can author an internal Comment — a Customer's own comment is always visible, since "internal" means "hidden from the requester," which is meaningless for a comment the requester wrote themselves. Enforced in code: `CommentCommandService.create` rejects `internal=true` from a non-Agent caller, and `CommentQueryService.findByTicket` filters internal comments out of a Customer's view.
 _Avoid_: Note, Work Note, Reply (as separate concepts — these describe the Comment's visibility, not a different kind of entity)
 
 ## Ticket Status
