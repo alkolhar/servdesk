@@ -1,18 +1,25 @@
 package dev.alkolhar.servdesk.config;
 
-import static org.springframework.security.config.Customizer.withDefaults;
-
+import jakarta.servlet.http.HttpServletResponse;
+import java.io.IOException;
 import java.util.Map;
 import org.springframework.context.annotation.Bean;
 import org.springframework.context.annotation.Configuration;
 import org.springframework.http.HttpMethod;
+import org.springframework.http.HttpStatus;
+import org.springframework.http.MediaType;
+import org.springframework.http.ProblemDetail;
 import org.springframework.security.config.annotation.web.builders.HttpSecurity;
 import org.springframework.security.config.annotation.web.configurers.AbstractHttpConfigurer;
 import org.springframework.security.crypto.argon2.Argon2PasswordEncoder;
 import org.springframework.security.crypto.bcrypt.BCryptPasswordEncoder;
 import org.springframework.security.crypto.password.DelegatingPasswordEncoder;
 import org.springframework.security.crypto.password.PasswordEncoder;
+import org.springframework.security.web.AuthenticationEntryPoint;
 import org.springframework.security.web.SecurityFilterChain;
+import org.springframework.security.web.access.AccessDeniedHandler;
+import org.springframework.security.web.firewall.RequestRejectedHandler;
+import tools.jackson.databind.ObjectMapper;
 
 /**
  * Authentication and authorization are deliberately two separate concerns
@@ -24,6 +31,12 @@ import org.springframework.security.web.SecurityFilterChain;
  */
 @Configuration
 public class SecurityConfig {
+
+	private final ObjectMapper objectMapper;
+
+	public SecurityConfig(ObjectMapper objectMapper) {
+		this.objectMapper = objectMapper;
+	}
 
 	/**
 	 * CSRF protection guards cookie-authenticated browser sessions. This API is
@@ -122,8 +135,48 @@ public class SecurityConfig {
 				// CommentCommandService, not here (see the class javadoc above)
 				.requestMatchers(HttpMethod.GET, "/api/tickets/*/comments").hasAnyRole("AGENT", "CUSTOMER")
 				.requestMatchers(HttpMethod.POST, "/api/tickets/*/comments").hasAnyRole("AGENT", "CUSTOMER")
-				.anyRequest().authenticated()).httpBasic(withDefaults());
+				.anyRequest().authenticated())
+				.httpBasic(basic -> basic.authenticationEntryPoint(problemDetailAuthenticationEntryPoint()))
+				.exceptionHandling(exceptions -> exceptions.accessDeniedHandler(problemDetailAccessDeniedHandler()));
 		return http.build();
+	}
+
+	/**
+	 * Both the 401 (missing/bad credentials) and 403 (authenticated but
+	 * unauthorized) paths are decided inside Spring Security's filter chain, before
+	 * a request ever reaches {@code DispatcherServlet} — so
+	 * {@code RestExceptionHandler} never sees them, and without these two handlers
+	 * they'd fall back to Spring Security's own default bodies (not RFC 7807
+	 * {@code ProblemDetail}, unlike every other error response this API returns).
+	 * {@code withDefaults()} would keep that default body; overriding both here is
+	 * what makes the 401/403 shape consistent with the rest of the API.
+	 */
+	private AuthenticationEntryPoint problemDetailAuthenticationEntryPoint() {
+		return (request, response, authException) -> writeProblemDetail(response, HttpStatus.UNAUTHORIZED,
+				"Full authentication is required to access this resource.");
+	}
+
+	private AccessDeniedHandler problemDetailAccessDeniedHandler() {
+		return (request, response, accessDeniedException) -> writeProblemDetail(response, HttpStatus.FORBIDDEN,
+				"Access is denied.");
+	}
+
+	/**
+	 * {@code StrictHttpFirewall} rejects a malformed request (e.g. a control
+	 * character in a header value) before it even reaches
+	 * {@code authorizeHttpRequests} — Spring Boot auto-detects this bean and wires
+	 * it into {@code FilterChainProxy}, same reasoning as the two handlers above.
+	 */
+	@Bean
+	RequestRejectedHandler requestRejectedHandler() {
+		return (request, response, requestRejectedException) -> writeProblemDetail(response, HttpStatus.BAD_REQUEST,
+				"The request was rejected: " + requestRejectedException.getMessage());
+	}
+
+	private void writeProblemDetail(HttpServletResponse response, HttpStatus status, String detail) throws IOException {
+		response.setStatus(status.value());
+		response.setContentType(MediaType.APPLICATION_PROBLEM_JSON_VALUE);
+		objectMapper.writeValue(response.getWriter(), ProblemDetail.forStatusAndDetail(status, detail));
 	}
 
 	/**

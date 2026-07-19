@@ -7,7 +7,7 @@ info:
     dev.alkolhar.servdesk is written to match it, not generated from it.
   version: "1"
 servers:
-  - url: http://localhost:8080/
+  - url: http://localhost:8080
 security:
   - basicAuth: []
 tags:
@@ -38,6 +38,8 @@ paths:
       summary: Check whether the first-run setup still needs to be completed.
       security: []
       responses:
+        "default":
+          $ref: "#/components/responses/DefaultProblem"
         "200":
           description: Setup status.
           content:
@@ -55,10 +57,12 @@ paths:
             schema:
               $ref: "#/components/schemas/SetupRequest"
       responses:
+        "default":
+          $ref: "#/components/responses/DefaultProblem"
         "201":
           description: The first agent was created.
           content:
-            application/json:
+            application/hal+json:
               schema:
                 $ref: "#/components/schemas/PersonModel"
         "400":
@@ -85,10 +89,12 @@ paths:
         - $ref: "#/components/parameters/SizeParam"
         - $ref: "#/components/parameters/SortParam"
       responses:
+        "default":
+          $ref: "#/components/responses/DefaultProblem"
         "200":
           description: A page of persons.
           content:
-            application/json:
+            application/hal+json:
               schema:
                 $ref: "#/components/schemas/PersonPage"
         "401":
@@ -103,16 +109,20 @@ paths:
             schema:
               $ref: "#/components/schemas/PersonCreateRequest"
       responses:
+        "default":
+          $ref: "#/components/responses/DefaultProblem"
         "201":
           description: Person created.
           content:
-            application/json:
+            application/hal+json:
               schema:
                 $ref: "#/components/schemas/PersonModel"
         "400":
           $ref: "#/components/responses/ValidationProblem"
         "401":
           $ref: "#/components/responses/Unauthorized"
+        "409":
+          $ref: "#/components/responses/ConflictProblem"
   /api/persons/{id}:
     parameters:
       - $ref: "#/components/parameters/ApiVersionHeader"
@@ -126,10 +136,12 @@ paths:
       tags: [persons]
       summary: Fetch a person by id.
       responses:
+        "default":
+          $ref: "#/components/responses/DefaultProblem"
         "200":
           description: The person.
           content:
-            application/json:
+            application/hal+json:
               schema:
                 $ref: "#/components/schemas/PersonModel"
         "404":
@@ -144,20 +156,26 @@ paths:
             schema:
               $ref: "#/components/schemas/PersonUpdateRequest"
       responses:
+        "default":
+          $ref: "#/components/responses/DefaultProblem"
         "200":
           description: The updated person.
           content:
-            application/json:
+            application/hal+json:
               schema:
                 $ref: "#/components/schemas/PersonModel"
         "400":
           $ref: "#/components/responses/ValidationProblem"
         "404":
           $ref: "#/components/responses/NotFoundProblem"
+        "409":
+          $ref: "#/components/responses/ConflictProblem"
     delete:
       tags: [persons]
       summary: Soft-delete a person.
       responses:
+        "default":
+          $ref: "#/components/responses/DefaultProblem"
         "204":
           description: Deleted.
         "404":
@@ -173,10 +191,12 @@ paths:
         - $ref: "#/components/parameters/SizeParam"
         - $ref: "#/components/parameters/SortParam"
       responses:
+        "default":
+          $ref: "#/components/responses/DefaultProblem"
         "200":
           description: A page of Categories.
           content:
-            application/json:
+            application/hal+json:
               schema:
                 $ref: "#/components/schemas/CategoryPage"
         "401":
@@ -191,10 +211,12 @@ paths:
             schema:
               $ref: "#/components/schemas/CategoryCreateRequest"
       responses:
+        "default":
+          $ref: "#/components/responses/DefaultProblem"
         "201":
           description: Category created.
           content:
-            application/json:
+            application/hal+json:
               schema:
                 $ref: "#/components/schemas/CategoryModel"
         "400":
@@ -203,6 +225,8 @@ paths:
           $ref: "#/components/responses/Unauthorized"
         "403":
           $ref: "#/components/responses/ForbiddenProblem"
+        "409":
+          $ref: "#/components/responses/ConflictProblem"
   /api/categories/{id}:
     parameters:
       - $ref: "#/components/parameters/ApiVersionHeader"
@@ -216,10 +240,12 @@ paths:
       tags: [categories]
       summary: Fetch a Category by id.
       responses:
+        "default":
+          $ref: "#/components/responses/DefaultProblem"
         "200":
           description: The Category.
           content:
-            application/json:
+            application/hal+json:
               schema:
                 $ref: "#/components/schemas/CategoryModel"
         "404":
@@ -234,10 +260,12 @@ paths:
             schema:
               $ref: "#/components/schemas/CategoryUpdateRequest"
       responses:
+        "default":
+          $ref: "#/components/responses/DefaultProblem"
         "200":
           description: The updated Category.
           content:
-            application/json:
+            application/hal+json:
               schema:
                 $ref: "#/components/schemas/CategoryModel"
         "400":
@@ -246,10 +274,14 @@ paths:
           $ref: "#/components/responses/ForbiddenProblem"
         "404":
           $ref: "#/components/responses/NotFoundProblem"
+        "409":
+          $ref: "#/components/responses/ConflictProblem"
     delete:
       tags: [categories]
       summary: Soft-delete a Category. Agent-only.
       responses:
+        "default":
+          $ref: "#/components/responses/DefaultProblem"
         "204":
           description: Deleted.
         "403":
@@ -267,10 +299,12 @@ paths:
         - $ref: "#/components/parameters/SizeParam"
         - $ref: "#/components/parameters/SortParam"
       responses:
+        "default":
+          $ref: "#/components/responses/DefaultProblem"
         "200":
           description: A page of Priorities.
           content:
-            application/json:
+            application/hal+json:
               schema:
                 $ref: "#/components/schemas/PriorityPage"
         "401":
@@ -285,10 +319,12 @@ paths:
             schema:
               $ref: "#/components/schemas/PriorityCreateRequest"
       responses:
+        "default":
+          $ref: "#/components/responses/DefaultProblem"
         "201":
           description: Priority created.
           content:
-            application/json:
+            application/hal+json:
               schema:
                 $ref: "#/components/schemas/PriorityModel"
         "400":
@@ -310,10 +346,12 @@ paths:
       tags: [priorities]
       summary: Fetch a Priority by id.
       responses:
+        "default":
+          $ref: "#/components/responses/DefaultProblem"
         "200":
           description: The Priority.
           content:
-            application/json:
+            application/hal+json:
               schema:
                 $ref: "#/components/schemas/PriorityModel"
         "404":
@@ -328,10 +366,12 @@ paths:
             schema:
               $ref: "#/components/schemas/PriorityUpdateRequest"
       responses:
+        "default":
+          $ref: "#/components/responses/DefaultProblem"
         "200":
           description: The updated Priority.
           content:
-            application/json:
+            application/hal+json:
               schema:
                 $ref: "#/components/schemas/PriorityModel"
         "400":
@@ -344,6 +384,8 @@ paths:
       tags: [priorities]
       summary: Soft-delete a Priority. Agent-only.
       responses:
+        "default":
+          $ref: "#/components/responses/DefaultProblem"
         "204":
           description: Deleted.
         "403":
@@ -366,10 +408,12 @@ paths:
         - $ref: "#/components/parameters/SizeParam"
         - $ref: "#/components/parameters/SortParam"
       responses:
+        "default":
+          $ref: "#/components/responses/DefaultProblem"
         "200":
           description: A page of Incidents.
           content:
-            application/json:
+            application/hal+json:
               schema:
                 $ref: "#/components/schemas/IncidentPage"
         "401":
@@ -384,10 +428,12 @@ paths:
             schema:
               $ref: "#/components/schemas/IncidentCreateRequest"
       responses:
+        "default":
+          $ref: "#/components/responses/DefaultProblem"
         "201":
           description: Incident created.
           content:
-            application/json:
+            application/hal+json:
               schema:
                 $ref: "#/components/schemas/IncidentModel"
         "400":
@@ -396,6 +442,8 @@ paths:
           $ref: "#/components/responses/Unauthorized"
         "403":
           $ref: "#/components/responses/ForbiddenProblem"
+        "409":
+          $ref: "#/components/responses/ConflictProblem"
   /api/incidents/{id}:
     parameters:
       - $ref: "#/components/parameters/ApiVersionHeader"
@@ -409,10 +457,12 @@ paths:
       tags: [incidents]
       summary: Fetch an Incident by id.
       responses:
+        "default":
+          $ref: "#/components/responses/DefaultProblem"
         "200":
           description: The Incident.
           content:
-            application/json:
+            application/hal+json:
               schema:
                 $ref: "#/components/schemas/IncidentModel"
         "404":
@@ -427,10 +477,12 @@ paths:
             schema:
               $ref: "#/components/schemas/IncidentUpdateRequest"
       responses:
+        "default":
+          $ref: "#/components/responses/DefaultProblem"
         "200":
           description: The updated Incident.
           content:
-            application/json:
+            application/hal+json:
               schema:
                 $ref: "#/components/schemas/IncidentModel"
         "400":
@@ -439,10 +491,14 @@ paths:
           $ref: "#/components/responses/ForbiddenProblem"
         "404":
           $ref: "#/components/responses/NotFoundProblem"
+        "409":
+          $ref: "#/components/responses/ConflictProblem"
     delete:
       tags: [incidents]
       summary: Soft-delete an Incident. Agent-only.
       responses:
+        "default":
+          $ref: "#/components/responses/DefaultProblem"
         "204":
           description: Deleted.
         "403":
@@ -465,10 +521,12 @@ paths:
         - $ref: "#/components/parameters/SizeParam"
         - $ref: "#/components/parameters/SortParam"
       responses:
+        "default":
+          $ref: "#/components/responses/DefaultProblem"
         "200":
           description: A page of Problems.
           content:
-            application/json:
+            application/hal+json:
               schema:
                 $ref: "#/components/schemas/ProblemPage"
         "401":
@@ -483,10 +541,12 @@ paths:
             schema:
               $ref: "#/components/schemas/ProblemCreateRequest"
       responses:
+        "default":
+          $ref: "#/components/responses/DefaultProblem"
         "201":
           description: Problem created.
           content:
-            application/json:
+            application/hal+json:
               schema:
                 $ref: "#/components/schemas/ProblemModel"
         "400":
@@ -495,6 +555,8 @@ paths:
           $ref: "#/components/responses/Unauthorized"
         "403":
           $ref: "#/components/responses/ForbiddenProblem"
+        "409":
+          $ref: "#/components/responses/ConflictProblem"
   /api/problems/{id}:
     parameters:
       - $ref: "#/components/parameters/ApiVersionHeader"
@@ -508,10 +570,12 @@ paths:
       tags: [problems]
       summary: Fetch a Problem by id.
       responses:
+        "default":
+          $ref: "#/components/responses/DefaultProblem"
         "200":
           description: The Problem.
           content:
-            application/json:
+            application/hal+json:
               schema:
                 $ref: "#/components/schemas/ProblemModel"
         "404":
@@ -526,10 +590,12 @@ paths:
             schema:
               $ref: "#/components/schemas/ProblemUpdateRequest"
       responses:
+        "default":
+          $ref: "#/components/responses/DefaultProblem"
         "200":
           description: The updated Problem.
           content:
-            application/json:
+            application/hal+json:
               schema:
                 $ref: "#/components/schemas/ProblemModel"
         "400":
@@ -538,10 +604,14 @@ paths:
           $ref: "#/components/responses/ForbiddenProblem"
         "404":
           $ref: "#/components/responses/NotFoundProblem"
+        "409":
+          $ref: "#/components/responses/ConflictProblem"
     delete:
       tags: [problems]
       summary: Soft-delete a Problem. Agent-only.
       responses:
+        "default":
+          $ref: "#/components/responses/DefaultProblem"
         "204":
           description: Deleted.
         "403":
@@ -564,10 +634,12 @@ paths:
         - $ref: "#/components/parameters/SizeParam"
         - $ref: "#/components/parameters/SortParam"
       responses:
+        "default":
+          $ref: "#/components/responses/DefaultProblem"
         "200":
           description: A page of Changes.
           content:
-            application/json:
+            application/hal+json:
               schema:
                 $ref: "#/components/schemas/ChangePage"
         "401":
@@ -584,10 +656,12 @@ paths:
             schema:
               $ref: "#/components/schemas/ChangeCreateRequest"
       responses:
+        "default":
+          $ref: "#/components/responses/DefaultProblem"
         "201":
           description: Change created.
           content:
-            application/json:
+            application/hal+json:
               schema:
                 $ref: "#/components/schemas/ChangeModel"
         "400":
@@ -596,6 +670,8 @@ paths:
           $ref: "#/components/responses/Unauthorized"
         "403":
           $ref: "#/components/responses/ForbiddenProblem"
+        "409":
+          $ref: "#/components/responses/ConflictProblem"
   /api/changes/{id}:
     parameters:
       - $ref: "#/components/parameters/ApiVersionHeader"
@@ -609,10 +685,12 @@ paths:
       tags: [changes]
       summary: Fetch a Change by id.
       responses:
+        "default":
+          $ref: "#/components/responses/DefaultProblem"
         "200":
           description: The Change.
           content:
-            application/json:
+            application/hal+json:
               schema:
                 $ref: "#/components/schemas/ChangeModel"
         "404":
@@ -627,10 +705,12 @@ paths:
             schema:
               $ref: "#/components/schemas/ChangeUpdateRequest"
       responses:
+        "default":
+          $ref: "#/components/responses/DefaultProblem"
         "200":
           description: The updated Change.
           content:
-            application/json:
+            application/hal+json:
               schema:
                 $ref: "#/components/schemas/ChangeModel"
         "400":
@@ -639,10 +719,14 @@ paths:
           $ref: "#/components/responses/ForbiddenProblem"
         "404":
           $ref: "#/components/responses/NotFoundProblem"
+        "409":
+          $ref: "#/components/responses/ConflictProblem"
     delete:
       tags: [changes]
       summary: Soft-delete a Change. Agent-only.
       responses:
+        "default":
+          $ref: "#/components/responses/DefaultProblem"
         "204":
           description: Deleted.
         "403":
@@ -665,10 +749,12 @@ paths:
         - $ref: "#/components/parameters/SizeParam"
         - $ref: "#/components/parameters/SortParam"
       responses:
+        "default":
+          $ref: "#/components/responses/DefaultProblem"
         "200":
           description: A page of Service Requests.
           content:
-            application/json:
+            application/hal+json:
               schema:
                 $ref: "#/components/schemas/ServiceRequestPage"
         "401":
@@ -684,10 +770,12 @@ paths:
             schema:
               $ref: "#/components/schemas/ServiceRequestCreateRequest"
       responses:
+        "default":
+          $ref: "#/components/responses/DefaultProblem"
         "201":
           description: Service Request created.
           content:
-            application/json:
+            application/hal+json:
               schema:
                 $ref: "#/components/schemas/ServiceRequestModel"
         "400":
@@ -696,6 +784,8 @@ paths:
           $ref: "#/components/responses/Unauthorized"
         "403":
           $ref: "#/components/responses/ForbiddenProblem"
+        "409":
+          $ref: "#/components/responses/ConflictProblem"
   /api/service-requests/{id}:
     parameters:
       - $ref: "#/components/parameters/ApiVersionHeader"
@@ -709,10 +799,12 @@ paths:
       tags: [service-requests]
       summary: Fetch a Service Request by id.
       responses:
+        "default":
+          $ref: "#/components/responses/DefaultProblem"
         "200":
           description: The Service Request.
           content:
-            application/json:
+            application/hal+json:
               schema:
                 $ref: "#/components/schemas/ServiceRequestModel"
         "404":
@@ -727,10 +819,12 @@ paths:
             schema:
               $ref: "#/components/schemas/ServiceRequestUpdateRequest"
       responses:
+        "default":
+          $ref: "#/components/responses/DefaultProblem"
         "200":
           description: The updated Service Request.
           content:
-            application/json:
+            application/hal+json:
               schema:
                 $ref: "#/components/schemas/ServiceRequestModel"
         "400":
@@ -739,10 +833,14 @@ paths:
           $ref: "#/components/responses/ForbiddenProblem"
         "404":
           $ref: "#/components/responses/NotFoundProblem"
+        "409":
+          $ref: "#/components/responses/ConflictProblem"
     delete:
       tags: [service-requests]
       summary: Soft-delete a Service Request. Agent-only.
       responses:
+        "default":
+          $ref: "#/components/responses/DefaultProblem"
         "204":
           description: Deleted.
         "403":
@@ -765,10 +863,12 @@ paths:
         List a ticket's comments in one combined, chronological stream. A Customer caller only ever
         sees non-internal comments; an Agent sees both.
       responses:
+        "default":
+          $ref: "#/components/responses/DefaultProblem"
         "200":
           description: The ticket's comments.
           content:
-            application/json:
+            application/hal+json:
               schema:
                 $ref: "#/components/schemas/CommentCollection"
         "401":
@@ -787,10 +887,12 @@ paths:
             schema:
               $ref: "#/components/schemas/CommentCreateRequest"
       responses:
+        "default":
+          $ref: "#/components/responses/DefaultProblem"
         "201":
           description: Comment created.
           content:
-            application/json:
+            application/hal+json:
               schema:
                 $ref: "#/components/schemas/CommentModel"
         "400":
@@ -841,6 +943,10 @@ components:
   responses:
     Unauthorized:
       description: Missing or invalid credentials.
+      content:
+        application/problem+json:
+          schema:
+            $ref: "#/components/schemas/ProblemDetail"
     ValidationProblem:
       description: Request body failed Jakarta Bean Validation.
       content:
@@ -862,6 +968,26 @@ components:
         application/problem+json:
           schema:
             $ref: "#/components/schemas/ProblemDetail"
+    DefaultProblem:
+      description: >
+        Any other error not called out explicitly above for this operation — e.g. an unsupported
+        X-API-Version header (400, ApiVersioningConfig) or missing/invalid credentials (401) on an
+        endpoint where that wasn't already listed. Always RFC 7807 ProblemDetail.
+      content:
+        application/problem+json:
+          schema:
+            $ref: "#/components/schemas/ProblemDetail"
+    ConflictProblem:
+      description: >
+        A DB-level constraint was violated — a referenced id (e.g. teamId, categoryId, requesterId,
+        parentId, relatedProblemId) doesn't exist, or a unique column (e.g. a soft-deleted row's still
+        -occupied email/username/name) collides. Surfaces as DataIntegrityViolationException, mapped
+        to 409 by RestExceptionHandler rather than a domain-level exception, since the service layer
+        never sees this coming.
+      content:
+        application/problem+json:
+          schema:
+            $ref: "#/components/schemas/ProblemDetail"
   schemas:
     ProblemDetail:
       type: object
@@ -869,7 +995,7 @@ components:
       properties:
         type:
           type: string
-          format: uri
+          format: uri-reference
         title:
           type: string
         status:
@@ -878,7 +1004,7 @@ components:
           type: string
         instance:
           type: string
-          format: uri
+          format: uri-reference
     PersonRole:
       type: string
       enum: [AGENT, CUSTOMER]

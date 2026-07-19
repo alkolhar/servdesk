@@ -5,8 +5,8 @@ This file provides guidance to Claude Code (claude.ai/code) when working with co
 ## Project status
 
 servdesk is an ITSM (IT service management) ticketing application. Domain model, REST layer, security,
-and CI are in place (see below); newer surface area (e.g. OpenAPI contract tests, CI wiring for them)
-is tracked in GitHub Issues, not this file.
+CI, and OpenAPI contract testing are in place (see below); newer surface area is tracked in GitHub
+Issues, not this file.
 
 ## Commands
 
@@ -22,6 +22,8 @@ Build/run via the Maven wrapper (no system Maven required):
 ```
 
 Running the app or its integration tests requires Docker (Testcontainers — see Testing below).
+OpenAPI contract testing (Redocly lint/bundle + Schemathesis) runs as its own CI job, not via
+`./mvnw verify` — see Deployment below.
 
 ## Architecture
 
@@ -87,7 +89,10 @@ Controllers return a `*Model` (or `CollectionModel<...>`/`PagedModel<...>`), nev
     is what lets `ArchitectureTest.command_and_query_services_stay_free_of_web_layer_types` hold.
   - `web.RestExceptionHandler` — the only place that translates those exceptions to RFC 7807
     `ProblemDetail` HTTP responses (not `sendError`, so these never trigger Tomcat's `/error` forward —
-    see `SecurityConfig` below). Also maps `DataIntegrityViolationException` → 409.
+    see `SecurityConfig` below). Also maps `DataIntegrityViolationException` → 409, and
+    `PropertyReferenceException`/`InvalidDataAccessApiUsageException` → 400 (an unrecognized or
+    malformed `?sort=` field otherwise reaches Spring Data's resolver unvalidated and surfaces as an
+    uncaught 500 — found by the contract-tests CI job, see Deployment below).
 - `directory` — `Person` (single entity for agents and customers, distinguished by `role`;
   `username`/`password`/`enabled` only populated for login-capable people), `Team`.
   `PersonCommandService`/`PersonQueryService` — CQRS-light split (command depends on query, not vice
@@ -147,13 +152,28 @@ Controllers return a `*Model` (or `CollectionModel<...>`/`PagedModel<...>`), nev
     silently overwrites the real status with 401. `NotFoundException`/`ConflictException`/
     `ForbiddenException`/`DataIntegrityViolationException` don't hit this path — `RestExceptionHandler`
     answers them directly as `ProblemDetail` without calling `sendError`.
+  - **401/403/firewall-rejected responses are also `ProblemDetail`**: a missing/bad credential (401)
+    or a role check failing (403) is decided by Spring Security's filter chain itself, before a request
+    ever reaches `DispatcherServlet`/`RestExceptionHandler` — same for `StrictHttpFirewall` rejecting a
+    malformed request (e.g. a control character in a header value). Left at their Spring Security
+    defaults, all three answer with the classic `timestamp`/`error`/`trace` shape instead, inconsistent
+    with every other error response this API returns. A custom `AuthenticationEntryPoint`,
+    `AccessDeniedHandler`, and `RequestRejectedHandler` bean (all three just write a `ProblemDetail` via
+    the injected `ObjectMapper`) fix this — found by Schemathesis's `content_type_conformance` check in
+    the contract-tests CI job (see Deployment below), not by any hand-written test, since existing tests
+    only asserted on status codes.
 - Migrations: a single `V1__init_schema.sql` under `src/main/resources/db/migration` creates the full
   schema (audit/soft-delete columns, each subtype's `*_number_seq`). Once anything is deployed, switch
   back to versioned migrations rather than editing this one.
 - `application.properties`: `ddl-auto=validate` (Flyway is the only schema source of truth; this just
   fails fast on drift — e.g. a `@Lob String` needs an explicit `length` or Hibernate caps it at 255
-  chars, see `TicketComment.body`'s `@Column`) and `open-in-view=false` (assemblers only call `.getId()`
-  on lazy associations, which a proxy answers without an open session).
+  chars, see `TicketComment.body`'s `@Column`), `open-in-view=false` (assemblers only call `.getId()`
+  on lazy associations, which a proxy answers without an open session), and
+  `spring.mvc.problemdetails.enabled=true` — without it, Boot's own default
+  `MethodArgumentNotValidException` handling falls back to a non-`ProblemDetail` body despite that
+  exception implementing `ErrorResponse`; this flag is what actually turns that on (found missing by the
+  contract-tests CI job, see Deployment below — no existing test had asserted on the 400 body's content
+  type before).
 - **Null-safety**: every package has `package-info.java` with `@NullMarked` (JSpecify) — annotations
   don't apply to subpackages, so each `ticket.*` subpackage carries its own. No enforcing tool
   (NullAway/Error Prone) wired in yet — documentation/IDE-hint level only.
@@ -164,8 +184,11 @@ Controllers return a `*Model` (or `CollectionModel<...>`/`PagedModel<...>`), nev
   hand-authored and is the source of truth; controllers are written to match it. Served as a static
   resource, viewable at `/docs/index.html` via a Swagger UI webjar (deliberately not `springdoc-openapi`,
   which generates the spec from annotations — the opposite direction). Webjar version is hardcoded in
-  both `pom.xml` and `docs/index.html` — keep in sync if bumped. (No automated check that the contract
-  and implementation agree yet — tracked in an issue.)
+  both `pom.xml` and `docs/index.html` — keep in sync if bumped. Every success response is
+  `application/hal+json` (Spring HATEOAS's default media type for a `RepresentationModel`/`PagedModel`/
+  `CollectionModel`), not `application/json` — the one exception is `SetupStatus`, a plain record with no
+  hypermedia links. The contract-tests CI job (see Deployment below) is what actually verifies the
+  implementation hasn't drifted from this file.
 - **API versioning**: header-based (`X-API-Version`) via Spring Framework 7's native
   `@RequestMapping(version = "...")`, declared once at the class level (`config.ApiVersioningConfig`,
   `setDefaultVersion("1")`). `SetupController` is deliberately unversioned (pre-auth bootstrap). An
@@ -186,9 +209,25 @@ Controllers return a `*Model` (or `CollectionModel<...>`/`PagedModel<...>`), nev
   `eclipse-temurin:25-jre` runtime image most-to-least-stable, run as non-root `servdesk`.
 - `docker-compose.yml` — `app` + `db` (MariaDB) for local dev; `docker compose up --build` needs no
   local JDK at all.
-- `.github/workflows/ci.yml` — `./mvnw verify` (compile, unit + Testcontainers integration tests,
-  ArchUnit, Spotless, JaCoCo) plus a `docker build` validation job. SpotBugs runs with
-  `continue-on-error: true` (26 untriaged findings) — remove the flag once those are resolved.
+- `.github/workflows/ci.yml`:
+  - `build-and-test` — `./mvnw verify` (compile, unit + Testcontainers integration tests, ArchUnit,
+    Spotless, JaCoCo). SpotBugs runs with `continue-on-error: true` (26 untriaged findings) — remove the
+    flag once those are resolved.
+  - `docker-build` — validates the `Dockerfile` actually builds.
+  - `contract-tests` — verifies the running app never drifts from
+    `static/openapi/servdesk-api.yaml`, using each tool's own officially-supported CI integration rather
+    than shelling either out from a JUnit test (evaluated Portman/Schemathesis/Spectral for this job:
+    Spectral only lints the spec document itself and can't validate a live server; Portman adds a
+    Postman-collection indirection layer Schemathesis doesn't need). Builds the jar, starts it against
+    this job's own MariaDB service container, bootstraps the first agent through the real `/api/setup`,
+    then runs **Redocly CLI** (`redocly.yaml` at the repo root, via `npx` — Node is preinstalled on
+    GitHub-hosted runners, same basis as Docker for Testcontainers) to lint and bundle the spec (bundling
+    now future-proofs against the contract eventually splitting across multiple files), and finally
+    **`schemathesis/action@v3`** against the bundled spec and the live instance, checking
+    `not_a_server_error`/`status_code_conformance`/`content_type_conformance`/`response_schema_conformance`.
+    This is what actually found the `spring.mvc.problemdetails.enabled`, sort-exception, and
+    401/403/firewall gaps documented above — none of the hand-written tests asserted on response body
+    shape or content type, only status codes. A blocking gate, not `continue-on-error`.
 
 ### Testing
 
@@ -227,7 +266,8 @@ Two deliberately separate layers:
   ("Controllers must never reference an `@Entity`" was considered and dropped — ArchUnit's bytecode
   resolution flags the transient `assembler.toModel(queryService.findById(id))` chain as a dependency
   on the entity, failing the exact pattern this codebase recommends.)
-- **Not yet built**: OpenAPI contract-driven API tests and CI wiring for them (tracked in issues).
+- **Contract testing lives in CI, not `./mvnw verify`** — see the `contract-tests` job under Deployment
+  below.
 
 ## Agent skills
 
