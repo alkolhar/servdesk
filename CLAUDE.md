@@ -5,8 +5,8 @@ This file provides guidance to Claude Code (claude.ai/code) when working with co
 ## Project status
 
 servdesk is an ITSM (IT service management) ticketing application. Domain model, REST layer, security,
-and CI are in place (see below); newer surface area (e.g. Category/Priority CRUD, OpenAPI contract
-tests) is tracked in GitHub Issues, not this file.
+and CI are in place (see below); newer surface area (e.g. OpenAPI contract tests, CI wiring for them)
+is tracked in GitHub Issues, not this file.
 
 ## Commands
 
@@ -95,8 +95,9 @@ Controllers return a `*Model` (or `CollectionModel<...>`/`PagedModel<...>`), nev
   `PersonCreatedEvent`). `PersonUserDetails(Service)` adapts `Person` to Spring Security, mapping
   `role` → `ROLE_*`; defining this bean is what makes Boot back off its default generated-password setup.
   `PersonRepository.findByUsername` returns empty for customers (who typically have none).
-- `classification` — ticket lookup/reference data: `Category` (self-referencing tree), `Priority`
-  (name + `sortOrder`). No REST endpoints yet (tracked in an issue).
+- `classification` — ticket lookup/reference data: `Category` (self-referencing tree, `CategoryController`
+  at `/api/categories`), `Priority` (name + `sortOrder`, `PriorityController` at `/api/priorities`).
+  Same read-open/write-Agent-only RBAC shape as ticket subtypes (see `SecurityConfig` below).
 - `ticket` — the ticketing core, split per [ADR-0001](docs/adr/0001-ticket-subtypes-composed-not-inherited.md):
   - `Ticket` — concrete entity holding fields common to every subtype: `status`, `subject`,
     `description`, `category`/`priority` (nullable), `requester` (required), `assignee`/`team`

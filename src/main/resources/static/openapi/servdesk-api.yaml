@@ -15,6 +15,10 @@ tags:
     description: One-shot, pre-auth bootstrap of the first agent account.
   - name: persons
     description: Agents and customers.
+  - name: categories
+    description: Hierarchical, self-referencing ticket classification lookup data.
+  - name: priorities
+    description: Flat, manually-ranked ticket priority lookup data.
   - name: incidents
     description: Unplanned interruptions or reductions in quality of a service.
   - name: problems
@@ -156,6 +160,194 @@ paths:
       responses:
         "204":
           description: Deleted.
+        "404":
+          $ref: "#/components/responses/NotFoundProblem"
+  /api/categories:
+    parameters:
+      - $ref: "#/components/parameters/ApiVersionHeader"
+    get:
+      tags: [categories]
+      summary: List Categories (paginated).
+      parameters:
+        - $ref: "#/components/parameters/PageParam"
+        - $ref: "#/components/parameters/SizeParam"
+        - $ref: "#/components/parameters/SortParam"
+      responses:
+        "200":
+          description: A page of Categories.
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/CategoryPage"
+        "401":
+          $ref: "#/components/responses/Unauthorized"
+    post:
+      tags: [categories]
+      summary: Create a Category. Agent-only.
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/CategoryCreateRequest"
+      responses:
+        "201":
+          description: Category created.
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/CategoryModel"
+        "400":
+          $ref: "#/components/responses/ValidationProblem"
+        "401":
+          $ref: "#/components/responses/Unauthorized"
+        "403":
+          $ref: "#/components/responses/ForbiddenProblem"
+  /api/categories/{id}:
+    parameters:
+      - $ref: "#/components/parameters/ApiVersionHeader"
+      - name: id
+        in: path
+        required: true
+        schema:
+          type: integer
+          format: int64
+    get:
+      tags: [categories]
+      summary: Fetch a Category by id.
+      responses:
+        "200":
+          description: The Category.
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/CategoryModel"
+        "404":
+          $ref: "#/components/responses/NotFoundProblem"
+    put:
+      tags: [categories]
+      summary: Replace a Category's editable fields. Agent-only.
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/CategoryUpdateRequest"
+      responses:
+        "200":
+          description: The updated Category.
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/CategoryModel"
+        "400":
+          $ref: "#/components/responses/ValidationProblem"
+        "403":
+          $ref: "#/components/responses/ForbiddenProblem"
+        "404":
+          $ref: "#/components/responses/NotFoundProblem"
+    delete:
+      tags: [categories]
+      summary: Soft-delete a Category. Agent-only.
+      responses:
+        "204":
+          description: Deleted.
+        "403":
+          $ref: "#/components/responses/ForbiddenProblem"
+        "404":
+          $ref: "#/components/responses/NotFoundProblem"
+  /api/priorities:
+    parameters:
+      - $ref: "#/components/parameters/ApiVersionHeader"
+    get:
+      tags: [priorities]
+      summary: List Priorities (paginated).
+      parameters:
+        - $ref: "#/components/parameters/PageParam"
+        - $ref: "#/components/parameters/SizeParam"
+        - $ref: "#/components/parameters/SortParam"
+      responses:
+        "200":
+          description: A page of Priorities.
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/PriorityPage"
+        "401":
+          $ref: "#/components/responses/Unauthorized"
+    post:
+      tags: [priorities]
+      summary: Create a Priority. Agent-only.
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/PriorityCreateRequest"
+      responses:
+        "201":
+          description: Priority created.
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/PriorityModel"
+        "400":
+          $ref: "#/components/responses/ValidationProblem"
+        "401":
+          $ref: "#/components/responses/Unauthorized"
+        "403":
+          $ref: "#/components/responses/ForbiddenProblem"
+  /api/priorities/{id}:
+    parameters:
+      - $ref: "#/components/parameters/ApiVersionHeader"
+      - name: id
+        in: path
+        required: true
+        schema:
+          type: integer
+          format: int64
+    get:
+      tags: [priorities]
+      summary: Fetch a Priority by id.
+      responses:
+        "200":
+          description: The Priority.
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/PriorityModel"
+        "404":
+          $ref: "#/components/responses/NotFoundProblem"
+    put:
+      tags: [priorities]
+      summary: Replace a Priority's editable fields. Agent-only.
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/PriorityUpdateRequest"
+      responses:
+        "200":
+          description: The updated Priority.
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/PriorityModel"
+        "400":
+          $ref: "#/components/responses/ValidationProblem"
+        "403":
+          $ref: "#/components/responses/ForbiddenProblem"
+        "404":
+          $ref: "#/components/responses/NotFoundProblem"
+    delete:
+      tags: [priorities]
+      summary: Soft-delete a Priority. Agent-only.
+      responses:
+        "204":
+          description: Deleted.
+        "403":
+          $ref: "#/components/responses/ForbiddenProblem"
         "404":
           $ref: "#/components/responses/NotFoundProblem"
   /api/incidents:
@@ -792,6 +984,128 @@ components:
               type: array
               items:
                 $ref: "#/components/schemas/PersonModel"
+        _links:
+          type: object
+          description: first/prev/self/next/last, as available.
+        page:
+          $ref: "#/components/schemas/PageMetadata"
+    CategoryModel:
+      type: object
+      description: A hierarchical, self-referencing ticket classification (e.g. Hardware -> Laptop -> Battery).
+      properties:
+        id:
+          type: integer
+          format: int64
+        name:
+          type: string
+        parentId:
+          type: integer
+          format: int64
+          nullable: true
+        createdAt:
+          type: string
+          format: date-time
+        updatedAt:
+          type: string
+          format: date-time
+        createdBy:
+          type: string
+          nullable: true
+        updatedBy:
+          type: string
+          nullable: true
+        _links:
+          type: object
+          description: HATEOAS links (self, and parent when parentId is present).
+    CategoryCreateRequest:
+      type: object
+      required: [name]
+      properties:
+        name:
+          type: string
+        parentId:
+          type: integer
+          format: int64
+          nullable: true
+    CategoryUpdateRequest:
+      type: object
+      required: [name]
+      properties:
+        name:
+          type: string
+        parentId:
+          type: integer
+          format: int64
+          nullable: true
+    CategoryPage:
+      type: object
+      description: Spring HATEOAS PagedModel<CategoryModel>.
+      properties:
+        _embedded:
+          type: object
+          properties:
+            categoryModelList:
+              type: array
+              items:
+                $ref: "#/components/schemas/CategoryModel"
+        _links:
+          type: object
+          description: first/prev/self/next/last, as available.
+        page:
+          $ref: "#/components/schemas/PageMetadata"
+    PriorityModel:
+      type: object
+      description: A flat, manually-picked ranking a ticket can be given (lower sortOrder = more severe).
+      properties:
+        id:
+          type: integer
+          format: int64
+        name:
+          type: string
+        sortOrder:
+          type: integer
+        createdAt:
+          type: string
+          format: date-time
+        updatedAt:
+          type: string
+          format: date-time
+        createdBy:
+          type: string
+          nullable: true
+        updatedBy:
+          type: string
+          nullable: true
+        _links:
+          type: object
+          description: HATEOAS links (self).
+    PriorityCreateRequest:
+      type: object
+      required: [name, sortOrder]
+      properties:
+        name:
+          type: string
+        sortOrder:
+          type: integer
+    PriorityUpdateRequest:
+      type: object
+      required: [name, sortOrder]
+      properties:
+        name:
+          type: string
+        sortOrder:
+          type: integer
+    PriorityPage:
+      type: object
+      description: Spring HATEOAS PagedModel<PriorityModel>.
+      properties:
+        _embedded:
+          type: object
+          properties:
+            priorityModelList:
+              type: array
+              items:
+                $ref: "#/components/schemas/PriorityModel"
         _links:
           type: object
           description: first/prev/self/next/last, as available.
