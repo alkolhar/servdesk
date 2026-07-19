@@ -55,6 +55,9 @@ jobs:
   # shelling out to either from inside a JUnit test.
   contract-tests:
     runs-on: ubuntu-latest
+    # Most failure surface of any job here (a backgrounded app process, a polling readiness loop, two
+    # external tools) — bound it rather than falling back to the platform default.
+    timeout-minutes: 15
     services:
       mariadb:
         image: mariadb:latest
