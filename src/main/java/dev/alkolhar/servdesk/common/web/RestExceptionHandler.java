@@ -4,6 +4,8 @@ import dev.alkolhar.servdesk.common.exception.ConflictException;
 import dev.alkolhar.servdesk.common.exception.ForbiddenException;
 import dev.alkolhar.servdesk.common.exception.NotFoundException;
 import org.springframework.dao.DataIntegrityViolationException;
+import org.springframework.dao.InvalidDataAccessApiUsageException;
+import org.springframework.data.core.PropertyReferenceException;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.ProblemDetail;
 import org.springframework.web.bind.annotation.ExceptionHandler;
@@ -47,5 +49,19 @@ public class RestExceptionHandler {
 	ProblemDetail handleDataIntegrityViolation(DataIntegrityViolationException ex) {
 		return ProblemDetail.forStatusAndDetail(HttpStatus.CONFLICT,
 				"The request conflicts with an existing resource, e.g. a unique value is already in use.");
+	}
+
+	/**
+	 * A {@code ?sort=} query param naming a field that doesn't exist on the target
+	 * entity ({@link PropertyReferenceException}), or one Spring Data JPA refuses
+	 * to translate into a safe {@code ORDER BY} clause
+	 * ({@link InvalidDataAccessApiUsageException}, e.g. a malformed expression),
+	 * reaches Spring Data's resolver unvalidated; without this handler either is an
+	 * uncaught 500, but an unrecognized/malformed sort field is a client input
+	 * error, not a server fault.
+	 */
+	@ExceptionHandler({PropertyReferenceException.class, InvalidDataAccessApiUsageException.class})
+	ProblemDetail handleInvalidSortProperty(RuntimeException ex) {
+		return ProblemDetail.forStatusAndDetail(HttpStatus.BAD_REQUEST, ex.getMessage());
 	}
 }

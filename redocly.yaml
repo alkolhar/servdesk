@@ -1,0 +1,10 @@
+apis:
+  main:
+    root: src/main/resources/static/openapi/servdesk-api.yaml
+extends:
+  - recommended
+rules:
+  operation-operationId: off
+  info-license: off
+  "no-server-example.com": off
+  operation-4xx-response: off

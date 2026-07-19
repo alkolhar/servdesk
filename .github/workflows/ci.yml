@@ -47,3 +47,72 @@ jobs:
       - uses: actions/checkout@v7.0.0
       - name: Build container image
         run: docker build -t servdesk:ci .
+
+  # Verifies the running app never drifts from static/openapi/servdesk-api.yaml. Runs as its own CI
+  # job (not part of `./mvnw verify`) using each tool's own officially-supported integration —
+  # schemathesis/action for Schemathesis, and Redocly CLI via npx (Node is preinstalled on
+  # GitHub-hosted ubuntu runners, same basis as Docker in build-and-test above) — rather than
+  # shelling out to either from inside a JUnit test.
+  contract-tests:
+    runs-on: ubuntu-latest
+    # Most failure surface of any job here (a backgrounded app process, a polling readiness loop, two
+    # external tools) — bound it rather than falling back to the platform default.
+    timeout-minutes: 15
+    services:
+      mariadb:
+        image: mariadb:latest
+        env:
+          MARIADB_ROOT_PASSWORD: root
+          MARIADB_DATABASE: servdesk
+        ports:
+          - 3306:3306
+        options: >-
+          --health-cmd="healthcheck.sh --connect --innodb_initialized"
+          --health-interval=10s --health-timeout=5s --health-retries=5
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Set up JDK 25
+        uses: actions/setup-java@v5.6.0
+        with:
+          distribution: temurin
+          java-version: "25"
+          cache: maven
+
+      - name: Build the jar
+        run: ./mvnw --batch-mode package -DskipTests
+
+      - name: Start the app against the MariaDB service container
+        run: |
+          java -jar target/*.jar \
+            --spring.datasource.url=jdbc:mariadb://localhost:3306/servdesk \
+            --spring.datasource.username=root \
+            --spring.datasource.password=root &
+          for i in $(seq 1 30); do
+            curl -sf http://localhost:8080/api/setup && exit 0
+            sleep 2
+          done
+          echo "App never became ready" >&2
+          exit 1
+
+      # Fixture-only credentials for this CI run's disposable MariaDB service container — not a
+      # real secret, same admin/admin123 pattern the integration tests already bootstrap with.
+      - name: Bootstrap the first agent
+        run: |
+          curl -sf -X POST http://localhost:8080/api/setup -H "Content-Type: application/json" \
+            -d '{"name":"Administrator","email":"admin@example.com","username":"admin","password":"admin123"}'
+
+      - name: Lint and bundle the OpenAPI contract (Redocly CLI)
+        run: |
+          npx --yes @redocly/cli@2.39.0 lint
+          npx --yes @redocly/cli@2.39.0 bundle main -o /tmp/bundled-openapi.yaml
+
+      - name: Verify the running app matches the contract (Schemathesis)
+        uses: schemathesis/action@v3
+        with:
+          schema: /tmp/bundled-openapi.yaml
+          base-url: http://localhost:8080
+          checks: not_a_server_error,status_code_conformance,content_type_conformance,response_schema_conformance
+          # base64 of admin:admin123 — the fixture credentials bootstrapped above
+          authorization: "Basic YWRtaW46YWRtaW4xMjM="
+          max-examples: 10
