@@ -61,7 +61,7 @@ public abstract class AbstractTicketSubtypeCommandService<T extends MapsIdBaseEn
 	 * and must be set beforehand. Zero-padded by hand rather than via
 	 * {@code String.format("%06d", ...)}: {@code Formatter} runs every integer
 	 * conversion through the JVM's default-locale {@code DecimalFormatSymbols}
-	 * (even with an explicit {@link Locale#ROOT}), which can substitute non-ASCII
+	 * (even with an explicit {@code Locale.ROOT}), which can substitute non-ASCII
 	 * digit characters for some locales — wrong for a display number that must
 	 * always be plain ASCII digits.
 	 */
