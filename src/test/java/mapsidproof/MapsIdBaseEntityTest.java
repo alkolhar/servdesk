@@ -3,7 +3,9 @@ package mapsidproof;
 import static org.assertj.core.api.Assertions.assertThat;
 
 import dev.alkolhar.servdesk.classification.Category;
+import dev.alkolhar.servdesk.classification.Impact;
 import dev.alkolhar.servdesk.classification.Priority;
+import dev.alkolhar.servdesk.classification.Urgency;
 import dev.alkolhar.servdesk.common.MapsIdBaseEntity;
 import dev.alkolhar.servdesk.directory.Person;
 import dev.alkolhar.servdesk.directory.PersonRole;
@@ -85,8 +87,9 @@ class MapsIdBaseEntityTest {
 				.applySetting("hibernate.connection.driver_class", "org.mariadb.jdbc.Driver")
 				.applySetting("hibernate.hbm2ddl.auto", "create-drop").build();
 		sessionFactory = new MetadataSources(registry).addAnnotatedClass(Team.class).addAnnotatedClass(Category.class)
-				.addAnnotatedClass(Priority.class).addAnnotatedClass(Person.class).addAnnotatedClass(Ticket.class)
-				.addAnnotatedClass(MapsIdFixture.class).buildMetadata().buildSessionFactory();
+				.addAnnotatedClass(Impact.class).addAnnotatedClass(Urgency.class).addAnnotatedClass(Priority.class)
+				.addAnnotatedClass(Person.class).addAnnotatedClass(Ticket.class).addAnnotatedClass(MapsIdFixture.class)
+				.buildMetadata().buildSessionFactory();
 	}
 
 	@AfterAll

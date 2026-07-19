@@ -17,7 +17,9 @@ public interface TicketCreateFields {
 
 	@Nullable Long categoryId();
 
-	@Nullable Long priorityId();
+	@Nullable Long impactId();
+
+	@Nullable Long urgencyId();
 
 	Long requesterId();
 

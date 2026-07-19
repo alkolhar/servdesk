@@ -50,18 +50,19 @@ public class SecurityConfig {
 	 * {@code ROLE_AGENT}/{@code ROLE_CUSTOMER} {@code GrantedAuthority} — the rules
 	 * below are the first thing that actually reads it. Policy: the person
 	 * directory (creating/editing/deleting agents and customers) is an AGENT-only
-	 * concern. Classification lookup data (Category/Priority) can be read by either
-	 * role, but only an AGENT can create/update/delete it — same
-	 * read-open/write-AGENT-only shape as ticket subtypes, since it's reference
-	 * data tickets point to, not sensitive personal data like the person directory.
-	 * Ticket subtypes (Incident/Problem/Change/Service Request, see ADR-0001) can
-	 * be read by either role, but creating one, changing its status, or deleting it
-	 * is AGENT-only for this iteration — a deliberate narrowing from the old flat
-	 * {@code Ticket}'s policy, since customer self-service creation is deferred
-	 * until finer-grained RBAC and/or a future workflow/process engine exist to
-	 * support it properly. Comments ({@code /api/tickets/*}{@code /comments}) can
-	 * be read and created by either role — a customer needs to reply on their own
-	 * ticket — with the {@code internal}-flag-is-Agent-only rule enforced by
+	 * concern. Classification lookup data (Category/Priority/Impact/Urgency/
+	 * PriorityDefinition) can be read by either role, but only an AGENT can
+	 * create/update/delete it — same read-open/write-AGENT-only shape as ticket
+	 * subtypes, since it's reference data tickets point to, not sensitive personal
+	 * data like the person directory. Ticket subtypes
+	 * (Incident/Problem/Change/Service Request, see ADR-0001) can be read by either
+	 * role, but creating one, changing its status, or deleting it is AGENT-only for
+	 * this iteration — a deliberate narrowing from the old flat {@code Ticket}'s
+	 * policy, since customer self-service creation is deferred until finer-grained
+	 * RBAC and/or a future workflow/process engine exist to support it properly.
+	 * Comments ({@code /api/tickets/*}{@code /comments}) can be read and created by
+	 * either role — a customer needs to reply on their own ticket — with the
+	 * {@code internal}-flag-is-Agent-only rule enforced by
 	 * {@code CommentCommandService} instead, since that's a data-dependent check
 	 * (the request body's {@code internal} flag together with the caller's role),
 	 * not a static URL+role rule. Deliberately out of scope here: row-level
@@ -108,13 +109,21 @@ public class SecurityConfig {
 				.requestMatchers("/error").permitAll()
 				// person directory management is AGENT-only
 				.requestMatchers("/api/persons/**").hasRole("AGENT")
-				// classification lookup data (Category/Priority): either role can read,
-				// only an AGENT can create/update/delete
-				.requestMatchers(HttpMethod.GET, "/api/categories/**", "/api/priorities/**")
+				// classification lookup data (Category/Priority/Impact/Urgency/
+				// PriorityDefinition): either role can read, only an AGENT can
+				// create/update/delete
+				.requestMatchers(HttpMethod.GET, "/api/categories/**", "/api/priorities/**", "/api/impacts/**",
+						"/api/urgencies/**", "/api/priority-definitions/**")
 				.hasAnyRole("AGENT", "CUSTOMER")
-				.requestMatchers(HttpMethod.POST, "/api/categories/**", "/api/priorities/**").hasRole("AGENT")
-				.requestMatchers(HttpMethod.PUT, "/api/categories/**", "/api/priorities/**").hasRole("AGENT")
-				.requestMatchers(HttpMethod.DELETE, "/api/categories/**", "/api/priorities/**").hasRole("AGENT")
+				.requestMatchers(HttpMethod.POST, "/api/categories/**", "/api/priorities/**", "/api/impacts/**",
+						"/api/urgencies/**", "/api/priority-definitions/**")
+				.hasRole("AGENT")
+				.requestMatchers(HttpMethod.PUT, "/api/categories/**", "/api/priorities/**", "/api/impacts/**",
+						"/api/urgencies/**", "/api/priority-definitions/**")
+				.hasRole("AGENT")
+				.requestMatchers(HttpMethod.DELETE, "/api/categories/**", "/api/priorities/**", "/api/impacts/**",
+						"/api/urgencies/**", "/api/priority-definitions/**")
+				.hasRole("AGENT")
 				// ticket subtypes: either role can read, only an AGENT can create, change
 				// status, or delete (see ADR-0001; a deliberate narrowing from the old flat
 				// Ticket's policy — customer self-service creation is deferred)

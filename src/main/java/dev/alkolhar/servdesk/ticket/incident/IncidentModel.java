@@ -14,6 +14,8 @@ public class IncidentModel extends RepresentationModel<IncidentModel> {
 	private String subject;
 	private @Nullable String description;
 	private @Nullable Long categoryId;
+	private @Nullable Long impactId;
+	private @Nullable Long urgencyId;
 	private @Nullable Long priorityId;
 	private Long requesterId;
 	private @Nullable Long assigneeId;
@@ -72,6 +74,22 @@ public class IncidentModel extends RepresentationModel<IncidentModel> {
 
 	public void setCategoryId(@Nullable Long categoryId) {
 		this.categoryId = categoryId;
+	}
+
+	public @Nullable Long getImpactId() {
+		return impactId;
+	}
+
+	public void setImpactId(@Nullable Long impactId) {
+		this.impactId = impactId;
+	}
+
+	public @Nullable Long getUrgencyId() {
+		return urgencyId;
+	}
+
+	public void setUrgencyId(@Nullable Long urgencyId) {
+		this.urgencyId = urgencyId;
 	}
 
 	public @Nullable Long getPriorityId() {
