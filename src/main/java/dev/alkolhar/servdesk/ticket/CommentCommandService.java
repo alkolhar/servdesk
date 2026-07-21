@@ -33,6 +33,10 @@ public class CommentCommandService {
 		}
 		Ticket ticket = ticketRepository.findById(ticketId)
 				.orElseThrow(() -> new NotFoundException("Ticket " + ticketId + " not found"));
+		if (!authorIsAgent && !authorId.equals(ticket.getRequester().getId())) {
+			// 404, not 403: a Customer must not learn that a foreign ticket id exists
+			throw new NotFoundException("Ticket " + ticketId + " not found");
+		}
 		TicketComment comment = new TicketComment();
 		comment.setTicket(ticket);
 		comment.setAuthor(entityManager.getReference(Person.class, authorId));

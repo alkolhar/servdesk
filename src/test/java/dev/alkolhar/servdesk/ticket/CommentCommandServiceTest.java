@@ -70,8 +70,7 @@ class CommentCommandServiceTest {
 
 	@Test
 	void doesNotRestrictANonInternalCommentToEitherRole() {
-		Ticket ticket = new Ticket();
-		ReflectionTestUtils.setField(ticket, "id", 1L);
+		Ticket ticket = ticketRequestedBy(3L);
 		when(ticketRepository.findById(1L)).thenReturn(Optional.of(ticket));
 		when(entityManager.getReference(Person.class, 3L)).thenReturn(mock(Person.class));
 		when(commentRepository.save(any(TicketComment.class))).thenAnswer(invocation -> invocation.getArgument(0));
@@ -79,6 +78,26 @@ class CommentCommandServiceTest {
 		TicketComment saved = commandService.create(1L, new CommentCreateRequest("Thanks!", false), 3L, false);
 
 		assertThat(saved.isInternal()).isFalse();
+	}
+
+	@Test
+	void rejectsACustomersCommentOnAForeignTicketAsNotFound() {
+		Ticket ticket = ticketRequestedBy(7L);
+		when(ticketRepository.findById(1L)).thenReturn(Optional.of(ticket));
+
+		assertThatThrownBy(() -> commandService.create(1L, new CommentCreateRequest("Let me in", false), 3L, false))
+				.isInstanceOf(NotFoundException.class);
+
+		verify(commentRepository, never()).save(any());
+	}
+
+	private Ticket ticketRequestedBy(Long requesterId) {
+		Ticket ticket = new Ticket();
+		ReflectionTestUtils.setField(ticket, "id", 1L);
+		Person requester = new Person();
+		ReflectionTestUtils.setField(requester, "id", requesterId);
+		ticket.setRequester(requester);
+		return ticket;
 	}
 
 	@Test

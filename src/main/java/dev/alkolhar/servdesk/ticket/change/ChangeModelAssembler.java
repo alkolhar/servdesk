@@ -34,7 +34,7 @@ public class ChangeModelAssembler implements RepresentationModelAssembler<Change
 		model.setCreatedBy(ticket.getCreatedBy());
 		model.setUpdatedBy(ticket.getUpdatedBy());
 
-		model.add(linkTo(methodOn(ChangeController.class).findById(change.getId())).withSelfRel());
+		model.add(linkTo(methodOn(ChangeController.class).findById(change.getId(), null)).withSelfRel());
 		model.add(
 				linkTo(methodOn(PersonController.class).findById(ticket.getRequester().getId())).withRel("requester"));
 		if (ticket.getAssignee() != null) {

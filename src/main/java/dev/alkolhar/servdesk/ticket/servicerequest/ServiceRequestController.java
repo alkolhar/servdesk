@@ -1,5 +1,8 @@
 package dev.alkolhar.servdesk.ticket.servicerequest;
 
+import dev.alkolhar.servdesk.directory.Person;
+import dev.alkolhar.servdesk.directory.PersonRole;
+import dev.alkolhar.servdesk.directory.PersonUserDetails;
 import dev.alkolhar.servdesk.ticket.TicketStatus;
 import jakarta.validation.Valid;
 import org.jspecify.annotations.Nullable;
@@ -9,6 +12,7 @@ import org.springframework.data.web.PageableDefault;
 import org.springframework.data.web.PagedResourcesAssembler;
 import org.springframework.hateoas.PagedModel;
 import org.springframework.http.HttpStatus;
+import org.springframework.security.core.Authentication;
 import org.springframework.web.bind.annotation.DeleteMapping;
 import org.springframework.web.bind.annotation.GetMapping;
 import org.springframework.web.bind.annotation.PathVariable;
@@ -37,14 +41,19 @@ public class ServiceRequestController {
 
 	@GetMapping
 	public PagedModel<ServiceRequestModel> findAll(@RequestParam(required = false) @Nullable TicketStatus status,
-			@PageableDefault(size = 20) Pageable pageable, PagedResourcesAssembler<ServiceRequest> pagedAssembler) {
-		Page<ServiceRequest> page = queryService.findAll(status, pageable);
+			@PageableDefault(size = 20) Pageable pageable, PagedResourcesAssembler<ServiceRequest> pagedAssembler,
+			Authentication authentication) {
+		Person caller = callerOf(authentication);
+		Page<ServiceRequest> page = queryService.findAll(status, caller.getId(), caller.getRole() == PersonRole.AGENT,
+				pageable);
 		return pagedAssembler.toModel(page, assembler);
 	}
 
 	@GetMapping("/{id}")
-	public ServiceRequestModel findById(@PathVariable Long id) {
-		return assembler.toModel(queryService.findById(id));
+	public ServiceRequestModel findById(@PathVariable Long id, Authentication authentication) {
+		Person caller = callerOf(authentication);
+		return assembler
+				.toModel(queryService.findByIdVisibleTo(id, caller.getId(), caller.getRole() == PersonRole.AGENT));
 	}
 
 	@PostMapping
@@ -62,5 +71,9 @@ public class ServiceRequestController {
 	@ResponseStatus(HttpStatus.NO_CONTENT)
 	public void delete(@PathVariable Long id) {
 		commandService.delete(id);
+	}
+
+	private Person callerOf(Authentication authentication) {
+		return ((PersonUserDetails) authentication.getPrincipal()).getPerson();
 	}
 }
