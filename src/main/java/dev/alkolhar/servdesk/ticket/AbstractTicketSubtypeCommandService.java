@@ -66,8 +66,8 @@ public abstract class AbstractTicketSubtypeCommandService<T extends MapsIdBaseEn
 	 * always be plain ASCII digits.
 	 */
 	protected String nextDisplayNumber(String prefix, String sequenceName) {
-		long next = ((Number) entityManager.createNativeQuery("SELECT NEXTVAL(" + sequenceName + ")").getSingleResult())
-				.longValue();
+		long next = ((Number) entityManager.createNativeQuery("SELECT nextval('" + sequenceName + "')")
+				.getSingleResult()).longValue();
 		String digits = Long.toString(next);
 		return prefix + "0".repeat(Math.max(0, 6 - digits.length())) + digits;
 	}

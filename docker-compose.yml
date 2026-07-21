@@ -1,17 +1,16 @@
 services:
   db:
-    image: mariadb:latest
+    image: postgres:latest
     environment:
-      MARIADB_DATABASE: servdesk
-      MARIADB_USER: servdesk
-      MARIADB_PASSWORD: servdesk
-      MARIADB_ROOT_PASSWORD: root
+      POSTGRES_DB: servdesk
+      POSTGRES_USER: servdesk
+      POSTGRES_PASSWORD: servdesk
     ports:
-      - "3306:3306"
+      - "5432:5432"
     volumes:
-      - servdesk-db-data:/var/lib/mysql
+      - servdesk-db-data:/var/lib/postgresql/data
     healthcheck:
-      test: ["CMD", "healthcheck.sh", "--connect", "--innodb_initialized"]
+      test: ["CMD-SHELL", "pg_isready -U servdesk -d servdesk"]
       interval: 5s
       timeout: 5s
       retries: 10
@@ -22,7 +21,7 @@ services:
       db:
         condition: service_healthy
     environment:
-      SPRING_DATASOURCE_URL: jdbc:mariadb://db:3306/servdesk
+      SPRING_DATASOURCE_URL: jdbc:postgresql://db:5432/servdesk
       SPRING_DATASOURCE_USERNAME: servdesk
       SPRING_DATASOURCE_PASSWORD: servdesk
     ports:

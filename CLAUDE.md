@@ -28,8 +28,10 @@ OpenAPI contract testing (Redocly lint/bundle + Schemathesis) runs as its own CI
 ## Architecture
 
 - **Java 25**, **Spring Boot 4.1.0**, Maven build. Base package: `dev.alkolhar.servdesk`.
-- **Database**: MariaDB (`mariadb-java-client`) + **Flyway** (`flyway-mysql`); migrations under
-  `src/main/resources/db/migration`. Data access via **Spring Data JPA**.
+- **Database**: PostgreSQL (`postgresql` driver) + **Flyway** (`flyway-database-postgresql`);
+  migrations under `src/main/resources/db/migration`. Data access via **Spring Data JPA**.
+  Postgres-only by decision ([ADR-0002](docs/adr/0002-postgresql-only-product-owns-its-database.md)):
+  the DB ships with the product, Postgres-specific features (partial indexes, `jsonb`) are fair game.
 - **Web**: Spring MVC + **Spring HATEOAS** for hypermedia responses.
 - **Security**: `spring-boot-starter-security` + `spring-security-messaging`.
 - **Spring Integration** (`http`/`jpa`) and **Quartz** are on the classpath for future integration
@@ -73,9 +75,11 @@ Controllers return a `*Model` (or `CollectionModel<...>`/`PagedModel<...>`), nev
   - **Soft delete**: every concrete entity carries its own `@SQLDelete` + `@SQLRestriction("deleted_at
     IS NULL")` pair (can't live on `BaseEntity` — each needs its own table name in the SQL string).
     `@SQLRestriction` applies to every load including association fetches, so a soft-deleted agent can
-    no longer authenticate. **Trade-off**: MariaDB has no partial/filtered unique index, so a
-    soft-deleted row's unique columns (email/username/team name/priority name/ticket display numbers)
-    still occupy the index — recreating with the same value throws `DataIntegrityViolationException`
+    no longer authenticate. Unique constraints on soft-deletable columns (email/username/team
+    name/priority name/ticket display numbers) are **partial unique indexes** (`WHERE deleted_at IS
+    NULL`), so a soft-deleted row's values are free for reuse — recreating them is a normal 201, not
+    a 409 (`PersonControllerTest.recreatingASoftDeletedPersonsEmailSucceeds`). A *live* duplicate
+    racing past the service layer's own check still surfaces as `DataIntegrityViolationException`
     (mapped to 409 by `RestExceptionHandler`, not a domain exception, since the service layer never
     sees it coming).
   - `event.DomainEvent` — marker interface for `ApplicationEventPublisher` events (no broker).
@@ -111,7 +115,7 @@ Controllers return a `*Model` (or `CollectionModel<...>`/`PagedModel<...>`), nev
     `.servicerequest`) — each an independent `@Entity` sharing `Ticket`'s PK via `@OneToOne @MapsId`
     (using `MapsIdBaseEntity`, not `BaseEntity`, since `@GeneratedValue(IDENTITY)` conflicts with
     `@MapsId`). Each has its own `displayNumber` + DB sequence: `INC-`/`PRB-`/`RFC-`/`REQ-` (Change's
-    table is `change_request` — `change` is a MariaDB reserved word), zero-padded by hand rather than
+    table is `change_request` — a MariaDB-era reserved-word workaround, kept as the clearer name), zero-padded by hand rather than
     `String.format` (default-locale `DecimalFormatSymbols` can substitute non-ASCII digits).
     `Incident.relatedProblem` is an optional many-to-one to `Problem` (no reverse query). Creating any
     subtype is Agent-only.
@@ -166,8 +170,9 @@ Controllers return a `*Model` (or `CollectionModel<...>`/`PagedModel<...>`), nev
   schema (audit/soft-delete columns, each subtype's `*_number_seq`). Once anything is deployed, switch
   back to versioned migrations rather than editing this one.
 - `application.properties`: `ddl-auto=validate` (Flyway is the only schema source of truth; this just
-  fails fast on drift — e.g. a `@Lob String` needs an explicit `length` or Hibernate caps it at 255
-  chars, see `TicketComment.body`'s `@Column`), `open-in-view=false` (assemblers only call `.getId()`
+  fails fast on drift — e.g. unbounded text columns are `TEXT` and must be mapped
+  `@JdbcTypeCode(SqlTypes.LONGVARCHAR)`, not `@Lob`, which Postgres would map to `oid` large objects —
+  see `TicketComment.body`), `open-in-view=false` (assemblers only call `.getId()`
   on lazy associations, which a proxy answers without an open session), and
   `spring.mvc.problemdetails.enabled=true` — without it, Boot's own default
   `MethodArgumentNotValidException` handling falls back to a non-`ProblemDetail` body despite that
@@ -207,7 +212,7 @@ Controllers return a `*Model` (or `CollectionModel<...>`/`PagedModel<...>`), nev
   (`java -Djarmode=tools -jar app.jar extract --layers --launcher`) into
   `dependencies`/`spring-boot-loader`/`snapshot-dependencies`/`application` layers, copy into an
   `eclipse-temurin:25-jre` runtime image most-to-least-stable, run as non-root `servdesk`.
-- `docker-compose.yml` — `app` + `db` (MariaDB) for local dev; `docker compose up --build` needs no
+- `docker-compose.yml` — `app` + `db` (PostgreSQL) for local dev; `docker compose up --build` needs no
   local JDK at all.
 - `.github/workflows/ci.yml`:
   - `build-and-test` — `./mvnw verify` (compile, unit + Testcontainers integration tests, ArchUnit,
@@ -219,7 +224,7 @@ Controllers return a `*Model` (or `CollectionModel<...>`/`PagedModel<...>`), nev
     than shelling either out from a JUnit test (evaluated Portman/Schemathesis/Spectral for this job:
     Spectral only lints the spec document itself and can't validate a live server; Portman adds a
     Postman-collection indirection layer Schemathesis doesn't need). Builds the jar, starts it against
-    this job's own MariaDB service container, bootstraps the first agent through the real `/api/setup`,
+    this job's own PostgreSQL service container, bootstraps the first agent through the real `/api/setup`,
     then runs **Redocly CLI** (`redocly.yaml` at the repo root, via `npx` — Node is preinstalled on
     GitHub-hosted runners, same basis as Docker for Testcontainers) to lint and bundle the spec (bundling
     now future-proofs against the contract eventually splitting across multiple files), and finally
@@ -242,7 +247,7 @@ Two deliberately separate layers:
   fixture use `ReflectionTestUtils.setField(entity, "id", ...)` inside the mocked repository's `save`
   stub.
 - **Integration tests** (`*ControllerTest`, `SetupControllerTest`) — **Testcontainers**
-  (`TestcontainersConfiguration`, `MariaDBContainer`, `@ServiceConnection`; `public` so test classes
+  (`TestcontainersConfiguration`, `PostgreSQLContainer`, `@ServiceConnection`; `public` so test classes
   outside the root package can `@Import` it). Full `@SpringBootTest(webEnvironment = RANDOM_PORT)` +
   `TestRestTemplate` (lives in `org.springframework.boot.resttestclient`; needs
   `spring-boot-starter-restclient` + `@AutoConfigureTestRestTemplate` explicitly — Boot no longer
@@ -259,7 +264,7 @@ Two deliberately separate layers:
     same annotation, and use `@TestInstance(PER_CLASS)` + `@BeforeAll` to bootstrap an agent through
     the real `/api/setup` endpoint once per class.
 - `TestServdeskApplication` — dev-time entry point booting the app with Testcontainers applied, for
-  running locally against a disposable MariaDB without Docker Compose.
+  running locally against a disposable PostgreSQL without Docker Compose.
 - `architecture.ArchitectureTest` (ArchUnit, `@AnalyzeClasses` over the whole base package) freezes the
   layering rules above as executable checks: feature packages stay cycle-free, controllers never
   depend on a `*Repository`, `*CommandService`/`*QueryService` never depend on `org.springframework.web..`.
