@@ -12,6 +12,7 @@ import static org.mockito.Mockito.when;
 import dev.alkolhar.servdesk.common.exception.NotFoundException;
 import dev.alkolhar.servdesk.customfield.AttributeValidator;
 import dev.alkolhar.servdesk.directory.Person;
+import dev.alkolhar.servdesk.ticket.SlaHooks;
 import dev.alkolhar.servdesk.ticket.Ticket;
 import dev.alkolhar.servdesk.ticket.TicketRepository;
 import dev.alkolhar.servdesk.ticket.TicketStatus;
@@ -57,12 +58,15 @@ class ProblemCommandServiceTest {
 	@Mock
 	private AttributeValidator attributeValidator;
 
+	@Mock
+	private SlaHooks slaHooks;
+
 	private ProblemCommandService commandService;
 
 	@BeforeEach
 	void setUp() {
 		commandService = new ProblemCommandService(problemRepository, problemQueryService, ticketRepository,
-				entityManager, events, attributeValidator);
+				entityManager, events, attributeValidator, slaHooks);
 	}
 
 	private void stubSavesToReturnTheirArgument() {

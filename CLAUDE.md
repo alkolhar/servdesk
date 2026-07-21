@@ -34,8 +34,9 @@ OpenAPI contract testing (Redocly lint/bundle + Schemathesis) runs as its own CI
   the DB ships with the product, Postgres-specific features (partial indexes, `jsonb`) are fair game.
 - **Web**: Spring MVC + **Spring HATEOAS** for hypermedia responses.
 - **Security**: `spring-boot-starter-security` + `spring-security-messaging`.
-- **Spring Integration** (`http`/`jpa`) and **Quartz** are on the classpath for future integration
-  flows and scheduled jobs, not yet used.
+- **Spring Integration** (`http`/`jpa`) is on the classpath for future integration flows, not yet
+  used. **Quartz** got its first consumer with the SLA breach scanner (`sla.SlaSchedulingConfig`,
+  default in-memory job store — a missed tick is harmless, the next pass is idempotent).
 - **Validation**: Jakarta Bean Validation. **Actuator**: health/metrics. **DevTools**: local hot reload.
 - **Code quality tooling** (Maven plugins, no new runtime deps except `jspecify`):
   - **Spotless** (Eclipse JDT formatter, tab-indented) enforces formatting on `./mvnw verify`;
@@ -111,6 +112,23 @@ Controllers return a `*Model` (or `CollectionModel<...>`/`PagedModel<...>`), nev
 - `classification` — ticket lookup/reference data: `Category` (self-referencing tree, `CategoryController`
   at `/api/categories`), `Priority` (name + `sortOrder`, `PriorityController` at `/api/priorities`).
   Same read-open/write-Agent-only RBAC shape as ticket subtypes (see `SecurityConfig` below).
+- `sla` — service-level management (issue #31). `SlaPolicy` (at most one per `Priority`, partial
+  unique; `responseMinutes`/`resolutionMinutes`, either nullable, at least one required) at
+  `/api/sla-policies` (reference-data RBAC shape, unpaginated). Deadlines live on the shared
+  `Ticket` (`respondBy`/`resolveBy`, plus `firstRespondedAt`/`pendingSince`/`*BreachedAt`) and are
+  derived by `TicketSlaService` — v1 runs a **24/7 clock** (business-hours calendars are follow-up
+  scope and slot into this one service). Derivation only on create or an actual priority change,
+  anchored at `createdAt`; entering `PENDING` records `pendingSince`, leaving it shifts both
+  deadlines by the paused duration (known v1 imprecision: a priority change drops earlier pause
+  credit). First response = first non-internal Agent comment (`CommentCommandService`). Policy
+  edits deliberately don't touch existing tickets. **`ticket` never imports `sla`**: the command
+  layer calls `ticket.SlaHooks`, implemented by `sla.TicketSlaService` — dependency inversion to
+  keep `ArchitectureTest`'s cycle rule green (same trick as `ticket.overview`, other direction).
+  `SlaScanService` (the only `@Transactional` service method — its `@TransactionalEventListener`
+  consumers need a commit to fire) stamps `responseBreachedAt`/`resolutionBreachedAt` exactly once
+  per breach (idempotence across runs/restarts) and publishes `SlaBreachedEvent`; a thin Quartz
+  job (`SlaScanJob`, every `servdesk.sla.scan-interval-seconds`, default 60) provides the tick,
+  and tests call the service directly instead of waiting for Quartz.
 - `customfield` — customer-defined custom fields (issue #29), the product's core per-deployment
   customization mechanism per ADR-0002. `AttributeDefinition` (admin-editable: `target` — only
   `TICKET` yet, CMDB CIs later —, machine `key`, `label`, `type`

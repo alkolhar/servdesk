@@ -89,6 +89,23 @@ public class Ticket extends BaseEntity {
 
 	private @Nullable Instant closedAt;
 
+	// SLA tracking (issue #31) — all written via the ticket package's SlaHooks
+	// (implemented in the sla package): deadlines derived from the priority's
+	// SlaPolicy, firstRespondedAt from the first non-internal Agent comment,
+	// pendingSince while the clock is paused, *BreachedAt stamped once by the
+	// Quartz breach scanner (its idempotence marker).
+	private @Nullable Instant respondBy;
+
+	private @Nullable Instant resolveBy;
+
+	private @Nullable Instant firstRespondedAt;
+
+	private @Nullable Instant pendingSince;
+
+	private @Nullable Instant responseBreachedAt;
+
+	private @Nullable Instant resolutionBreachedAt;
+
 	public TicketStatus getStatus() {
 		return status;
 	}
@@ -175,5 +192,53 @@ public class Ticket extends BaseEntity {
 
 	public void setClosedAt(@Nullable Instant closedAt) {
 		this.closedAt = closedAt;
+	}
+
+	public @Nullable Instant getRespondBy() {
+		return respondBy;
+	}
+
+	public void setRespondBy(@Nullable Instant respondBy) {
+		this.respondBy = respondBy;
+	}
+
+	public @Nullable Instant getResolveBy() {
+		return resolveBy;
+	}
+
+	public void setResolveBy(@Nullable Instant resolveBy) {
+		this.resolveBy = resolveBy;
+	}
+
+	public @Nullable Instant getFirstRespondedAt() {
+		return firstRespondedAt;
+	}
+
+	public void setFirstRespondedAt(@Nullable Instant firstRespondedAt) {
+		this.firstRespondedAt = firstRespondedAt;
+	}
+
+	public @Nullable Instant getPendingSince() {
+		return pendingSince;
+	}
+
+	public void setPendingSince(@Nullable Instant pendingSince) {
+		this.pendingSince = pendingSince;
+	}
+
+	public @Nullable Instant getResponseBreachedAt() {
+		return responseBreachedAt;
+	}
+
+	public void setResponseBreachedAt(@Nullable Instant responseBreachedAt) {
+		this.responseBreachedAt = responseBreachedAt;
+	}
+
+	public @Nullable Instant getResolutionBreachedAt() {
+		return resolutionBreachedAt;
+	}
+
+	public void setResolutionBreachedAt(@Nullable Instant resolutionBreachedAt) {
+		this.resolutionBreachedAt = resolutionBreachedAt;
 	}
 }

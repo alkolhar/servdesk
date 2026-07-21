@@ -37,6 +37,11 @@ public class TicketModelAssembler implements RepresentationModelAssembler<Ticket
 		model.setTeamId(idOf(ticket.getTeam()));
 		model.setResolvedAt(ticket.getResolvedAt());
 		model.setClosedAt(ticket.getClosedAt());
+		model.setRespondBy(ticket.getRespondBy());
+		model.setResolveBy(ticket.getResolveBy());
+		model.setFirstRespondedAt(ticket.getFirstRespondedAt());
+		model.setResponseBreachedAt(ticket.getResponseBreachedAt());
+		model.setResolutionBreachedAt(ticket.getResolutionBreachedAt());
 		model.setCreatedAt(ticket.getCreatedAt());
 		model.setUpdatedAt(ticket.getUpdatedAt());
 		model.setCreatedBy(ticket.getCreatedBy());

@@ -10,6 +10,26 @@ import org.springframework.data.repository.query.Param;
 public interface TicketRepository extends JpaRepository<Ticket, Long> {
 
 	/**
+	 * Breach candidates for the SLA scanner (issue #31): deadline in the past, the
+	 * corresponding fulfilment still missing, not yet stamped as breached
+	 * (idempotence), and the clock actually running — PENDING pauses it,
+	 * RESOLVED/CLOSED end it.
+	 */
+	@Query("""
+			select t from Ticket t
+			where t.respondBy < :now and t.firstRespondedAt is null and t.responseBreachedAt is null
+			and t.status in (dev.alkolhar.servdesk.ticket.TicketStatus.OPEN,
+				dev.alkolhar.servdesk.ticket.TicketStatus.IN_PROGRESS)""")
+	java.util.List<Ticket> findResponseBreaches(@Param("now") java.time.Instant now);
+
+	@Query("""
+			select t from Ticket t
+			where t.resolveBy < :now and t.resolvedAt is null and t.resolutionBreachedAt is null
+			and t.status in (dev.alkolhar.servdesk.ticket.TicketStatus.OPEN,
+				dev.alkolhar.servdesk.ticket.TicketStatus.IN_PROGRESS)""")
+	java.util.List<Ticket> findResolutionBreaches(@Param("now") java.time.Instant now);
+
+	/**
 	 * Cross-subtype listing over the shared ticket table (issue #30) with the same
 	 * optional-filter idiom as each subtype repository's {@code findVisible}.
 	 * {@code requesterScope} is the row-level ownership filter (null for an Agent,

@@ -34,26 +34,31 @@ public abstract class AbstractTicketSubtypeCommandService<T extends MapsIdBaseEn
 	protected final EntityManager entityManager;
 	private final ApplicationEventPublisher events;
 	private final AttributeValidator attributeValidator;
+	private final SlaHooks slaHooks;
 
 	protected AbstractTicketSubtypeCommandService(TicketRepository ticketRepository, EntityManager entityManager,
-			ApplicationEventPublisher events, AttributeValidator attributeValidator) {
+			ApplicationEventPublisher events, AttributeValidator attributeValidator, SlaHooks slaHooks) {
 		this.ticketRepository = ticketRepository;
 		this.entityManager = entityManager;
 		this.events = events;
 		this.attributeValidator = attributeValidator;
+		this.slaHooks = slaHooks;
 	}
 
 	protected Ticket newTicket(TicketCreateFields fields) {
 		Ticket ticket = new Ticket();
 		copySharedFields(ticket, fields);
+		slaHooks.applyOnWrite(ticket, null, null);
 		return ticket;
 	}
 
 	protected void applySharedUpdate(Ticket ticket, TicketUpdateFields fields) {
 		TicketStatus previousStatus = ticket.getStatus();
+		Long previousPriorityId = ticket.getPriority() == null ? null : ticket.getPriority().getId();
 		copySharedFields(ticket, fields);
 		ticket.setStatus(fields.status());
 		deriveResolvedAndClosedAt(ticket, previousStatus, fields.status());
+		slaHooks.applyOnWrite(ticket, previousStatus, previousPriorityId);
 	}
 
 	protected void deleteTicketAndSubtype(T subtype, Ticket ticket, JpaRepository<T, Long> repository) {
