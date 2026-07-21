@@ -27,6 +27,10 @@ tags:
     description: Planned modifications to infrastructure or a service.
   - name: service-requests
     description: Routine requests for something, not a report of something broken.
+  - name: tickets
+    description: >
+      Read-only cross-subtype ticket overview: one paginated stream over all four subtypes,
+      addressed by the shared Ticket id (ADR-0001). Writes stay on each subtype's own endpoint.
   - name: comments
     description: >
       Activity/conversation entries on a ticket, nested under the shared Ticket id (ADR-0001) —
@@ -851,6 +855,92 @@ paths:
           $ref: "#/components/responses/ForbiddenProblem"
         "404":
           $ref: "#/components/responses/NotFoundProblem"
+  /api/tickets:
+    parameters:
+      - $ref: "#/components/parameters/ApiVersionHeader"
+    get:
+      tags: [tickets]
+      summary: >
+        List tickets across all four subtypes in one paginated stream (read-only — creating,
+        updating, and deleting stay on each subtype's own endpoint). Each item carries its `type`
+        discriminator and display number plus a link to the full subtype resource. A Customer
+        caller only ever sees tickets they requested.
+      parameters:
+        - name: status
+          in: query
+          required: false
+          schema:
+            $ref: "#/components/schemas/TicketStatus"
+        - name: requesterId
+          in: query
+          required: false
+          schema:
+            type: integer
+            format: int64
+        - name: assigneeId
+          in: query
+          required: false
+          schema:
+            type: integer
+            format: int64
+        - name: teamId
+          in: query
+          required: false
+          schema:
+            type: integer
+            format: int64
+        - name: categoryId
+          in: query
+          required: false
+          schema:
+            type: integer
+            format: int64
+        - name: priorityId
+          in: query
+          required: false
+          schema:
+            type: integer
+            format: int64
+        - $ref: "#/components/parameters/PageParam"
+        - $ref: "#/components/parameters/SizeParam"
+        - $ref: "#/components/parameters/SortParam"
+      responses:
+        "default":
+          $ref: "#/components/responses/DefaultProblem"
+        "200":
+          description: A page of tickets across all subtypes.
+          content:
+            application/hal+json:
+              schema:
+                $ref: "#/components/schemas/TicketPage"
+        "401":
+          $ref: "#/components/responses/Unauthorized"
+  /api/tickets/{id}:
+    parameters:
+      - $ref: "#/components/parameters/ApiVersionHeader"
+      - name: id
+        in: path
+        required: true
+        description: The shared Ticket id (ADR-0001) — same value as the subtype's own `id`.
+        schema:
+          type: integer
+          format: int64
+    get:
+      tags: [tickets]
+      summary: >
+        Fetch a ticket by its shared id, regardless of subtype. Answers 404 for a Customer caller
+        who is not the ticket's requester — indistinguishable from a missing id.
+      responses:
+        "default":
+          $ref: "#/components/responses/DefaultProblem"
+        "200":
+          description: The ticket.
+          content:
+            application/hal+json:
+              schema:
+                $ref: "#/components/schemas/TicketModel"
+        "404":
+          $ref: "#/components/responses/NotFoundProblem"
   /api/tickets/{ticketId}/comments:
     parameters:
       - $ref: "#/components/parameters/ApiVersionHeader"
@@ -1244,6 +1334,95 @@ components:
     TicketStatus:
       type: string
       enum: [OPEN, IN_PROGRESS, PENDING, RESOLVED, CLOSED]
+    TicketType:
+      type: string
+      description: >
+        Which subtype a ticket belongs to. A read-model discriminator only — the domain has no
+        type field (ADR-0001); a subtype row's existence says what kind of ticket it is.
+      enum: [INCIDENT, PROBLEM, CHANGE, SERVICE_REQUEST]
+    TicketModel:
+      type: object
+      description: >
+        Cross-subtype read model of a ticket (issue #30): the shared Ticket fields plus the `type`
+        discriminator and the subtype's display number. Carries no subtype-specific field — those
+        live on the subtype's own resource, linked under the type-named relation
+        (`incident`/`problem`/`change`/`serviceRequest`).
+      properties:
+        id:
+          type: integer
+          format: int64
+        type:
+          $ref: "#/components/schemas/TicketType"
+        displayNumber:
+          type: string
+          example: INC-001000
+        status:
+          $ref: "#/components/schemas/TicketStatus"
+        subject:
+          type: string
+        description:
+          type: string
+          nullable: true
+        categoryId:
+          type: integer
+          format: int64
+          nullable: true
+        priorityId:
+          type: integer
+          format: int64
+          nullable: true
+        requesterId:
+          type: integer
+          format: int64
+        assigneeId:
+          type: integer
+          format: int64
+          nullable: true
+        teamId:
+          type: integer
+          format: int64
+          nullable: true
+        resolvedAt:
+          type: string
+          format: date-time
+          nullable: true
+        closedAt:
+          type: string
+          format: date-time
+          nullable: true
+        createdAt:
+          type: string
+          format: date-time
+        updatedAt:
+          type: string
+          format: date-time
+        createdBy:
+          type: string
+          nullable: true
+        updatedBy:
+          type: string
+          nullable: true
+        _links:
+          type: object
+          description: >
+            HATEOAS links: self, the type-named subtype relation
+            (incident/problem/change/serviceRequest), and comments.
+    TicketPage:
+      type: object
+      description: Spring HATEOAS PagedModel<TicketModel>.
+      properties:
+        _embedded:
+          type: object
+          properties:
+            ticketModelList:
+              type: array
+              items:
+                $ref: "#/components/schemas/TicketModel"
+        _links:
+          type: object
+          description: first/prev/self/next/last, as available.
+        page:
+          $ref: "#/components/schemas/PageMetadata"
     IncidentModel:
       type: object
       description: >

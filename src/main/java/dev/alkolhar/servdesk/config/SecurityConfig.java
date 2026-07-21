@@ -135,7 +135,12 @@ public class SecurityConfig {
 				// CommentCommandService, not here (see the class javadoc above)
 				.requestMatchers(HttpMethod.GET, "/api/tickets/*/comments").hasAnyRole("AGENT", "CUSTOMER")
 				.requestMatchers(HttpMethod.POST, "/api/tickets/*/comments").hasAnyRole("AGENT", "CUSTOMER")
-				.anyRequest().authenticated())
+				// cross-subtype ticket overview (issue #30): read-only for either role —
+				// there is no write surface under /api/tickets itself, writes stay on the
+				// subtype endpoints above; row-level ownership is enforced by
+				// TicketQueryService like everywhere else
+				.requestMatchers(HttpMethod.GET, "/api/tickets/**").hasAnyRole("AGENT", "CUSTOMER").anyRequest()
+				.authenticated())
 				.httpBasic(basic -> basic.authenticationEntryPoint(problemDetailAuthenticationEntryPoint()))
 				.exceptionHandling(exceptions -> exceptions.accessDeniedHandler(problemDetailAccessDeniedHandler()));
 		return http.build();
