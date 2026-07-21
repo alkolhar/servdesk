@@ -66,4 +66,23 @@ public class RestExceptionHandler {
 	ProblemDetail handleInvalidSortProperty(RuntimeException ex) {
 		return ProblemDetail.forStatusAndDetail(HttpStatus.BAD_REQUEST, ex.getMessage());
 	}
+
+	/**
+	 * Framework argument resolution can throw a raw
+	 * {@link IllegalArgumentException} before any controller code runs — found by
+	 * the contract-tests CI job (issue #38): Spring Data's
+	 * {@code SortHandlerMethodArgumentResolver} re-URI-decodes each sort segment,
+	 * so a {@code ?sort=} value containing a literal {@code %} not followed by two
+	 * hex digits blows up in {@code StringUtils.uriDecode} without ever reaching
+	 * the {@link PropertyReferenceException} mapping above. Mapping the whole type
+	 * to 400 is deliberate and relies on a convention this codebase already
+	 * follows: {@code IllegalArgumentException} means the <i>input</i> was unusable
+	 * (client fault, 400), while a broken server-side invariant throws
+	 * {@link IllegalStateException} (e.g. {@code TicketQueryService}'s
+	 * missing-subtype-row check) and correctly stays a 500.
+	 */
+	@ExceptionHandler(IllegalArgumentException.class)
+	ProblemDetail handleIllegalArgument(IllegalArgumentException ex) {
+		return ProblemDetail.forStatusAndDetail(HttpStatus.BAD_REQUEST, ex.getMessage());
+	}
 }

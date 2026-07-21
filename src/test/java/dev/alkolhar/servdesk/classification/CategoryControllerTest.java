@@ -4,6 +4,7 @@ import static org.assertj.core.api.Assertions.assertThat;
 
 import dev.alkolhar.servdesk.TestcontainersConfiguration;
 import dev.alkolhar.servdesk.setup.SetupRequest;
+import java.net.URI;
 import java.util.HashMap;
 import java.util.Map;
 import org.junit.jupiter.api.BeforeAll;
@@ -13,6 +14,7 @@ import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.boot.resttestclient.TestRestTemplate;
 import org.springframework.boot.resttestclient.autoconfigure.AutoConfigureTestRestTemplate;
 import org.springframework.boot.test.context.SpringBootTest;
+import org.springframework.boot.test.web.server.LocalServerPort;
 import org.springframework.context.annotation.Import;
 import org.springframework.http.HttpEntity;
 import org.springframework.http.HttpMethod;
@@ -29,6 +31,9 @@ class CategoryControllerTest {
 
 	@Autowired
 	private TestRestTemplate restTemplate;
+
+	@LocalServerPort
+	private int port;
 
 	@BeforeAll
 	void bootstrapFixtures() {
@@ -51,6 +56,25 @@ class CategoryControllerTest {
 	void requestsWithoutCredentialsAreRejected() {
 		ResponseEntity<String> response = restTemplate.getForEntity("/api/categories", String.class);
 		assertThat(response.getStatusCode()).isEqualTo(HttpStatus.UNAUTHORIZED);
+	}
+
+	/**
+	 * Regression for issue #38 (found by the contract-tests CI job): a
+	 * {@code ?sort=} value containing a literal {@code %} not followed by two hex
+	 * digits ({@code %25%C3%82} decodes to {@code %Â}) makes Spring Data's sort
+	 * resolver's own re-URI-decoding throw a raw {@code IllegalArgumentException}
+	 * before any controller code — without the {@code RestExceptionHandler} mapping
+	 * this was an uncaught 500 with a non-ProblemDetail body. Built as a raw
+	 * {@link URI} so the client can't re-encode the deliberately-broken sequence
+	 * away.
+	 */
+	@Test
+	void answersMalformedSortEncodingWithProblemDetail400Not500() {
+		URI uri = URI.create("http://localhost:" + port + "/api/categories?sort=%25%C3%82");
+		ResponseEntity<String> response = asAdmin().exchange(uri, HttpMethod.GET, HttpEntity.EMPTY, String.class);
+
+		assertThat(response.getStatusCode()).isEqualTo(HttpStatus.BAD_REQUEST);
+		assertThat(response.getHeaders().getContentType().toString()).startsWith("application/problem+json");
 	}
 
 	@Test
