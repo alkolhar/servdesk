@@ -121,6 +121,14 @@ Controllers return a `*Model` (or `CollectionModel<...>`/`PagedModel<...>`), nev
     relies on `TicketStatus`'s enum order matching lifecycle order), publishes
     `TicketStatusChangedEvent` only when status actually changed. Delete soft-deletes both the subtype
     row and the shared `Ticket` row.
+  - `ticket.overview` — read-only cross-subtype surface `GET /api/tickets`(+`/{id}`) (issue #30,
+    amending ADR-0001's "no cross-type listing" consequence): pages the shared `ticket` table
+    (optional filters: status/requester/assignee/team/category/priority), then resolves each row's
+    `TicketType` + display number with one `findAllById` batch per subtype repository — four
+    queries per page. Lives in its own subpackage because it depends on every subtype package,
+    which already depend on `ticket` — inside `ticket` it would trip `ArchitectureTest`'s
+    package-cycle rule. Writes and subtype-specific fields stay per-subtype; the model links to
+    the subtype resource under a type-named rel. Row-level ownership applies identically.
   - `TicketComment` — references the shared `Ticket` directly (not per-subtype); `internal` flag
     distinguishes agent-only notes from requester-visible replies. `CommentController`
     (`/api/tickets/{ticketId}/comments`, GET+POST only) is nested under the shared id for this reason.
