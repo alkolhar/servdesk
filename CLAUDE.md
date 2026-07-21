@@ -94,9 +94,13 @@ Controllers return a `*Model` (or `CollectionModel<...>`/`PagedModel<...>`), nev
   - `web.RestExceptionHandler` — the only place that translates those exceptions to RFC 7807
     `ProblemDetail` HTTP responses (not `sendError`, so these never trigger Tomcat's `/error` forward —
     see `SecurityConfig` below). Also maps `DataIntegrityViolationException` → 409, and
-    `PropertyReferenceException`/`InvalidDataAccessApiUsageException` → 400 (an unrecognized or
-    malformed `?sort=` field otherwise reaches Spring Data's resolver unvalidated and surfaces as an
-    uncaught 500 — found by the contract-tests CI job, see Deployment below).
+    `PropertyReferenceException`/`InvalidDataAccessApiUsageException`/`IllegalArgumentException` → 400
+    (an unrecognized or malformed `?sort=` field otherwise reaches Spring Data's resolver unvalidated
+    and surfaces as an uncaught 500 — found by the contract-tests CI job, see Deployment below; the
+    `IllegalArgumentException` case, issue #38, is the resolver's own re-URI-decoding blowing up on a
+    literal `%` in a sort segment before any controller code. Convention this relies on:
+    `IllegalArgumentException` = unusable input → 400, `IllegalStateException` = broken server
+    invariant → 500).
 - `directory` — `Person` (single entity for agents and customers, distinguished by `role`;
   `username`/`password`/`enabled` only populated for login-capable people), `Team`.
   `PersonCommandService`/`PersonQueryService` — CQRS-light split (command depends on query, not vice
