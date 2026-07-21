@@ -108,13 +108,21 @@ public class SecurityConfig {
 				.requestMatchers("/error").permitAll()
 				// person directory management is AGENT-only
 				.requestMatchers("/api/persons/**").hasRole("AGENT")
-				// classification lookup data (Category/Priority): either role can read,
-				// only an AGENT can create/update/delete
-				.requestMatchers(HttpMethod.GET, "/api/categories/**", "/api/priorities/**")
+				// classification lookup data (Category/Priority) and custom-field
+				// definitions: either role can read, only an AGENT can
+				// create/update/delete — same reference-data shape
+				.requestMatchers(HttpMethod.GET, "/api/categories/**", "/api/priorities/**",
+						"/api/attribute-definitions/**")
 				.hasAnyRole("AGENT", "CUSTOMER")
-				.requestMatchers(HttpMethod.POST, "/api/categories/**", "/api/priorities/**").hasRole("AGENT")
-				.requestMatchers(HttpMethod.PUT, "/api/categories/**", "/api/priorities/**").hasRole("AGENT")
-				.requestMatchers(HttpMethod.DELETE, "/api/categories/**", "/api/priorities/**").hasRole("AGENT")
+				.requestMatchers(HttpMethod.POST, "/api/categories/**", "/api/priorities/**",
+						"/api/attribute-definitions/**")
+				.hasRole("AGENT")
+				.requestMatchers(HttpMethod.PUT, "/api/categories/**", "/api/priorities/**",
+						"/api/attribute-definitions/**")
+				.hasRole("AGENT")
+				.requestMatchers(HttpMethod.DELETE, "/api/categories/**", "/api/priorities/**",
+						"/api/attribute-definitions/**")
+				.hasRole("AGENT")
 				// ticket subtypes: either role can read, only an AGENT can create, change
 				// status, or delete (see ADR-0001; a deliberate narrowing from the old flat
 				// Ticket's policy — customer self-service creation is deferred)

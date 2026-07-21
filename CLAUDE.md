@@ -111,6 +111,20 @@ Controllers return a `*Model` (or `CollectionModel<...>`/`PagedModel<...>`), nev
 - `classification` — ticket lookup/reference data: `Category` (self-referencing tree, `CategoryController`
   at `/api/categories`), `Priority` (name + `sortOrder`, `PriorityController` at `/api/priorities`).
   Same read-open/write-Agent-only RBAC shape as ticket subtypes (see `SecurityConfig` below).
+- `customfield` — customer-defined custom fields (issue #29), the product's core per-deployment
+  customization mechanism per ADR-0002. `AttributeDefinition` (admin-editable: `target` — only
+  `TICKET` yet, CMDB CIs later —, machine `key`, `label`, `type`
+  STRING/NUMBER/BOOLEAN/DATE/ENUM, `required`, `enumValues`; columns `attr_key`/`attr_type` since
+  the bare names are SQL keywords somewhere) says which keys a target accepts; values live in the
+  target's own `attributes` jsonb column (GIN-indexed). `key`/`type` are immutable after creation
+  (the update request can't express them). **Validation is write-time only**
+  (`AttributeValidator`, called from `AbstractTicketSubtypeCommandService.copySharedFields`):
+  unknown key/type mismatch/missing required/non-member ENUM → `IllegalArgumentException` → 400;
+  reads never validate, so rows written under older definitions stay readable, and soft-deleting a
+  definition strands its stored values harmlessly. `attributes` omitted/null on a request = empty
+  map (PUT semantics). `/api/attribute-definitions` CRUD shares classification's
+  read-open/write-Agent-only RBAC shape; list endpoint is deliberately unpaginated (per-deployment
+  admin config, consumers want the whole set).
 - `ticket` — the ticketing core, split per [ADR-0001](docs/adr/0001-ticket-subtypes-composed-not-inherited.md):
   - `Ticket` — concrete entity holding fields common to every subtype: `status`, `subject`,
     `description`, `category`/`priority` (nullable), `requester` (required), `assignee`/`team`
@@ -131,7 +145,9 @@ Controllers return a `*Model` (or `CollectionModel<...>`/`PagedModel<...>`), nev
     row and the shared `Ticket` row.
   - `ticket.overview` — read-only cross-subtype surface `GET /api/tickets`(+`/{id}`) (issue #30,
     amending ADR-0001's "no cross-type listing" consequence): pages the shared `ticket` table
-    (optional filters: status/requester/assignee/team/category/priority), then resolves each row's
+    (optional filters: status/requester/assignee/team/category/priority, plus an
+    `attrKey`+`attrValue` custom-field equality pair — jsonb `->>` text comparison served by the
+    GIN index), then resolves each row's
     `TicketType` + display number with one `findAllById` batch per subtype repository — four
     queries per page. Lives in its own subpackage because it depends on every subtype package,
     which already depend on `ticket` — inside `ticket` it would trip `ArchitectureTest`'s

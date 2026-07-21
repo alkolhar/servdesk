@@ -1,5 +1,6 @@
 package dev.alkolhar.servdesk.ticket;
 
+import java.util.Map;
 import org.jspecify.annotations.Nullable;
 
 /**
@@ -24,4 +25,11 @@ public interface TicketCreateFields {
 	@Nullable Long assigneeId();
 
 	@Nullable Long teamId();
+
+	/**
+	 * Customer-defined custom-field values (issue #29), validated against the live
+	 * {@code AttributeDefinition}s on every write. Omitted/null means an empty map
+	 * — full replacement, consistent with PUT semantics everywhere else.
+	 */
+	@Nullable Map<String, Object> attributes();
 }

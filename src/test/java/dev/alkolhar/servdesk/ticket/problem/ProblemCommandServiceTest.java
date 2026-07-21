@@ -10,6 +10,7 @@ import static org.mockito.Mockito.verifyNoInteractions;
 import static org.mockito.Mockito.when;
 
 import dev.alkolhar.servdesk.common.exception.NotFoundException;
+import dev.alkolhar.servdesk.customfield.AttributeValidator;
 import dev.alkolhar.servdesk.directory.Person;
 import dev.alkolhar.servdesk.ticket.Ticket;
 import dev.alkolhar.servdesk.ticket.TicketRepository;
@@ -53,12 +54,15 @@ class ProblemCommandServiceTest {
 	@Mock
 	private ApplicationEventPublisher events;
 
+	@Mock
+	private AttributeValidator attributeValidator;
+
 	private ProblemCommandService commandService;
 
 	@BeforeEach
 	void setUp() {
 		commandService = new ProblemCommandService(problemRepository, problemQueryService, ticketRepository,
-				entityManager, events);
+				entityManager, events, attributeValidator);
 	}
 
 	private void stubSavesToReturnTheirArgument() {
@@ -73,7 +77,7 @@ class ProblemCommandServiceTest {
 		when(entityManager.getReference(Person.class, 3L)).thenReturn(mock(Person.class));
 
 		Problem saved = commandService
-				.create(new ProblemCreateRequest("Printer on fire", null, null, null, 3L, null, null));
+				.create(new ProblemCreateRequest("Printer on fire", null, null, null, 3L, null, null, null));
 
 		assertThat(saved.getDisplayNumber()).isEqualTo("PRB-001007");
 	}
@@ -86,7 +90,7 @@ class ProblemCommandServiceTest {
 		when(entityManager.getReference(Person.class, 3L)).thenReturn(mock(Person.class));
 
 		commandService.update(5L, new ProblemUpdateRequest(TicketStatus.IN_PROGRESS, "Printer on fire", null, null,
-				null, 3L, null, null));
+				null, 3L, null, null, null));
 
 		assertThat(existing.getTicket().getResolvedAt()).isNull();
 		verifyNoInteractions(events);
@@ -99,8 +103,8 @@ class ProblemCommandServiceTest {
 		when(problemQueryService.findById(5L)).thenReturn(existing);
 		when(entityManager.getReference(Person.class, 3L)).thenReturn(mock(Person.class));
 
-		commandService.update(5L,
-				new ProblemUpdateRequest(TicketStatus.RESOLVED, "Printer on fire", null, null, null, 3L, null, null));
+		commandService.update(5L, new ProblemUpdateRequest(TicketStatus.RESOLVED, "Printer on fire", null, null, null,
+				3L, null, null, null));
 
 		assertThat(existing.getTicket().getResolvedAt()).isNotNull();
 		ArgumentCaptor<TicketStatusChangedEvent> captor = ArgumentCaptor.forClass(TicketStatusChangedEvent.class);
@@ -118,8 +122,8 @@ class ProblemCommandServiceTest {
 		when(problemQueryService.findById(5L)).thenReturn(existing);
 		when(entityManager.getReference(Person.class, 3L)).thenReturn(mock(Person.class));
 
-		commandService.update(5L,
-				new ProblemUpdateRequest(TicketStatus.CLOSED, "Printer on fire", null, null, null, 3L, null, null));
+		commandService.update(5L, new ProblemUpdateRequest(TicketStatus.CLOSED, "Printer on fire", null, null, null, 3L,
+				null, null, null));
 
 		assertThat(existing.getTicket().getResolvedAt()).isEqualTo(previouslyResolvedAt);
 		assertThat(existing.getTicket().getClosedAt()).isNotNull();
@@ -134,7 +138,7 @@ class ProblemCommandServiceTest {
 		when(entityManager.getReference(Person.class, 3L)).thenReturn(mock(Person.class));
 
 		commandService.update(5L, new ProblemUpdateRequest(TicketStatus.IN_PROGRESS, "Printer on fire", null, null,
-				null, 3L, null, null));
+				null, 3L, null, null, null));
 
 		assertThat(existing.getTicket().getResolvedAt()).isNull();
 	}

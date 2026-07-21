@@ -41,11 +41,13 @@ public class TicketController {
 			@RequestParam(required = false) @Nullable Long assigneeId,
 			@RequestParam(required = false) @Nullable Long teamId,
 			@RequestParam(required = false) @Nullable Long categoryId,
-			@RequestParam(required = false) @Nullable Long priorityId, @PageableDefault(size = 20) Pageable pageable,
+			@RequestParam(required = false) @Nullable Long priorityId,
+			@RequestParam(required = false) @Nullable String attrKey,
+			@RequestParam(required = false) @Nullable String attrValue, @PageableDefault(size = 20) Pageable pageable,
 			PagedResourcesAssembler<TicketOverview> pagedAssembler, Authentication authentication) {
 		Person caller = callerOf(authentication);
 		Page<TicketOverview> page = queryService.findAll(status, requesterId, assigneeId, teamId, categoryId,
-				priorityId, caller.getId(), caller.getRole() == PersonRole.AGENT, pageable);
+				priorityId, attrKey, attrValue, caller.getId(), caller.getRole() == PersonRole.AGENT, pageable);
 		return pagedAssembler.toModel(page, assembler);
 	}
 

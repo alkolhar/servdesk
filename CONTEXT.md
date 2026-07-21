@@ -45,6 +45,14 @@ _Avoid_: Queue (describes the role a Team plays on a ticket, not a separate conc
 A hierarchical classification a ticket can be tagged with (e.g. "Hardware → Laptop → Battery"), used for filtering and reporting only. Purely descriptive — it does not drive routing or any other behavior today.
 _Avoid_: Tag, type (a ticket's type is which subtype it is — [[Incident]]/[[Problem]]/[[Change]]/[[Service Request]] — not a Category value)
 
+**Attribute Definition**:
+An admin-editable declaration that tickets (later also CMDB configuration items) accept a custom field: its machine key, label, value type, whether it is required, and — for enumerated fields — the allowed values. The per-deployment customization mechanism: each customer's administrators define their own set; no per-customer code.
+_Avoid_: custom field definition (say Attribute Definition), form field
+
+**Attribute**:
+A single custom-field value on a ticket, keyed by an [[Attribute Definition]]'s key. Validated against the definition when written; never validated on read.
+_Avoid_: custom field value, property, tag
+
 **Priority**:
 A flat, manually-picked ranking (`sortOrder`, lower = more severe) a ticket can be given. Currently a single directly-selected value with no Impact/Urgency split — a placeholder expected to become a value derived from separate Impact and Urgency fields (classic ITIL priority matrix) once that's built.
 _Avoid_: Severity, urgency, impact (not yet distinct concepts in this domain)

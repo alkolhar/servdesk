@@ -8,6 +8,7 @@ import dev.alkolhar.servdesk.directory.PersonController;
 import dev.alkolhar.servdesk.ticket.Ticket;
 import dev.alkolhar.servdesk.ticket.problem.Problem;
 import dev.alkolhar.servdesk.ticket.problem.ProblemController;
+import java.util.HashMap;
 import org.jspecify.annotations.Nullable;
 import org.springframework.hateoas.server.RepresentationModelAssembler;
 import org.springframework.stereotype.Component;
@@ -25,6 +26,7 @@ public class IncidentModelAssembler implements RepresentationModelAssembler<Inci
 		model.setStatus(ticket.getStatus());
 		model.setSubject(ticket.getSubject());
 		model.setDescription(ticket.getDescription());
+		model.setAttributes(new HashMap<>(ticket.getAttributes()));
 		model.setCategoryId(idOf(ticket.getCategory()));
 		model.setPriorityId(idOf(ticket.getPriority()));
 		model.setRequesterId(idOf(ticket.getRequester()));

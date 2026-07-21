@@ -14,6 +14,8 @@ import jakarta.persistence.JoinColumn;
 import jakarta.persistence.ManyToOne;
 import jakarta.persistence.Table;
 import java.time.Instant;
+import java.util.HashMap;
+import java.util.Map;
 import org.hibernate.annotations.JdbcTypeCode;
 import org.hibernate.annotations.SQLDelete;
 import org.hibernate.annotations.SQLRestriction;
@@ -51,6 +53,17 @@ public class Ticket extends BaseEntity {
 	 */
 	@JdbcTypeCode(SqlTypes.LONGVARCHAR)
 	private @Nullable String description;
+
+	/**
+	 * Customer-defined custom-field values (issue #29): a {@code jsonb} column
+	 * (GIN-indexed, see {@code V1__init_schema.sql}) keyed by
+	 * {@code AttributeDefinition.key}. Always written through
+	 * {@code AbstractTicketSubtypeCommandService}, which validates the full map via
+	 * {@code AttributeValidator} first — never mutated elsewhere.
+	 */
+	@JdbcTypeCode(SqlTypes.JSON)
+	@Column(nullable = false)
+	private Map<String, Object> attributes = new HashMap<>();
 
 	@ManyToOne(fetch = FetchType.LAZY)
 	@JoinColumn(name = "category_id")
@@ -98,6 +111,14 @@ public class Ticket extends BaseEntity {
 
 	public void setDescription(@Nullable String description) {
 		this.description = description;
+	}
+
+	public Map<String, Object> getAttributes() {
+		return attributes;
+	}
+
+	public void setAttributes(Map<String, Object> attributes) {
+		this.attributes = attributes;
 	}
 
 	public @Nullable Category getCategory() {

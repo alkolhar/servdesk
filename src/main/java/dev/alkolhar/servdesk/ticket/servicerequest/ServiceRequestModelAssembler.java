@@ -6,6 +6,7 @@ import static org.springframework.hateoas.server.mvc.WebMvcLinkBuilder.methodOn;
 import dev.alkolhar.servdesk.common.BaseEntity;
 import dev.alkolhar.servdesk.directory.PersonController;
 import dev.alkolhar.servdesk.ticket.Ticket;
+import java.util.HashMap;
 import org.jspecify.annotations.Nullable;
 import org.springframework.hateoas.server.RepresentationModelAssembler;
 import org.springframework.stereotype.Component;
@@ -22,6 +23,7 @@ public class ServiceRequestModelAssembler implements RepresentationModelAssemble
 		model.setStatus(ticket.getStatus());
 		model.setSubject(ticket.getSubject());
 		model.setDescription(ticket.getDescription());
+		model.setAttributes(new HashMap<>(ticket.getAttributes()));
 		model.setCategoryId(idOf(ticket.getCategory()));
 		model.setPriorityId(idOf(ticket.getPriority()));
 		model.setRequesterId(idOf(ticket.getRequester()));
