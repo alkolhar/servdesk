@@ -173,6 +173,6 @@ class ProblemCommandServiceTest {
 	private void stubSequence(String sequenceName, long value) {
 		Query query = mock(Query.class);
 		when(query.getSingleResult()).thenReturn(value);
-		when(entityManager.createNativeQuery("SELECT NEXTVAL(" + sequenceName + ")")).thenReturn(query);
+		when(entityManager.createNativeQuery("SELECT nextval('" + sequenceName + "')")).thenReturn(query);
 	}
 }

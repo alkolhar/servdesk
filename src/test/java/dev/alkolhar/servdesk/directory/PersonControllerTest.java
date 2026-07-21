@@ -88,6 +88,24 @@ class PersonControllerTest {
 		assertThat(afterDelete.getStatusCode()).isEqualTo(HttpStatus.NOT_FOUND);
 	}
 
+	/**
+	 * The unique indexes on soft-deletable columns are partial
+	 * ({@code WHERE deleted_at IS NULL} — see {@code V1__init_schema.sql}), so a
+	 * soft-deleted person's email is free for reuse instead of squatting on the
+	 * index and turning the recreate into a 409.
+	 */
+	@Test
+	void recreatingASoftDeletedPersonsEmailSucceeds() {
+		Map<String, Object> request = Map.of("role", "CUSTOMER", "name", "Riley Recreated", "email",
+				"riley@example.com");
+		Number id = (Number) asAdmin().postForEntity("/api/persons", request, Map.class).getBody().get("id");
+		asAdmin().delete("/api/persons/" + id);
+
+		ResponseEntity<Map> recreated = asAdmin().postForEntity("/api/persons", request, Map.class);
+		assertThat(recreated.getStatusCode()).isEqualTo(HttpStatus.CREATED);
+		assertThat(recreated.getBody().get("email")).isEqualTo("riley@example.com");
+	}
+
 	@Test
 	void customersCannotManageThePersonDirectory() {
 		Map<String, Object> customerRequest = Map.of("role", "CUSTOMER", "name", "Cara Customer", "email",

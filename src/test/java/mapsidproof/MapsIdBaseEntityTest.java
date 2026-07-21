@@ -24,7 +24,7 @@ import org.junit.jupiter.api.BeforeAll;
 import org.junit.jupiter.api.Test;
 import org.testcontainers.junit.jupiter.Container;
 import org.testcontainers.junit.jupiter.Testcontainers;
-import org.testcontainers.mariadb.MariaDBContainer;
+import org.testcontainers.postgresql.PostgreSQLContainer;
 
 /**
  * Proves the id-sharing mechanic {@link MapsIdBaseEntity} exists for: a subtype
@@ -43,7 +43,7 @@ import org.testcontainers.mariadb.MariaDBContainer;
 class MapsIdBaseEntityTest {
 
 	@Container
-	private static final MariaDBContainer mariaDb = new MariaDBContainer("mariadb:latest");
+	private static final PostgreSQLContainer postgres = new PostgreSQLContainer("postgres:latest");
 
 	private static SessionFactory sessionFactory;
 
@@ -79,10 +79,10 @@ class MapsIdBaseEntityTest {
 	@BeforeAll
 	static void buildSessionFactory() {
 		StandardServiceRegistry registry = new StandardServiceRegistryBuilder()
-				.applySetting("hibernate.connection.url", mariaDb.getJdbcUrl())
-				.applySetting("hibernate.connection.username", mariaDb.getUsername())
-				.applySetting("hibernate.connection.password", mariaDb.getPassword())
-				.applySetting("hibernate.connection.driver_class", "org.mariadb.jdbc.Driver")
+				.applySetting("hibernate.connection.url", postgres.getJdbcUrl())
+				.applySetting("hibernate.connection.username", postgres.getUsername())
+				.applySetting("hibernate.connection.password", postgres.getPassword())
+				.applySetting("hibernate.connection.driver_class", "org.postgresql.Driver")
 				.applySetting("hibernate.hbm2ddl.auto", "create-drop").build();
 		sessionFactory = new MetadataSources(registry).addAnnotatedClass(Team.class).addAnnotatedClass(Category.class)
 				.addAnnotatedClass(Priority.class).addAnnotatedClass(Person.class).addAnnotatedClass(Ticket.class)

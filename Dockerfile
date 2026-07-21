@@ -2,7 +2,7 @@
 
 # Multi-stage build: only the final image ships, keeping the JDK/Maven toolchain out of it.
 # Tests are not run here (-DskipTests) — CI (.github/workflows/ci.yml) is where ./mvnw verify
-# actually runs, against Testcontainers/MariaDB; a Docker build has no business re-running that.
+# actually runs, against Testcontainers/PostgreSQL; a Docker build has no business re-running that.
 
 FROM eclipse-temurin:25-jdk AS build
 WORKDIR /workspace

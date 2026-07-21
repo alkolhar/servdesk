@@ -39,11 +39,13 @@ public class RestExceptionHandler {
 	}
 
 	/**
-	 * Soft delete (see {@code BaseEntity}) leaves a deleted row's unique columns
-	 * (e.g. {@code person.email}) still occupying their index, since MariaDB has no
-	 * partial/filtered unique index — recreating a row with that value hits this
-	 * rather than a clean domain-level {@link ConflictException}. The underlying
-	 * SQL/constraint name is deliberately not exposed in the response.
+	 * A concurrent duplicate insert (e.g. two requests racing to create the same
+	 * {@code person.email}) can slip past the service layer's own existence check
+	 * and hit the database's unique index instead of a clean domain-level
+	 * {@link ConflictException}. Soft-deleted rows don't trigger this: the unique
+	 * indexes are partial ({@code WHERE deleted_at IS NULL}), so a deleted row's
+	 * values are free for reuse. The underlying SQL/constraint name is deliberately
+	 * not exposed in the response.
 	 */
 	@ExceptionHandler(DataIntegrityViolationException.class)
 	ProblemDetail handleDataIntegrityViolation(DataIntegrityViolationException ex) {

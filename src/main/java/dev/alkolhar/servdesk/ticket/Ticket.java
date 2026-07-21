@@ -11,12 +11,13 @@ import jakarta.persistence.EnumType;
 import jakarta.persistence.Enumerated;
 import jakarta.persistence.FetchType;
 import jakarta.persistence.JoinColumn;
-import jakarta.persistence.Lob;
 import jakarta.persistence.ManyToOne;
 import jakarta.persistence.Table;
 import java.time.Instant;
+import org.hibernate.annotations.JdbcTypeCode;
 import org.hibernate.annotations.SQLDelete;
 import org.hibernate.annotations.SQLRestriction;
+import org.hibernate.type.SqlTypes;
 import org.jspecify.annotations.Nullable;
 
 /**
@@ -42,7 +43,13 @@ public class Ticket extends BaseEntity {
 	@Column(nullable = false)
 	private String subject;
 
-	@Lob
+	/**
+	 * {@code LONGVARCHAR}, not {@code @Lob}: on PostgreSQL Hibernate maps a
+	 * {@code @Lob String} to an {@code oid} large object (a separate row in
+	 * {@code pg_largeobject} reached via streaming API), while this column is a
+	 * plain unbounded {@code TEXT}.
+	 */
+	@JdbcTypeCode(SqlTypes.LONGVARCHAR)
 	private @Nullable String description;
 
 	@ManyToOne(fetch = FetchType.LAZY)

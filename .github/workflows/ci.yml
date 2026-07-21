@@ -20,7 +20,7 @@ jobs:
           java-version: "25"
           cache: maven
 
-      # Runs compile, unit + Testcontainers/MariaDB integration tests, ArchUnit rules, Spotless
+      # Runs compile, unit + Testcontainers/PostgreSQL integration tests, ArchUnit rules, Spotless
       # format check and JaCoCo coverage reporting (all wired into the verify phase — see pom.xml).
       # The Docker daemon Testcontainers needs is preinstalled on GitHub-hosted ubuntu runners.
       - name: Build and verify
@@ -59,15 +59,15 @@ jobs:
     # external tools) — bound it rather than falling back to the platform default.
     timeout-minutes: 15
     services:
-      mariadb:
-        image: mariadb:latest
+      postgres:
+        image: postgres:latest
         env:
-          MARIADB_ROOT_PASSWORD: root
-          MARIADB_DATABASE: servdesk
+          POSTGRES_PASSWORD: root
+          POSTGRES_DB: servdesk
         ports:
-          - 3306:3306
+          - 5432:5432
         options: >-
-          --health-cmd="healthcheck.sh --connect --innodb_initialized"
+          --health-cmd="pg_isready -U postgres -d servdesk"
           --health-interval=10s --health-timeout=5s --health-retries=5
     steps:
       - uses: actions/checkout@v4
@@ -82,11 +82,11 @@ jobs:
       - name: Build the jar
         run: ./mvnw --batch-mode package -DskipTests
 
-      - name: Start the app against the MariaDB service container
+      - name: Start the app against the PostgreSQL service container
         run: |
           java -jar target/*.jar \
-            --spring.datasource.url=jdbc:mariadb://localhost:3306/servdesk \
-            --spring.datasource.username=root \
+            --spring.datasource.url=jdbc:postgresql://localhost:5432/servdesk \
+            --spring.datasource.username=postgres \
             --spring.datasource.password=root &
           for i in $(seq 1 30); do
             curl -sf http://localhost:8080/api/setup && exit 0
@@ -95,7 +95,7 @@ jobs:
           echo "App never became ready" >&2
           exit 1
 
-      # Fixture-only credentials for this CI run's disposable MariaDB service container — not a
+      # Fixture-only credentials for this CI run's disposable PostgreSQL service container — not a
       # real secret, same admin/admin123 pattern the integration tests already bootstrap with.
       - name: Bootstrap the first agent
         run: |
