@@ -38,7 +38,7 @@ public class IncidentModelAssembler implements RepresentationModelAssembler<Inci
 		model.setCreatedBy(ticket.getCreatedBy());
 		model.setUpdatedBy(ticket.getUpdatedBy());
 
-		model.add(linkTo(methodOn(IncidentController.class).findById(incident.getId())).withSelfRel());
+		model.add(linkTo(methodOn(IncidentController.class).findById(incident.getId(), null)).withSelfRel());
 		model.add(
 				linkTo(methodOn(PersonController.class).findById(ticket.getRequester().getId())).withRel("requester"));
 		if (ticket.getAssignee() != null) {
@@ -46,7 +46,7 @@ public class IncidentModelAssembler implements RepresentationModelAssembler<Inci
 					.withRel("assignee"));
 		}
 		if (relatedProblem != null) {
-			model.add(linkTo(methodOn(ProblemController.class).findById(relatedProblem.getId()))
+			model.add(linkTo(methodOn(ProblemController.class).findById(relatedProblem.getId(), null))
 					.withRel("relatedProblem"));
 		}
 		return model;

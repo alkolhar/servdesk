@@ -64,11 +64,11 @@ public class SecurityConfig {
 	 * ticket — with the {@code internal}-flag-is-Agent-only rule enforced by
 	 * {@code CommentCommandService} instead, since that's a data-dependent check
 	 * (the request body's {@code internal} flag together with the caller's role),
-	 * not a static URL+role rule. Deliberately out of scope here: row-level
-	 * ownership (a customer seeing only *their own* tickets/profile) — that needs
-	 * the caller's identity compared against the loaded resource, which is a
-	 * data-access decision the service layer would have to make, not a static
-	 * URL+role rule; left as a documented follow-up rather than guessed at now.
+	 * not a static URL+role rule. Row-level ownership (a customer seeing only
+	 * <i>their own</i> tickets, issue #28) lives in the service layer for the same
+	 * reason: it compares the caller's identity against the loaded ticket's
+	 * requester — see {@code AbstractTicketSubtypeQueryService.findByIdVisibleTo}
+	 * and the requester filter in each subtype repository's {@code findVisible}.
 	 * <p>
 	 * <b>OAuth2/OIDC migration path</b>: this method is the only place that would
 	 * change. Swap {@code .httpBasic(withDefaults())} for

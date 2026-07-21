@@ -34,7 +34,7 @@ public class ProblemModelAssembler implements RepresentationModelAssembler<Probl
 		model.setCreatedBy(ticket.getCreatedBy());
 		model.setUpdatedBy(ticket.getUpdatedBy());
 
-		model.add(linkTo(methodOn(ProblemController.class).findById(problem.getId())).withSelfRel());
+		model.add(linkTo(methodOn(ProblemController.class).findById(problem.getId(), null)).withSelfRel());
 		model.add(
 				linkTo(methodOn(PersonController.class).findById(ticket.getRequester().getId())).withRel("requester"));
 		if (ticket.getAssignee() != null) {

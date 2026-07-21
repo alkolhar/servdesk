@@ -129,7 +129,9 @@ Controllers return a `*Model` (or `CollectionModel<...>`/`PagedModel<...>`), nev
     distinguishes agent-only notes from requester-visible replies. `CommentController`
     (`/api/tickets/{ticketId}/comments`, GET+POST only) is nested under the shared id for this reason.
     `CommentCommandService` rejects (`ForbiddenException`, 403) `internal=true` from a Customer;
-    `CommentQueryService` filters internal comments out of a Customer's read.
+    `CommentQueryService` filters internal comments out of a Customer's read. Both also enforce
+    row-level ownership on the comment stream: a Customer reading or commenting on a ticket they
+    didn't request gets 404 (see below).
 - `setup` — `SetupController` (`GET`/`POST /api/setup`, `permitAll`) bootstraps the first agent;
   `createInitialAgent`/`isSetupRequired` refuse to run once any `Person` exists (409) — no seeded
   credentials ship in a migration.
@@ -141,9 +143,17 @@ Controllers return a `*Model` (or `CollectionModel<...>`/`PagedModel<...>`), nev
     `GET` open to both roles, `POST`/`PUT`/`DELETE` Agent-only. Comments: `GET`/`POST` open to both
     (the `internal`-is-Agent-only rule is enforced in the service layer, not here, since it's
     data-dependent). Verified against the real filter chain in `PersonControllerTest` and
-    `AbstractTicketSubtypeControllerTest.customersCanReadButNotCreateUpdateOrDelete`. Out of scope:
-    row-level ownership (a customer seeing only their own tickets) — needs a data-access decision the
-    service layer would make, not a URL+role rule.
+    `AbstractTicketSubtypeControllerTest.customersCanReadButNotCreateUpdateOrDelete`.
+  - **Row-level ownership** (issue #28) lives in the service layer, like the `internal` rule, since
+    it depends on the ticket's own `requester`: a Customer only sees tickets they requested — in
+    listings (`findVisible` adds a requester filter for Customers), by direct id
+    (`AbstractTicketSubtypeQueryService.findByIdVisibleTo`), and on comment read/write. A foreign
+    ticket answers **404, not 403** — indistinguishable from a missing one, so ticket ids can't be
+    probed. Controllers resolve the caller from `Authentication` and pass plain
+    `callerId`/`callerIsAgent` facts into the services (keeps `ArchitectureTest`'s
+    no-web-types-in-services rule intact). Verified per subtype in
+    `AbstractTicketSubtypeControllerTest.customersOnlySeeTicketsTheyRequested`. Still out of scope:
+    shared visibility beyond the requester (watchers — #25, org-based visibility).
   - **OAuth2/OIDC migration path**: `spring-boot-starter-oauth2-resource-server` is on the classpath but
     inert until `issuer-uri` is set. Migrating swaps `.httpBasic(...)` for
     `.oauth2ResourceServer(oauth2 -> oauth2.jwt(...))` and replaces `PersonUserDetailsService` with a

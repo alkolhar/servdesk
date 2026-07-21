@@ -42,7 +42,8 @@ public class CommentController {
 	@GetMapping
 	public CollectionModel<CommentModel> findAll(@PathVariable Long ticketId, Authentication authentication) {
 		Person caller = callerOf(authentication);
-		List<CommentModel> comments = queryService.findByTicket(ticketId, caller.getRole() == PersonRole.AGENT).stream()
+		List<CommentModel> comments = queryService
+				.findByTicket(ticketId, caller.getId(), caller.getRole() == PersonRole.AGENT).stream()
 				.map(assembler::toModel).toList();
 		return CollectionModel.of(comments,
 				linkTo(methodOn(CommentController.class).findAll(ticketId, null)).withSelfRel());

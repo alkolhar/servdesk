@@ -34,7 +34,8 @@ public class ServiceRequestModelAssembler implements RepresentationModelAssemble
 		model.setCreatedBy(ticket.getCreatedBy());
 		model.setUpdatedBy(ticket.getUpdatedBy());
 
-		model.add(linkTo(methodOn(ServiceRequestController.class).findById(serviceRequest.getId())).withSelfRel());
+		model.add(
+				linkTo(methodOn(ServiceRequestController.class).findById(serviceRequest.getId(), null)).withSelfRel());
 		model.add(
 				linkTo(methodOn(PersonController.class).findById(ticket.getRequester().getId())).withRel("requester"));
 		if (ticket.getAssignee() != null) {
