@@ -83,6 +83,15 @@ CREATE TABLE ticket
     team_id       BIGINT,
     resolved_at   TIMESTAMPTZ,
     closed_at     TIMESTAMPTZ,
+    -- SLA tracking (issue #31): deadlines derived from the priority's sla_policy;
+    -- first_responded_at set by the first non-internal Agent comment; pending_since
+    -- pauses the clock; *_breached_at are the scanner's idempotence markers.
+    respond_by            TIMESTAMPTZ,
+    resolve_by            TIMESTAMPTZ,
+    first_responded_at    TIMESTAMPTZ,
+    pending_since         TIMESTAMPTZ,
+    response_breached_at  TIMESTAMPTZ,
+    resolution_breached_at TIMESTAMPTZ,
     created_at    TIMESTAMPTZ  NOT NULL DEFAULT CURRENT_TIMESTAMP,
     updated_at    TIMESTAMPTZ  NOT NULL DEFAULT CURRENT_TIMESTAMP,
     version       BIGINT       NOT NULL DEFAULT 0,
@@ -95,6 +104,25 @@ CREATE TABLE ticket
     CONSTRAINT fk_ticket_assignee FOREIGN KEY (assignee_id) REFERENCES person (id),
     CONSTRAINT fk_ticket_team FOREIGN KEY (team_id) REFERENCES team (id)
 );
+
+-- SLA targets per priority (issue #31): either minutes column may be null (no target
+-- of that kind). One policy per priority, soft-delete-aware like every other unique.
+CREATE TABLE sla_policy
+(
+    id                 BIGINT GENERATED ALWAYS AS IDENTITY PRIMARY KEY,
+    priority_id        BIGINT      NOT NULL,
+    response_minutes   INT,
+    resolution_minutes INT,
+    created_at         TIMESTAMPTZ NOT NULL DEFAULT CURRENT_TIMESTAMP,
+    updated_at         TIMESTAMPTZ NOT NULL DEFAULT CURRENT_TIMESTAMP,
+    version            BIGINT      NOT NULL DEFAULT 0,
+    created_by         VARCHAR(100),
+    updated_by         VARCHAR(100),
+    deleted_at         TIMESTAMPTZ,
+    CONSTRAINT fk_sla_policy_priority FOREIGN KEY (priority_id) REFERENCES priority (id)
+);
+
+CREATE UNIQUE INDEX uk_sla_policy_priority ON sla_policy (priority_id) WHERE deleted_at IS NULL;
 
 -- Customer-defined custom-field values (see attribute_definition below); GIN makes
 -- jsonb containment (@>) and path lookups on arbitrary keys indexable without
