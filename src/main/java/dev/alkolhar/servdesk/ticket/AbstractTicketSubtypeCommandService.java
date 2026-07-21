@@ -3,11 +3,15 @@ package dev.alkolhar.servdesk.ticket;
 import dev.alkolhar.servdesk.classification.Category;
 import dev.alkolhar.servdesk.classification.Priority;
 import dev.alkolhar.servdesk.common.MapsIdBaseEntity;
+import dev.alkolhar.servdesk.customfield.AttributeTarget;
+import dev.alkolhar.servdesk.customfield.AttributeValidator;
 import dev.alkolhar.servdesk.directory.Person;
 import dev.alkolhar.servdesk.directory.Team;
 import dev.alkolhar.servdesk.ticket.event.TicketStatusChangedEvent;
 import jakarta.persistence.EntityManager;
 import java.time.Instant;
+import java.util.HashMap;
+import java.util.Map;
 import org.jspecify.annotations.Nullable;
 import org.springframework.context.ApplicationEventPublisher;
 import org.springframework.data.jpa.repository.JpaRepository;
@@ -29,12 +33,14 @@ public abstract class AbstractTicketSubtypeCommandService<T extends MapsIdBaseEn
 	protected final TicketRepository ticketRepository;
 	protected final EntityManager entityManager;
 	private final ApplicationEventPublisher events;
+	private final AttributeValidator attributeValidator;
 
 	protected AbstractTicketSubtypeCommandService(TicketRepository ticketRepository, EntityManager entityManager,
-			ApplicationEventPublisher events) {
+			ApplicationEventPublisher events, AttributeValidator attributeValidator) {
 		this.ticketRepository = ticketRepository;
 		this.entityManager = entityManager;
 		this.events = events;
+		this.attributeValidator = attributeValidator;
 	}
 
 	protected Ticket newTicket(TicketCreateFields fields) {
@@ -82,6 +88,12 @@ public abstract class AbstractTicketSubtypeCommandService<T extends MapsIdBaseEn
 	}
 
 	private void copySharedFields(Ticket ticket, TicketCreateFields fields) {
+		// null/omitted means empty — full replacement, consistent with PUT semantics
+		Map<String, Object> attributes = fields.attributes() == null
+				? new HashMap<>()
+				: new HashMap<>(fields.attributes());
+		attributeValidator.validate(AttributeTarget.TICKET, attributes);
+		ticket.setAttributes(attributes);
 		ticket.setSubject(fields.subject());
 		ticket.setDescription(fields.description());
 		ticket.setCategory(resolveReference(Category.class, fields.categoryId()));

@@ -75,6 +75,7 @@ CREATE TABLE ticket
     status        VARCHAR(20)  NOT NULL,
     subject       VARCHAR(255) NOT NULL,
     description   TEXT,
+    attributes    JSONB        NOT NULL DEFAULT '{}'::jsonb,
     category_id   BIGINT,
     priority_id   BIGINT,
     requester_id  BIGINT       NOT NULL,
@@ -94,6 +95,34 @@ CREATE TABLE ticket
     CONSTRAINT fk_ticket_assignee FOREIGN KEY (assignee_id) REFERENCES person (id),
     CONSTRAINT fk_ticket_team FOREIGN KEY (team_id) REFERENCES team (id)
 );
+
+-- Customer-defined custom-field values (see attribute_definition below); GIN makes
+-- jsonb containment (@>) and path lookups on arbitrary keys indexable without
+-- per-field schema changes — the ADR-0002 design.
+CREATE INDEX idx_ticket_attributes ON ticket USING GIN (attributes);
+
+-- Admin-editable custom-field definitions (issue #29): what keys are allowed on a
+-- target aggregate (only TICKET today; CMDB configuration items later), their type,
+-- and validation facts. Values live in the target's own `attributes` jsonb column.
+CREATE TABLE attribute_definition
+(
+    id          BIGINT GENERATED ALWAYS AS IDENTITY PRIMARY KEY,
+    target_type VARCHAR(20)  NOT NULL,
+    attr_key    VARCHAR(100) NOT NULL,
+    label       VARCHAR(150) NOT NULL,
+    attr_type   VARCHAR(20)  NOT NULL,
+    required    BOOLEAN      NOT NULL DEFAULT FALSE,
+    enum_values JSONB,
+    created_at  TIMESTAMPTZ  NOT NULL DEFAULT CURRENT_TIMESTAMP,
+    updated_at  TIMESTAMPTZ  NOT NULL DEFAULT CURRENT_TIMESTAMP,
+    version     BIGINT       NOT NULL DEFAULT 0,
+    created_by  VARCHAR(100),
+    updated_by  VARCHAR(100),
+    deleted_at  TIMESTAMPTZ
+);
+
+CREATE UNIQUE INDEX uk_attribute_definition_target_key ON attribute_definition (target_type, attr_key)
+    WHERE deleted_at IS NULL;
 
 CREATE TABLE ticket_comment
 (

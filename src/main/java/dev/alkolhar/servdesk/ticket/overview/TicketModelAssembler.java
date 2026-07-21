@@ -10,6 +10,7 @@ import dev.alkolhar.servdesk.ticket.change.ChangeController;
 import dev.alkolhar.servdesk.ticket.incident.IncidentController;
 import dev.alkolhar.servdesk.ticket.problem.ProblemController;
 import dev.alkolhar.servdesk.ticket.servicerequest.ServiceRequestController;
+import java.util.HashMap;
 import org.jspecify.annotations.Nullable;
 import org.springframework.hateoas.Link;
 import org.springframework.hateoas.server.RepresentationModelAssembler;
@@ -28,6 +29,7 @@ public class TicketModelAssembler implements RepresentationModelAssembler<Ticket
 		model.setStatus(ticket.getStatus());
 		model.setSubject(ticket.getSubject());
 		model.setDescription(ticket.getDescription());
+		model.setAttributes(new HashMap<>(ticket.getAttributes()));
 		model.setCategoryId(idOf(ticket.getCategory()));
 		model.setPriorityId(idOf(ticket.getPriority()));
 		model.setRequesterId(ticket.getRequester().getId());

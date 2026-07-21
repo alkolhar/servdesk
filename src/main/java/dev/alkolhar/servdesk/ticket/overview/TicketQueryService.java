@@ -51,10 +51,17 @@ public class TicketQueryService {
 
 	public Page<TicketOverview> findAll(@Nullable TicketStatus status, @Nullable Long requesterId,
 			@Nullable Long assigneeId, @Nullable Long teamId, @Nullable Long categoryId, @Nullable Long priorityId,
-			Long callerId, boolean callerIsAgent, Pageable pageable) {
+			@Nullable String attrKey, @Nullable String attrValue, Long callerId, boolean callerIsAgent,
+			Pageable pageable) {
+		if (attrKey != null && attrValue == null) {
+			throw new IllegalArgumentException("attrValue is required when attrKey is given");
+		}
 		Long requesterScope = callerIsAgent ? null : callerId;
-		Page<Ticket> page = ticketRepository.findVisible(status, requesterId, assigneeId, teamId, categoryId,
-				priorityId, requesterScope, pageable);
+		Page<Ticket> page = attrKey == null
+				? ticketRepository.findVisible(status, requesterId, assigneeId, teamId, categoryId, priorityId,
+						requesterScope, pageable)
+				: ticketRepository.findVisibleByAttribute(status, requesterId, assigneeId, teamId, categoryId,
+						priorityId, requesterScope, attrKey, attrValue, pageable);
 		Map<Long, TicketOverview> resolved = resolveSubtypes(page.getContent());
 		return page.map(ticket -> overviewOf(ticket, resolved));
 	}

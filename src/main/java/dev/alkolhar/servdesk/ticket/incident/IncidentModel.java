@@ -2,6 +2,7 @@ package dev.alkolhar.servdesk.ticket.incident;
 
 import dev.alkolhar.servdesk.ticket.TicketStatus;
 import java.time.Instant;
+import java.util.Map;
 import org.jspecify.annotations.Nullable;
 import org.springframework.hateoas.RepresentationModel;
 
@@ -13,6 +14,8 @@ public class IncidentModel extends RepresentationModel<IncidentModel> {
 	private TicketStatus status;
 	private String subject;
 	private @Nullable String description;
+
+	private Map<String, Object> attributes;
 	private @Nullable Long categoryId;
 	private @Nullable Long priorityId;
 	private Long requesterId;
@@ -64,6 +67,14 @@ public class IncidentModel extends RepresentationModel<IncidentModel> {
 
 	public void setDescription(@Nullable String description) {
 		this.description = description;
+	}
+
+	public Map<String, Object> getAttributes() {
+		return attributes;
+	}
+
+	public void setAttributes(Map<String, Object> attributes) {
+		this.attributes = attributes;
 	}
 
 	public @Nullable Long getCategoryId() {
