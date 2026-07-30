@@ -69,6 +69,61 @@ CREATE TABLE priority
 
 CREATE UNIQUE INDEX uk_priority_name ON priority (name) WHERE deleted_at IS NULL;
 
+CREATE TABLE impact
+(
+    id         BIGINT GENERATED ALWAYS AS IDENTITY PRIMARY KEY,
+    name       VARCHAR(50) NOT NULL,
+    sort_order INT         NOT NULL,
+    created_at TIMESTAMPTZ NOT NULL DEFAULT CURRENT_TIMESTAMP,
+    updated_at TIMESTAMPTZ NOT NULL DEFAULT CURRENT_TIMESTAMP,
+    version    BIGINT      NOT NULL DEFAULT 0,
+    created_by VARCHAR(100),
+    updated_by VARCHAR(100),
+    deleted_at TIMESTAMPTZ
+);
+
+CREATE UNIQUE INDEX uk_impact_name ON impact (name) WHERE deleted_at IS NULL;
+
+CREATE TABLE urgency
+(
+    id         BIGINT GENERATED ALWAYS AS IDENTITY PRIMARY KEY,
+    name       VARCHAR(50) NOT NULL,
+    sort_order INT         NOT NULL,
+    created_at TIMESTAMPTZ NOT NULL DEFAULT CURRENT_TIMESTAMP,
+    updated_at TIMESTAMPTZ NOT NULL DEFAULT CURRENT_TIMESTAMP,
+    version    BIGINT      NOT NULL DEFAULT 0,
+    created_by VARCHAR(100),
+    updated_by VARCHAR(100),
+    deleted_at TIMESTAMPTZ
+);
+
+CREATE UNIQUE INDEX uk_urgency_name ON urgency (name) WHERE deleted_at IS NULL;
+
+-- One cell of the Impact x Urgency priority matrix: maps a single (impact, urgency)
+-- pair to the Priority a ticket carrying that pair should be given. Multiple pairs may
+-- point at the same Priority, but each pair maps to at most one Priority.
+CREATE TABLE priority_definition
+(
+    id          BIGINT GENERATED ALWAYS AS IDENTITY PRIMARY KEY,
+    impact_id   BIGINT      NOT NULL,
+    urgency_id  BIGINT      NOT NULL,
+    priority_id BIGINT      NOT NULL,
+    created_at  TIMESTAMPTZ NOT NULL DEFAULT CURRENT_TIMESTAMP,
+    updated_at  TIMESTAMPTZ NOT NULL DEFAULT CURRENT_TIMESTAMP,
+    version     BIGINT      NOT NULL DEFAULT 0,
+    created_by  VARCHAR(100),
+    updated_by  VARCHAR(100),
+    deleted_at  TIMESTAMPTZ,
+    CONSTRAINT fk_priority_definition_impact FOREIGN KEY (impact_id) REFERENCES impact (id),
+    CONSTRAINT fk_priority_definition_urgency FOREIGN KEY (urgency_id) REFERENCES urgency (id),
+    CONSTRAINT fk_priority_definition_priority FOREIGN KEY (priority_id) REFERENCES priority (id)
+);
+
+-- Partial, like every other unique here: a soft-deleted cell frees its (impact, urgency)
+-- pair for reuse, so remapping a combination is a normal 201 rather than a 409.
+CREATE UNIQUE INDEX uk_priority_definition_impact_urgency ON priority_definition (impact_id, urgency_id)
+    WHERE deleted_at IS NULL;
+
 CREATE TABLE ticket
 (
     id            BIGINT GENERATED ALWAYS AS IDENTITY PRIMARY KEY,
@@ -77,6 +132,8 @@ CREATE TABLE ticket
     description   TEXT,
     attributes    JSONB        NOT NULL DEFAULT '{}'::jsonb,
     category_id   BIGINT,
+    impact_id     BIGINT,
+    urgency_id    BIGINT,
     priority_id   BIGINT,
     requester_id  BIGINT       NOT NULL,
     assignee_id   BIGINT,
@@ -99,6 +156,8 @@ CREATE TABLE ticket
     updated_by    VARCHAR(100),
     deleted_at    TIMESTAMPTZ,
     CONSTRAINT fk_ticket_category FOREIGN KEY (category_id) REFERENCES category (id),
+    CONSTRAINT fk_ticket_impact FOREIGN KEY (impact_id) REFERENCES impact (id),
+    CONSTRAINT fk_ticket_urgency FOREIGN KEY (urgency_id) REFERENCES urgency (id),
     CONSTRAINT fk_ticket_priority FOREIGN KEY (priority_id) REFERENCES priority (id),
     CONSTRAINT fk_ticket_requester FOREIGN KEY (requester_id) REFERENCES person (id),
     CONSTRAINT fk_ticket_assignee FOREIGN KEY (assignee_id) REFERENCES person (id),

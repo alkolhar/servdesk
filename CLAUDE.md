@@ -110,15 +110,28 @@ Controllers return a `*Model` (or `CollectionModel<...>`/`PagedModel<...>`), nev
   `role` → `ROLE_*`; defining this bean is what makes Boot back off its default generated-password setup.
   `PersonRepository.findByUsername` returns empty for customers (who typically have none).
 - `classification` — ticket lookup/reference data: `Category` (self-referencing tree, `CategoryController`
-  at `/api/categories`), `Priority` (name + `sortOrder`, `PriorityController` at `/api/priorities`).
-  Same read-open/write-Agent-only RBAC shape as ticket subtypes (see `SecurityConfig` below).
+  at `/api/categories`), `Priority` (name + `sortOrder`, `PriorityController` at `/api/priorities`),
+  plus the **Impact × Urgency priority matrix** (issue #22): `Impact` and `Urgency` (both the same
+  flat name + `sortOrder` shape as `Priority`, at `/api/impacts` and `/api/urgencies`) and
+  `PriorityDefinition` (`/api/priority-definitions`), one cell of the matrix mapping an
+  (impact, urgency) pair to a `Priority` — partial-unique on the pair, so several pairs may share a
+  `Priority` but a pair maps to at most one. All share the read-open/write-Agent-only RBAC shape.
+  **`Priority` is no longer client-settable on a ticket**: requests carry `impactId`/`urgencyId`, and
+  `AbstractTicketSubtypeCommandService.copySharedFields` derives `priority` from the matrix, the same
+  "never client-supplied" treatment as `resolvedAt`/`closedAt`. Deliberately permissive — a missing
+  input or an unmapped pair leaves `priority` null rather than rejecting the write (a gap in the
+  matrix is an admin data-quality problem, not a bad request). This is also what now drives SLA
+  re-derivation: `applySharedUpdate` reads the priority id *before* re-deriving, so `SlaHooks` still
+  sees a genuine before/after.
 - `sla` — service-level management (issue #31). `SlaPolicy` (at most one per `Priority`, partial
   unique; `responseMinutes`/`resolutionMinutes`, either nullable, at least one required) at
   `/api/sla-policies` (reference-data RBAC shape, unpaginated). Deadlines live on the shared
   `Ticket` (`respondBy`/`resolveBy`, plus `firstRespondedAt`/`pendingSince`/`*BreachedAt`) and are
   derived by `TicketSlaService` — v1 runs a **24/7 clock** (business-hours calendars are follow-up
-  scope and slot into this one service). Derivation only on create or an actual priority change,
-  anchored at `createdAt`; entering `PENDING` records `pendingSince`, leaving it shifts both
+  scope and slot into this one service). Derivation only on create or an actual priority change
+  (since #22 that always means a matrix re-derivation from a new impact/urgency pair — clients can't
+  set a priority directly), anchored at `createdAt`; entering `PENDING` records `pendingSince`,
+  leaving it shifts both
   deadlines by the paused duration (known v1 imprecision: a priority change drops earlier pause
   credit). First response = first non-internal Agent comment (`CommentCommandService`). Policy
   edits deliberately don't touch existing tickets. **`ticket` never imports `sla`**: the command

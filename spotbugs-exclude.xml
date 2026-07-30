@@ -16,6 +16,7 @@
     <Match>
         <Or>
             <Class name="dev.alkolhar.servdesk.classification.Category"/>
+            <Class name="dev.alkolhar.servdesk.classification.PriorityDefinition"/>
             <Class name="dev.alkolhar.servdesk.directory.Person"/>
             <Class name="dev.alkolhar.servdesk.ticket.Ticket"/>
             <Class name="dev.alkolhar.servdesk.ticket.TicketComment"/>
@@ -37,6 +38,10 @@
             <Class name="dev.alkolhar.servdesk.directory.PersonCommandService"/>
             <Class name="dev.alkolhar.servdesk.directory.PersonController"/>
             <Class name="dev.alkolhar.servdesk.setup.SetupController"/>
+            <Class name="dev.alkolhar.servdesk.classification.ImpactController"/>
+            <Class name="dev.alkolhar.servdesk.classification.UrgencyController"/>
+            <Class name="dev.alkolhar.servdesk.classification.PriorityDefinitionController"/>
+            <Class name="dev.alkolhar.servdesk.classification.PriorityDefinitionCommandService"/>
         </Or>
         <Bug pattern="EI_EXPOSE_REP2"/>
     </Match>
@@ -72,7 +77,12 @@
         changes, implement equals()/hashCode() over all fields rather than re-suppressing this.
     -->
     <Match>
-        <Class name="dev.alkolhar.servdesk.directory.PersonModel"/>
+        <Or>
+            <Class name="dev.alkolhar.servdesk.directory.PersonModel"/>
+            <Class name="dev.alkolhar.servdesk.classification.ImpactModel"/>
+            <Class name="dev.alkolhar.servdesk.classification.UrgencyModel"/>
+            <Class name="dev.alkolhar.servdesk.classification.PriorityDefinitionModel"/>
+        </Or>
         <Bug pattern="EQ_DOESNT_OVERRIDE_EQUALS"/>
     </Match>
 

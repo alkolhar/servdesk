@@ -51,6 +51,8 @@ class SlaLifecycleTest {
 
 	private Number requesterId;
 	private Number urgentPriorityId;
+	private Number urgentImpactId;
+	private Number urgentUrgencyId;
 
 	@BeforeAll
 	void bootstrapFixtures() {
@@ -65,6 +67,19 @@ class SlaLifecycleTest {
 		ResponseEntity<Map> policy = asAdmin().postForEntity("/api/sla-policies",
 				Map.of("priorityId", urgentPriorityId, "responseMinutes", 30, "resolutionMinutes", 240), Map.class);
 		assertThat(policy.getStatusCode()).isEqualTo(HttpStatus.CREATED);
+
+		// a ticket can't be given a priority directly (issue #22) — it has to fall out
+		// of the Impact x Urgency matrix, so the policy above needs a cell resolving to
+		// the priority it governs
+		urgentImpactId = (Number) asAdmin()
+				.postForEntity("/api/impacts", Map.of("name", "Widespread", "sortOrder", 0), Map.class).getBody()
+				.get("id");
+		urgentUrgencyId = (Number) asAdmin()
+				.postForEntity("/api/urgencies", Map.of("name", "Immediate", "sortOrder", 0), Map.class).getBody()
+				.get("id");
+		asAdmin().postForEntity("/api/priority-definitions",
+				Map.of("impactId", urgentImpactId, "urgencyId", urgentUrgencyId, "priorityId", urgentPriorityId),
+				Map.class);
 	}
 
 	private TestRestTemplate asAdmin() {
@@ -72,8 +87,8 @@ class SlaLifecycleTest {
 	}
 
 	private Number createUrgentIncident(String subject) {
-		Map<String, Object> body = Map.of("subject", subject, "requesterId", requesterId, "priorityId",
-				urgentPriorityId);
+		Map<String, Object> body = Map.of("subject", subject, "requesterId", requesterId, "impactId", urgentImpactId,
+				"urgencyId", urgentUrgencyId);
 		ResponseEntity<Map> created = asAdmin().postForEntity("/api/incidents", body, Map.class);
 		assertThat(created.getStatusCode()).isEqualTo(HttpStatus.CREATED);
 		return (Number) created.getBody().get("id");
@@ -161,7 +176,7 @@ class SlaLifecycleTest {
 		Instant originalRespondBy = Instant.parse((String) fetched.get("respondBy"));
 
 		Map<String, Object> toPending = Map.of("status", "PENDING", "subject", "Paused while pending", "requesterId",
-				requesterId, "priorityId", urgentPriorityId);
+				requesterId, "impactId", urgentImpactId, "urgencyId", urgentUrgencyId);
 		asAdmin().exchange("/api/incidents/" + id, HttpMethod.PUT, new HttpEntity<>(toPending), Map.class);
 
 		// backdate the pause start to make the shift observable
@@ -170,7 +185,7 @@ class SlaLifecycleTest {
 		ticketRepository.save(ticket);
 
 		Map<String, Object> toInProgress = Map.of("status", "IN_PROGRESS", "subject", "Paused while pending",
-				"requesterId", requesterId, "priorityId", urgentPriorityId);
+				"requesterId", requesterId, "impactId", urgentImpactId, "urgencyId", urgentUrgencyId);
 		Map<String, Object> resumed = asAdmin()
 				.exchange("/api/incidents/" + id, HttpMethod.PUT, new HttpEntity<>(toInProgress), Map.class).getBody();
 
