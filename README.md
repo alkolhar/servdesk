@@ -16,7 +16,10 @@ is tracked in [GitHub Issues](https://github.com/alkolhar/servdesk/issues), not 
   rather than JPA inheritance. A read-only cross-subtype view is available at `GET /api/tickets`.
 - **Comments** — per ticket, with an `internal` flag that keeps agent-only notes away from the
   requester.
-- **Classification** — categories (a tree) and priorities.
+- **Classification** — categories (a tree), priorities, and the ITIL **Impact × Urgency matrix**.
+  Priority isn't chosen by the client: a ticket carries an impact and an urgency, and the server
+  derives its priority from the admin-maintained matrix cell those two land on. A gap in the matrix
+  leaves the priority unset rather than rejecting the write.
 - **Custom fields** — administrators declare attribute definitions per deployment; values live in a
   `jsonb` column on the ticket and are validated on write. This is the product's per-customer
   customization mechanism, which is what makes PostgreSQL non-negotiable
@@ -151,7 +154,7 @@ A modular monolith under `dev.alkolhar.servdesk`, one package per feature:
 | --- | --- |
 | `ticket` | The ticketing core: the shared `Ticket`, the four subtypes in their own subpackages, comments, and the read-only cross-subtype `overview` |
 | `directory` | People and teams |
-| `classification` | Categories and priorities |
+| `classification` | Categories, priorities, and the Impact × Urgency matrix that derives them |
 | `customfield` | Admin-defined attribute definitions and write-time validation |
 | `sla` | Policies, deadline derivation, and the Quartz breach scanner |
 | `setup` | The one-shot first-agent bootstrap endpoint |
