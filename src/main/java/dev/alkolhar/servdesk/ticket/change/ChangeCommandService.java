@@ -1,5 +1,6 @@
 package dev.alkolhar.servdesk.ticket.change;
 
+import dev.alkolhar.servdesk.classification.PriorityDefinitionRepository;
 import dev.alkolhar.servdesk.customfield.AttributeValidator;
 import dev.alkolhar.servdesk.ticket.AbstractTicketSubtypeCommandService;
 import dev.alkolhar.servdesk.ticket.SlaHooks;
@@ -17,8 +18,9 @@ public class ChangeCommandService extends AbstractTicketSubtypeCommandService<Ch
 
 	public ChangeCommandService(ChangeRepository changeRepository, ChangeQueryService changeQueryService,
 			TicketRepository ticketRepository, EntityManager entityManager, ApplicationEventPublisher events,
-			AttributeValidator attributeValidator, SlaHooks slaHooks) {
-		super(ticketRepository, entityManager, events, attributeValidator, slaHooks);
+			PriorityDefinitionRepository priorityDefinitionRepository, AttributeValidator attributeValidator,
+			SlaHooks slaHooks) {
+		super(ticketRepository, entityManager, events, priorityDefinitionRepository, attributeValidator, slaHooks);
 		this.changeRepository = changeRepository;
 		this.changeQueryService = changeQueryService;
 	}

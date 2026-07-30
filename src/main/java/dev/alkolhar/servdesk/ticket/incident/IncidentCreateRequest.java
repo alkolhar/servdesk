@@ -7,6 +7,7 @@ import java.util.Map;
 import org.jspecify.annotations.Nullable;
 
 public record IncidentCreateRequest(@NotBlank String subject, @Nullable String description, @Nullable Long categoryId,
-		@Nullable Long priorityId, @NotNull Long requesterId, @Nullable Long assigneeId, @Nullable Long teamId,
-		@Nullable Long relatedProblemId, @Nullable Map<String, Object> attributes) implements TicketCreateFields {
+		@Nullable Long impactId, @Nullable Long urgencyId, @NotNull Long requesterId, @Nullable Long assigneeId,
+		@Nullable Long teamId, @Nullable Long relatedProblemId,
+		@Nullable Map<String, Object> attributes) implements TicketCreateFields {
 }

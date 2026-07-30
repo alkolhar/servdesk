@@ -8,7 +8,7 @@ import java.util.Map;
 import org.jspecify.annotations.Nullable;
 
 public record ServiceRequestUpdateRequest(@NotNull TicketStatus status, @NotBlank String subject,
-		@Nullable String description, @Nullable Long categoryId, @Nullable Long priorityId, @NotNull Long requesterId,
-		@Nullable Long assigneeId, @Nullable Long teamId,
+		@Nullable String description, @Nullable Long categoryId, @Nullable Long impactId, @Nullable Long urgencyId,
+		@NotNull Long requesterId, @Nullable Long assigneeId, @Nullable Long teamId,
 		@Nullable Map<String, Object> attributes) implements TicketUpdateFields {
 }

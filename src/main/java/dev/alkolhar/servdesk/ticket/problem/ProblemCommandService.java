@@ -1,5 +1,6 @@
 package dev.alkolhar.servdesk.ticket.problem;
 
+import dev.alkolhar.servdesk.classification.PriorityDefinitionRepository;
 import dev.alkolhar.servdesk.customfield.AttributeValidator;
 import dev.alkolhar.servdesk.ticket.AbstractTicketSubtypeCommandService;
 import dev.alkolhar.servdesk.ticket.SlaHooks;
@@ -17,8 +18,9 @@ public class ProblemCommandService extends AbstractTicketSubtypeCommandService<P
 
 	public ProblemCommandService(ProblemRepository problemRepository, ProblemQueryService problemQueryService,
 			TicketRepository ticketRepository, EntityManager entityManager, ApplicationEventPublisher events,
-			AttributeValidator attributeValidator, SlaHooks slaHooks) {
-		super(ticketRepository, entityManager, events, attributeValidator, slaHooks);
+			PriorityDefinitionRepository priorityDefinitionRepository, AttributeValidator attributeValidator,
+			SlaHooks slaHooks) {
+		super(ticketRepository, entityManager, events, priorityDefinitionRepository, attributeValidator, slaHooks);
 		this.problemRepository = problemRepository;
 		this.problemQueryService = problemQueryService;
 	}

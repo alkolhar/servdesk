@@ -31,6 +31,8 @@ public class TicketModelAssembler implements RepresentationModelAssembler<Ticket
 		model.setDescription(ticket.getDescription());
 		model.setAttributes(new HashMap<>(ticket.getAttributes()));
 		model.setCategoryId(idOf(ticket.getCategory()));
+		model.setImpactId(idOf(ticket.getImpact()));
+		model.setUrgencyId(idOf(ticket.getUrgency()));
 		model.setPriorityId(idOf(ticket.getPriority()));
 		model.setRequesterId(ticket.getRequester().getId());
 		model.setAssigneeId(idOf(ticket.getAssignee()));

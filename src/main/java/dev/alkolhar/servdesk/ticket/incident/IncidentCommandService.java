@@ -1,5 +1,6 @@
 package dev.alkolhar.servdesk.ticket.incident;
 
+import dev.alkolhar.servdesk.classification.PriorityDefinitionRepository;
 import dev.alkolhar.servdesk.customfield.AttributeValidator;
 import dev.alkolhar.servdesk.ticket.AbstractTicketSubtypeCommandService;
 import dev.alkolhar.servdesk.ticket.SlaHooks;
@@ -18,8 +19,9 @@ public class IncidentCommandService extends AbstractTicketSubtypeCommandService<
 
 	public IncidentCommandService(IncidentRepository incidentRepository, IncidentQueryService incidentQueryService,
 			TicketRepository ticketRepository, EntityManager entityManager, ApplicationEventPublisher events,
-			AttributeValidator attributeValidator, SlaHooks slaHooks) {
-		super(ticketRepository, entityManager, events, attributeValidator, slaHooks);
+			PriorityDefinitionRepository priorityDefinitionRepository, AttributeValidator attributeValidator,
+			SlaHooks slaHooks) {
+		super(ticketRepository, entityManager, events, priorityDefinitionRepository, attributeValidator, slaHooks);
 		this.incidentRepository = incidentRepository;
 		this.incidentQueryService = incidentQueryService;
 	}

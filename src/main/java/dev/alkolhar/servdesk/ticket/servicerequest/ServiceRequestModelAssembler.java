@@ -25,6 +25,8 @@ public class ServiceRequestModelAssembler implements RepresentationModelAssemble
 		model.setDescription(ticket.getDescription());
 		model.setAttributes(new HashMap<>(ticket.getAttributes()));
 		model.setCategoryId(idOf(ticket.getCategory()));
+		model.setImpactId(idOf(ticket.getImpact()));
+		model.setUrgencyId(idOf(ticket.getUrgency()));
 		model.setPriorityId(idOf(ticket.getPriority()));
 		model.setRequesterId(idOf(ticket.getRequester()));
 		model.setAssigneeId(idOf(ticket.getAssignee()));

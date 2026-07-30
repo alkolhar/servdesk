@@ -47,6 +47,10 @@ public abstract class AbstractTicketSubtypeControllerTest {
 	protected TestRestTemplate restTemplate;
 
 	protected Number requesterId;
+	private Number impactId;
+	private Number urgencyId;
+	private Number unmappedUrgencyId;
+	private Number derivedPriorityId;
 
 	protected Number otherCustomerId;
 
@@ -65,6 +69,18 @@ public abstract class AbstractTicketSubtypeControllerTest {
 				"otto@example.com", "username", "otto", "password", "otto12345");
 		otherCustomerId = (Number) asAdmin().postForEntity("/api/persons", otherCustomerRequest, Map.class).getBody()
 				.get("id");
+
+		impactId = (Number) asAdmin().postForEntity("/api/impacts", Map.of("name", "High", "sortOrder", 0), Map.class)
+				.getBody().get("id");
+		urgencyId = (Number) asAdmin()
+				.postForEntity("/api/urgencies", Map.of("name", "High", "sortOrder", 0), Map.class).getBody().get("id");
+		unmappedUrgencyId = (Number) asAdmin()
+				.postForEntity("/api/urgencies", Map.of("name", "Low", "sortOrder", 9), Map.class).getBody().get("id");
+		derivedPriorityId = (Number) asAdmin()
+				.postForEntity("/api/priorities", Map.of("name", "Critical", "sortOrder", 0), Map.class).getBody()
+				.get("id");
+		asAdmin().postForEntity("/api/priority-definitions",
+				Map.of("impactId", impactId, "urgencyId", urgencyId, "priorityId", derivedPriorityId), Map.class);
 	}
 
 	protected TestRestTemplate asAdmin() {
@@ -198,6 +214,28 @@ public abstract class AbstractTicketSubtypeControllerTest {
 				new HttpEntity<>(reopenBody), Map.class);
 		assertThat(reopened.getStatusCode()).isEqualTo(HttpStatus.OK);
 		assertThat(reopened.getBody().get("resolvedAt")).isNull();
+	}
+
+	@Test
+	void createDerivesPriorityFromAMatchingImpactUrgencyPairAndLeavesItNullOtherwise() {
+		Map<String, Object> derivableBody = createBody("Needs priority derivation");
+		derivableBody.put("impactId", impactId);
+		derivableBody.put("urgencyId", urgencyId);
+		ResponseEntity<Map> derived = asAdmin().postForEntity(basePath(), derivableBody, Map.class);
+		assertThat(derived.getStatusCode()).isEqualTo(HttpStatus.CREATED);
+		assertThat(((Number) derived.getBody().get("priorityId")).longValue()).isEqualTo(derivedPriorityId.longValue());
+
+		ResponseEntity<Map> withoutImpactOrUrgency = asAdmin().postForEntity(basePath(),
+				createBody("No impact or urgency set"), Map.class);
+		assertThat(withoutImpactOrUrgency.getStatusCode()).isEqualTo(HttpStatus.CREATED);
+		assertThat(withoutImpactOrUrgency.getBody().get("priorityId")).isNull();
+
+		Map<String, Object> unmappedBody = createBody("Impact and urgency set but unmapped");
+		unmappedBody.put("impactId", impactId);
+		unmappedBody.put("urgencyId", unmappedUrgencyId);
+		ResponseEntity<Map> unmapped = asAdmin().postForEntity(basePath(), unmappedBody, Map.class);
+		assertThat(unmapped.getStatusCode()).isEqualTo(HttpStatus.CREATED);
+		assertThat(unmapped.getBody().get("priorityId")).isNull();
 	}
 
 	@Test
