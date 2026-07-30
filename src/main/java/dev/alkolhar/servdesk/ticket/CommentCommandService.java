@@ -19,12 +19,14 @@ public class CommentCommandService {
 	private final TicketCommentRepository commentRepository;
 	private final TicketRepository ticketRepository;
 	private final EntityManager entityManager;
+	private final SlaHooks slaHooks;
 
 	public CommentCommandService(TicketCommentRepository commentRepository, TicketRepository ticketRepository,
-			EntityManager entityManager) {
+			EntityManager entityManager, SlaHooks slaHooks) {
 		this.commentRepository = commentRepository;
 		this.ticketRepository = ticketRepository;
 		this.entityManager = entityManager;
+		this.slaHooks = slaHooks;
 	}
 
 	public TicketComment create(Long ticketId, CommentCreateRequest request, Long authorId, boolean authorIsAgent) {
@@ -36,6 +38,13 @@ public class CommentCommandService {
 		if (!authorIsAgent && !authorId.equals(ticket.getRequester().getId())) {
 			// 404, not 403: a Customer must not learn that a foreign ticket id exists
 			throw new NotFoundException("Ticket " + ticketId + " not found");
+		}
+		// a non-internal Agent comment is the ticket's first response for SLA
+		// purposes (issue #31) — internal notes aren't visible to the requester
+		// and don't count
+		if (authorIsAgent && !request.internal() && ticket.getFirstRespondedAt() == null) {
+			slaHooks.recordAgentResponse(ticket);
+			ticketRepository.save(ticket);
 		}
 		TicketComment comment = new TicketComment();
 		comment.setTicket(ticket);

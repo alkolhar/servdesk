@@ -39,11 +39,14 @@ class CommentCommandServiceTest {
 	@Mock
 	private EntityManager entityManager;
 
+	@Mock
+	private SlaHooks slaHooks;
+
 	private CommentCommandService commandService;
 
 	@BeforeEach
 	void setUp() {
-		commandService = new CommentCommandService(commentRepository, ticketRepository, entityManager);
+		commandService = new CommentCommandService(commentRepository, ticketRepository, entityManager, slaHooks);
 	}
 
 	@Test

@@ -31,6 +31,10 @@ tags:
     description: >
       Read-only cross-subtype ticket overview: one paginated stream over all four subtypes,
       addressed by the shared Ticket id (ADR-0001). Writes stay on each subtype's own endpoint.
+  - name: sla-policies
+    description: >
+      Response/resolution targets per Priority — at most one policy per priority. Deadlines are
+      stamped onto tickets at creation/re-prioritization; a Quartz scanner detects breaches.
   - name: attribute-definitions
     description: >
       Admin-editable custom-field definitions (which keys a target aggregate accepts, their type
@@ -859,6 +863,114 @@ paths:
           $ref: "#/components/responses/ForbiddenProblem"
         "404":
           $ref: "#/components/responses/NotFoundProblem"
+  /api/sla-policies:
+    parameters:
+      - $ref: "#/components/parameters/ApiVersionHeader"
+    get:
+      tags: [sla-policies]
+      summary: List SLA policies. Not paginated — at most one per priority.
+      responses:
+        "default":
+          $ref: "#/components/responses/DefaultProblem"
+        "200":
+          description: The policies.
+          content:
+            application/hal+json:
+              schema:
+                $ref: "#/components/schemas/SlaPolicyCollection"
+        "401":
+          $ref: "#/components/responses/Unauthorized"
+    post:
+      tags: [sla-policies]
+      summary: >
+        Create an SLA policy for a priority. Agent-only. At least one of
+        responseMinutes/resolutionMinutes is required; a second policy for the same priority is a
+        409. Existing tickets keep their deadlines — policies apply to tickets created or
+        re-prioritized afterwards.
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/SlaPolicyCreateRequest"
+      responses:
+        "default":
+          $ref: "#/components/responses/DefaultProblem"
+        "201":
+          description: Policy created.
+          content:
+            application/hal+json:
+              schema:
+                $ref: "#/components/schemas/SlaPolicyModel"
+        "400":
+          $ref: "#/components/responses/ValidationProblem"
+        "401":
+          $ref: "#/components/responses/Unauthorized"
+        "403":
+          $ref: "#/components/responses/ForbiddenProblem"
+        "409":
+          $ref: "#/components/responses/ConflictProblem"
+  /api/sla-policies/{id}:
+    parameters:
+      - $ref: "#/components/parameters/ApiVersionHeader"
+      - name: id
+        in: path
+        required: true
+        schema:
+          type: integer
+          format: int64
+    get:
+      tags: [sla-policies]
+      summary: Fetch a policy by id.
+      responses:
+        "default":
+          $ref: "#/components/responses/DefaultProblem"
+        "200":
+          description: The policy.
+          content:
+            application/hal+json:
+              schema:
+                $ref: "#/components/schemas/SlaPolicyModel"
+        "404":
+          $ref: "#/components/responses/NotFoundProblem"
+    put:
+      tags: [sla-policies]
+      summary: >
+        Update a policy's targets. Agent-only. The governed priority is fixed at creation —
+        delete and recreate to retarget.
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/SlaPolicyUpdateRequest"
+      responses:
+        "default":
+          $ref: "#/components/responses/DefaultProblem"
+        "200":
+          description: The updated policy.
+          content:
+            application/hal+json:
+              schema:
+                $ref: "#/components/schemas/SlaPolicyModel"
+        "400":
+          $ref: "#/components/responses/ValidationProblem"
+        "403":
+          $ref: "#/components/responses/ForbiddenProblem"
+        "404":
+          $ref: "#/components/responses/NotFoundProblem"
+    delete:
+      tags: [sla-policies]
+      summary: Soft-delete a policy. Agent-only. Existing tickets keep their deadlines.
+      responses:
+        "default":
+          $ref: "#/components/responses/DefaultProblem"
+        "204":
+          description: Deleted.
+        "403":
+          $ref: "#/components/responses/ForbiddenProblem"
+        "404":
+          $ref: "#/components/responses/NotFoundProblem"
   /api/attribute-definitions:
     parameters:
       - $ref: "#/components/parameters/ApiVersionHeader"
@@ -1469,6 +1581,83 @@ components:
     TicketStatus:
       type: string
       enum: [OPEN, IN_PROGRESS, PENDING, RESOLVED, CLOSED]
+    SlaPolicyModel:
+      type: object
+      description: Response/resolution targets for tickets of one Priority.
+      properties:
+        id:
+          type: integer
+          format: int64
+        priorityId:
+          type: integer
+          format: int64
+        responseMinutes:
+          type: integer
+          nullable: true
+          description: Minutes from ticket creation to the response deadline; null = no target.
+        resolutionMinutes:
+          type: integer
+          nullable: true
+          description: Minutes from ticket creation to the resolution deadline; null = no target.
+        createdAt:
+          type: string
+          format: date-time
+        updatedAt:
+          type: string
+          format: date-time
+        createdBy:
+          type: string
+          nullable: true
+        updatedBy:
+          type: string
+          nullable: true
+        _links:
+          type: object
+          description: HATEOAS links (self).
+    SlaPolicyCreateRequest:
+      type: object
+      required: [priorityId]
+      description: At least one of responseMinutes/resolutionMinutes must be present.
+      properties:
+        priorityId:
+          type: integer
+          format: int64
+        responseMinutes:
+          type: integer
+          minimum: 1
+          nullable: true
+        resolutionMinutes:
+          type: integer
+          minimum: 1
+          nullable: true
+    SlaPolicyUpdateRequest:
+      type: object
+      description: >
+        The governed priority is fixed at creation and cannot appear here. At least one of
+        responseMinutes/resolutionMinutes must be present.
+      properties:
+        responseMinutes:
+          type: integer
+          minimum: 1
+          nullable: true
+        resolutionMinutes:
+          type: integer
+          minimum: 1
+          nullable: true
+    SlaPolicyCollection:
+      type: object
+      description: Spring HATEOAS CollectionModel<SlaPolicyModel> — not paginated.
+      properties:
+        _embedded:
+          type: object
+          properties:
+            slaPolicyModelList:
+              type: array
+              items:
+                $ref: "#/components/schemas/SlaPolicyModel"
+        _links:
+          type: object
+          description: self.
     AttributeTarget:
       type: string
       description: Which aggregate a custom-field definition applies to.
@@ -1628,6 +1817,29 @@ components:
           type: string
           format: date-time
           nullable: true
+        respondBy:
+          type: string
+          format: date-time
+          nullable: true
+          description: Response deadline derived from the priority's SLA policy; null without one.
+        resolveBy:
+          type: string
+          format: date-time
+          nullable: true
+          description: Resolution deadline derived from the priority's SLA policy; null without one.
+        firstRespondedAt:
+          type: string
+          format: date-time
+          nullable: true
+          description: Set by the first non-internal Agent comment.
+        responseBreachedAt:
+          type: string
+          format: date-time
+          nullable: true
+        resolutionBreachedAt:
+          type: string
+          format: date-time
+          nullable: true
         createdAt:
           type: string
           format: date-time
@@ -1717,6 +1929,29 @@ components:
           format: date-time
           nullable: true
         closedAt:
+          type: string
+          format: date-time
+          nullable: true
+        respondBy:
+          type: string
+          format: date-time
+          nullable: true
+          description: Response deadline derived from the priority's SLA policy; null without one.
+        resolveBy:
+          type: string
+          format: date-time
+          nullable: true
+          description: Resolution deadline derived from the priority's SLA policy; null without one.
+        firstRespondedAt:
+          type: string
+          format: date-time
+          nullable: true
+          description: Set by the first non-internal Agent comment.
+        responseBreachedAt:
+          type: string
+          format: date-time
+          nullable: true
+        resolutionBreachedAt:
           type: string
           format: date-time
           nullable: true
@@ -1884,6 +2119,29 @@ components:
           type: string
           format: date-time
           nullable: true
+        respondBy:
+          type: string
+          format: date-time
+          nullable: true
+          description: Response deadline derived from the priority's SLA policy; null without one.
+        resolveBy:
+          type: string
+          format: date-time
+          nullable: true
+          description: Resolution deadline derived from the priority's SLA policy; null without one.
+        firstRespondedAt:
+          type: string
+          format: date-time
+          nullable: true
+          description: Set by the first non-internal Agent comment.
+        responseBreachedAt:
+          type: string
+          format: date-time
+          nullable: true
+        resolutionBreachedAt:
+          type: string
+          format: date-time
+          nullable: true
         createdAt:
           type: string
           format: date-time
@@ -2041,6 +2299,29 @@ components:
           type: string
           format: date-time
           nullable: true
+        respondBy:
+          type: string
+          format: date-time
+          nullable: true
+          description: Response deadline derived from the priority's SLA policy; null without one.
+        resolveBy:
+          type: string
+          format: date-time
+          nullable: true
+          description: Resolution deadline derived from the priority's SLA policy; null without one.
+        firstRespondedAt:
+          type: string
+          format: date-time
+          nullable: true
+          description: Set by the first non-internal Agent comment.
+        responseBreachedAt:
+          type: string
+          format: date-time
+          nullable: true
+        resolutionBreachedAt:
+          type: string
+          format: date-time
+          nullable: true
         createdAt:
           type: string
           format: date-time
@@ -2195,6 +2476,29 @@ components:
           format: date-time
           nullable: true
         closedAt:
+          type: string
+          format: date-time
+          nullable: true
+        respondBy:
+          type: string
+          format: date-time
+          nullable: true
+          description: Response deadline derived from the priority's SLA policy; null without one.
+        resolveBy:
+          type: string
+          format: date-time
+          nullable: true
+          description: Resolution deadline derived from the priority's SLA policy; null without one.
+        firstRespondedAt:
+          type: string
+          format: date-time
+          nullable: true
+          description: Set by the first non-internal Agent comment.
+        responseBreachedAt:
+          type: string
+          format: date-time
+          nullable: true
+        resolutionBreachedAt:
           type: string
           format: date-time
           nullable: true

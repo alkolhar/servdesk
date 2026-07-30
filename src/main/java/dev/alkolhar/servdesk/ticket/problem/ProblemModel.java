@@ -23,6 +23,16 @@ public class ProblemModel extends RepresentationModel<ProblemModel> {
 	private @Nullable Long teamId;
 	private @Nullable Instant resolvedAt;
 	private @Nullable Instant closedAt;
+
+	private @Nullable Instant respondBy;
+
+	private @Nullable Instant resolveBy;
+
+	private @Nullable Instant firstRespondedAt;
+
+	private @Nullable Instant responseBreachedAt;
+
+	private @Nullable Instant resolutionBreachedAt;
 	private Instant createdAt;
 	private Instant updatedAt;
 	private @Nullable String createdBy;
@@ -130,6 +140,46 @@ public class ProblemModel extends RepresentationModel<ProblemModel> {
 
 	public void setClosedAt(@Nullable Instant closedAt) {
 		this.closedAt = closedAt;
+	}
+
+	public @Nullable Instant getRespondBy() {
+		return respondBy;
+	}
+
+	public void setRespondBy(@Nullable Instant respondBy) {
+		this.respondBy = respondBy;
+	}
+
+	public @Nullable Instant getResolveBy() {
+		return resolveBy;
+	}
+
+	public void setResolveBy(@Nullable Instant resolveBy) {
+		this.resolveBy = resolveBy;
+	}
+
+	public @Nullable Instant getFirstRespondedAt() {
+		return firstRespondedAt;
+	}
+
+	public void setFirstRespondedAt(@Nullable Instant firstRespondedAt) {
+		this.firstRespondedAt = firstRespondedAt;
+	}
+
+	public @Nullable Instant getResponseBreachedAt() {
+		return responseBreachedAt;
+	}
+
+	public void setResponseBreachedAt(@Nullable Instant responseBreachedAt) {
+		this.responseBreachedAt = responseBreachedAt;
+	}
+
+	public @Nullable Instant getResolutionBreachedAt() {
+		return resolutionBreachedAt;
+	}
+
+	public void setResolutionBreachedAt(@Nullable Instant resolutionBreachedAt) {
+		this.resolutionBreachedAt = resolutionBreachedAt;
 	}
 
 	public Instant getCreatedAt() {

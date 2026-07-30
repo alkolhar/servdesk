@@ -2,6 +2,7 @@ package dev.alkolhar.servdesk.ticket.problem;
 
 import dev.alkolhar.servdesk.customfield.AttributeValidator;
 import dev.alkolhar.servdesk.ticket.AbstractTicketSubtypeCommandService;
+import dev.alkolhar.servdesk.ticket.SlaHooks;
 import dev.alkolhar.servdesk.ticket.Ticket;
 import dev.alkolhar.servdesk.ticket.TicketRepository;
 import jakarta.persistence.EntityManager;
@@ -16,8 +17,8 @@ public class ProblemCommandService extends AbstractTicketSubtypeCommandService<P
 
 	public ProblemCommandService(ProblemRepository problemRepository, ProblemQueryService problemQueryService,
 			TicketRepository ticketRepository, EntityManager entityManager, ApplicationEventPublisher events,
-			AttributeValidator attributeValidator) {
-		super(ticketRepository, entityManager, events, attributeValidator);
+			AttributeValidator attributeValidator, SlaHooks slaHooks) {
+		super(ticketRepository, entityManager, events, attributeValidator, slaHooks);
 		this.problemRepository = problemRepository;
 		this.problemQueryService = problemQueryService;
 	}

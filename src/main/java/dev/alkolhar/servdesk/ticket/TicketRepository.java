@@ -1,5 +1,7 @@
 package dev.alkolhar.servdesk.ticket;
 
+import java.time.Instant;
+import java.util.List;
 import org.jspecify.annotations.Nullable;
 import org.springframework.data.domain.Page;
 import org.springframework.data.domain.Pageable;
@@ -8,6 +10,26 @@ import org.springframework.data.jpa.repository.Query;
 import org.springframework.data.repository.query.Param;
 
 public interface TicketRepository extends JpaRepository<Ticket, Long> {
+
+	/**
+	 * Breach candidates for the SLA scanner (issue #31): deadline in the past, the
+	 * corresponding fulfilment still missing, not yet stamped as breached
+	 * (idempotence), and the clock actually running — PENDING pauses it,
+	 * RESOLVED/CLOSED end it.
+	 */
+	@Query("""
+			select t from Ticket t
+			where t.respondBy < :now and t.firstRespondedAt is null and t.responseBreachedAt is null
+			and t.status in (dev.alkolhar.servdesk.ticket.TicketStatus.OPEN,
+				dev.alkolhar.servdesk.ticket.TicketStatus.IN_PROGRESS)""")
+	List<Ticket> findResponseBreaches(@Param("now") Instant now);
+
+	@Query("""
+			select t from Ticket t
+			where t.resolveBy < :now and t.resolvedAt is null and t.resolutionBreachedAt is null
+			and t.status in (dev.alkolhar.servdesk.ticket.TicketStatus.OPEN,
+				dev.alkolhar.servdesk.ticket.TicketStatus.IN_PROGRESS)""")
+	List<Ticket> findResolutionBreaches(@Param("now") Instant now);
 
 	/**
 	 * Cross-subtype listing over the shared ticket table (issue #30) with the same

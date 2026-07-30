@@ -45,6 +45,14 @@ _Avoid_: Queue (describes the role a Team plays on a ticket, not a separate conc
 A hierarchical classification a ticket can be tagged with (e.g. "Hardware → Laptop → Battery"), used for filtering and reporting only. Purely descriptive — it does not drive routing or any other behavior today.
 _Avoid_: Tag, type (a ticket's type is which subtype it is — [[Incident]]/[[Problem]]/[[Change]]/[[Service Request]] — not a Category value)
 
+**SLA Policy**:
+Response and/or resolution time targets for tickets of one [[Priority]] — at most one policy per Priority. A ticket's deadlines are stamped from the policy when the ticket is created or re-prioritized; later policy edits do not touch existing tickets.
+_Avoid_: SLA (alone — the policy is the rule, the ticket's deadlines are its application)
+
+**First Response**:
+The first non-internal Agent comment on a ticket — what satisfies the response half of an [[SLA Policy]]. Internal notes do not count; the requester never saw them.
+_Avoid_: reply (ambiguous), reaction
+
 **Attribute Definition**:
 An admin-editable declaration that tickets (later also CMDB configuration items) accept a custom field: its machine key, label, value type, whether it is required, and — for enumerated fields — the allowed values. The per-deployment customization mechanism: each customer's administrators define their own set; no per-customer code.
 _Avoid_: custom field definition (say Attribute Definition), form field
