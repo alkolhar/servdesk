@@ -41,8 +41,10 @@ OpenAPI contract testing (Redocly lint/bundle + Schemathesis) runs as its own CI
 - **Code quality tooling** (Maven plugins, no new runtime deps except `jspecify`):
   - **Spotless** (Eclipse JDT formatter, tab-indented) enforces formatting on `./mvnw verify`;
     `./mvnw spotless:apply` to auto-fix.
-  - **SpotBugs** is configured but not bound to `verify` — run manually via `./mvnw spotbugs:check`.
-    26 findings (mostly `EI_EXPOSE_REP`/`EI_EXPOSE_REP2` on entity getters/setters) are untriaged.
+  - **SpotBugs** is configured but not bound to `verify` — run manually via `./mvnw spotbugs:check`,
+    which now completes clean. The original 26 findings were triaged (2026-07-19): one real fix, the
+    rest suppressed with a documented reason each in `spotbugs-exclude.xml` (mostly
+    `EI_EXPOSE_REP`/`EI_EXPOSE_REP2` on JPA entity getters/setters).
   - **JaCoCo** reports coverage on every `test` run (`target/site/jacoco/index.html`); no threshold enforced.
   - **OWASP dependency-check-maven** is declared but not bound to a phase (needs network access) —
     run via `./mvnw org.owasp:dependency-check-maven:check`.
@@ -272,8 +274,9 @@ Controllers return a `*Model` (or `CollectionModel<...>`/`PagedModel<...>`), nev
   local JDK at all.
 - `.github/workflows/ci.yml`:
   - `build-and-test` — `./mvnw verify` (compile, unit + Testcontainers integration tests, ArchUnit,
-    Spotless, JaCoCo). SpotBugs runs with `continue-on-error: true` (26 untriaged findings) — remove the
-    flag once those are resolved.
+    Spotless, JaCoCo). SpotBugs runs here too, still under `continue-on-error: true` — not because
+    findings are outstanding (they were triaged, see above) but because a green run in CI hasn't been
+    observed yet. Issue #53 tracks turning it into a real gate.
   - `docker-build` — validates the `Dockerfile` actually builds.
   - `contract-tests` — verifies the running app never drifts from
     `static/openapi/servdesk-api.yaml`, using each tool's own officially-supported CI integration rather
