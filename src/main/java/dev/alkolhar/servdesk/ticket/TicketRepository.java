@@ -1,5 +1,7 @@
 package dev.alkolhar.servdesk.ticket;
 
+import java.time.Instant;
+import java.util.List;
 import org.jspecify.annotations.Nullable;
 import org.springframework.data.domain.Page;
 import org.springframework.data.domain.Pageable;
@@ -20,14 +22,14 @@ public interface TicketRepository extends JpaRepository<Ticket, Long> {
 			where t.respondBy < :now and t.firstRespondedAt is null and t.responseBreachedAt is null
 			and t.status in (dev.alkolhar.servdesk.ticket.TicketStatus.OPEN,
 				dev.alkolhar.servdesk.ticket.TicketStatus.IN_PROGRESS)""")
-	java.util.List<Ticket> findResponseBreaches(@Param("now") java.time.Instant now);
+	List<Ticket> findResponseBreaches(@Param("now") Instant now);
 
 	@Query("""
 			select t from Ticket t
 			where t.resolveBy < :now and t.resolvedAt is null and t.resolutionBreachedAt is null
 			and t.status in (dev.alkolhar.servdesk.ticket.TicketStatus.OPEN,
 				dev.alkolhar.servdesk.ticket.TicketStatus.IN_PROGRESS)""")
-	java.util.List<Ticket> findResolutionBreaches(@Param("now") java.time.Instant now);
+	List<Ticket> findResolutionBreaches(@Param("now") Instant now);
 
 	/**
 	 * Cross-subtype listing over the shared ticket table (issue #30) with the same
