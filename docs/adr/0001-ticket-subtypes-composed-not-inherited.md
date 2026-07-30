@@ -32,9 +32,10 @@ abstract `Ticket` entity.
   polymorphism required.
 - Each subtype gets its own repository/command/query services, sharing a common base for the CRUD
   that operates on the shared `Ticket` fields.
-- `ticketNumber` moves off the shared `Ticket` entity onto each subtype (its own prefix and its own
-  DB sequence, e.g. `INC-`/`incident_number_seq`, `RFC-`/`change_number_seq`), since human-facing
-  ticket numbers are type-specific, not uniform.
+- The human-facing ticket number moves off the shared `Ticket` entity onto each subtype (its own
+  prefix and its own DB sequence, e.g. `INC-`/`incident_number_seq`, `RFC-`/`change_number_seq`),
+  since those numbers are type-specific, not uniform. It is called `displayNumber` in the
+  implementation — this ADR originally called it `ticketNumber`.
 - ~~There is no cross-type "list all tickets" query in this design — listing is inherently per
   subtype.~~ **Amended 2026-07-21 (issue #30)**: cross-cutting features (SLA scanning, watchers,
   agent queues, search) do need one read surface over all tickets, so a *read-only* overview
