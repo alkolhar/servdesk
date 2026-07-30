@@ -81,12 +81,21 @@ jobs:
       - name: Build the jar
         run: ./mvnw --batch-mode package -DskipTests
 
+      # DIAGNOSTIC (wayfinder #58): stdout/stderr redirected to a file that outlives this step, and
+      # Tomcat's access log switched on, so the run's actual request sequence can be read afterwards.
       - name: Start the app against the PostgreSQL service container
         run: |
+          mkdir -p "$GITHUB_WORKSPACE/accesslog"
           java -jar target/*.jar \
             --spring.datasource.url=jdbc:postgresql://localhost:5432/servdesk \
             --spring.datasource.username=postgres \
-            --spring.datasource.password=root &
+            --spring.datasource.password=root \
+            --server.tomcat.accesslog.enabled=true \
+            --server.tomcat.accesslog.directory="$GITHUB_WORKSPACE/accesslog" \
+            --server.tomcat.accesslog.prefix=access \
+            --server.tomcat.accesslog.suffix=.log \
+            --server.tomcat.accesslog.buffered=false \
+            > "$GITHUB_WORKSPACE/app.log" 2>&1 &
           for i in $(seq 1 30); do
             curl -sf http://localhost:8080/api/setup && exit 0
             sleep 2
@@ -106,7 +115,17 @@ jobs:
           npx --yes @redocly/cli@2.39.0 lint
           npx --yes @redocly/cli@2.39.0 bundle main -o /tmp/bundled-openapi.yaml
 
+      # DIAGNOSTIC (wayfinder #58): the admin's row before the fuzzer touches anything.
+      - name: Record the person table before Schemathesis
+        run: |
+          PGPASSWORD=root psql -h localhost -U postgres -d servdesk \
+            -c "SELECT id, name, email, username, role, enabled, deleted_at FROM person ORDER BY id;" \
+            | tee "$GITHUB_WORKSPACE/person-before.txt"
+
+      # DIAGNOSTIC (wayfinder #58): continue-on-error so the probes below always run — the point of
+      # this branch is the evidence after the run, not this step's verdict.
       - name: Verify the running app matches the contract (Schemathesis)
+        continue-on-error: true
         uses: schemathesis/action@v3
         with:
           schema: /tmp/bundled-openapi.yaml
@@ -114,4 +133,45 @@ jobs:
           checks: not_a_server_error,status_code_conformance,content_type_conformance,response_schema_conformance
           # base64 of admin:admin123 — the fixture credentials bootstrapped above
           authorization: "Basic YWRtaW46YWRtaW4xMjM="
+
+      # DIAGNOSTIC (wayfinder #58): the hypothesis under test is that the fuzzer soft-deletes or
+      # demotes the very admin it authenticates as. Three pieces of evidence, in order of directness:
+      #   1. can that credential still authenticate at all?
+      #   2. what does its row look like now?
+      #   3. what did the run actually send to /api/persons, and when did 401/403 start?
+      - name: Probe the admin credential after Schemathesis
+        if: always()
+        run: |
+          echo "== can the bootstrapped admin still authenticate? =="
+          STATUS=$(curl -s -o /dev/null -w '%{http_code}' -u admin:admin123 \
+            http://localhost:8080/api/persons)
+          echo "GET /api/persons as admin -> HTTP $STATUS"
+          echo "admin_auth_status=$STATUS" >> "$GITHUB_STEP_SUMMARY"
+
+          echo "== person table after the run =="
+          PGPASSWORD=root psql -h localhost -U postgres -d servdesk \
+            -c "SELECT id, name, email, username, role, enabled, deleted_at FROM person ORDER BY id;" \
+            | tee "$GITHUB_WORKSPACE/person-after.txt"
+
+          echo "== every request the run made to /api/persons =="
+          grep -E '"(DELETE|PUT|POST) /api/persons' "$GITHUB_WORKSPACE"/accesslog/*.log \
+            | tee "$GITHUB_WORKSPACE/persons-writes.txt" || echo "(none)"
+
+          echo "== first 401/403 in the access log, with surrounding context =="
+          grep -n -E ' (401|403) ' "$GITHUB_WORKSPACE"/accesslog/*.log | head -40 || echo "(none)"
+
+          echo "== ERROR lines in the app log =="
+          grep -c 'ERROR' "$GITHUB_WORKSPACE/app.log" || echo "0"
+
+      - name: Upload diagnostic artifacts
+        if: always()
+        uses: actions/upload-artifact@v7.0.1
+        with:
+          name: contract-tests-diagnostics
+          path: |
+            app.log
+            accesslog/
+            person-before.txt
+            person-after.txt
+            persons-writes.txt
           max-examples: 10
