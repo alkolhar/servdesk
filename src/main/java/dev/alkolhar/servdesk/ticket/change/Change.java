@@ -18,9 +18,9 @@ import org.hibernate.annotations.SQLRestriction;
  * own human-readable id ({@code RFC-000123}, "Request for Change"), drawn from
  * {@code change_number_seq}.
  * <p>
- * The table is named {@code change_request}, not {@code change}: {@code CHANGE}
- * is a reserved word in MariaDB's grammar ({@code ALTER TABLE ... CHANGE
- * COLUMN}).
+ * The table is named {@code change_request}, not {@code change}: originally
+ * because {@code CHANGE} is a reserved word in MariaDB's grammar (the schema's
+ * first home), kept on PostgreSQL because it's the clearer name anyway.
  */
 @Entity
 @Table(name = "change_request")

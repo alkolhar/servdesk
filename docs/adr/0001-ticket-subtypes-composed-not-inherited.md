@@ -35,4 +35,10 @@ abstract `Ticket` entity.
 - `ticketNumber` moves off the shared `Ticket` entity onto each subtype (its own prefix and its own
   DB sequence, e.g. `INC-`/`incident_number_seq`, `RFC-`/`change_number_seq`), since human-facing
   ticket numbers are type-specific, not uniform.
-- There is no cross-type "list all tickets" query in this design — listing is inherently per subtype.
+- ~~There is no cross-type "list all tickets" query in this design — listing is inherently per
+  subtype.~~ **Amended 2026-07-21 (issue #30)**: cross-cutting features (SLA scanning, watchers,
+  agent queues, search) do need one read surface over all tickets, so a *read-only* overview
+  (`GET /api/tickets`, package `ticket.overview`) joins the shared `ticket` table with each
+  subtype's type/display number. The core of this ADR is unchanged: writes and subtype-specific
+  fields stay on each subtype's own endpoint, and the overview lives in its own subpackage because
+  depending on the subtype packages from `ticket` itself would create a package cycle.

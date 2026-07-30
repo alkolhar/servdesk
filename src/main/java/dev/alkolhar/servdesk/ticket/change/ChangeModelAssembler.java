@@ -6,6 +6,7 @@ import static org.springframework.hateoas.server.mvc.WebMvcLinkBuilder.methodOn;
 import dev.alkolhar.servdesk.common.BaseEntity;
 import dev.alkolhar.servdesk.directory.PersonController;
 import dev.alkolhar.servdesk.ticket.Ticket;
+import java.util.HashMap;
 import org.jspecify.annotations.Nullable;
 import org.springframework.hateoas.server.RepresentationModelAssembler;
 import org.springframework.stereotype.Component;
@@ -22,6 +23,7 @@ public class ChangeModelAssembler implements RepresentationModelAssembler<Change
 		model.setStatus(ticket.getStatus());
 		model.setSubject(ticket.getSubject());
 		model.setDescription(ticket.getDescription());
+		model.setAttributes(new HashMap<>(ticket.getAttributes()));
 		model.setCategoryId(idOf(ticket.getCategory()));
 		model.setImpactId(idOf(ticket.getImpact()));
 		model.setUrgencyId(idOf(ticket.getUrgency()));
@@ -31,12 +33,17 @@ public class ChangeModelAssembler implements RepresentationModelAssembler<Change
 		model.setTeamId(idOf(ticket.getTeam()));
 		model.setResolvedAt(ticket.getResolvedAt());
 		model.setClosedAt(ticket.getClosedAt());
+		model.setRespondBy(ticket.getRespondBy());
+		model.setResolveBy(ticket.getResolveBy());
+		model.setFirstRespondedAt(ticket.getFirstRespondedAt());
+		model.setResponseBreachedAt(ticket.getResponseBreachedAt());
+		model.setResolutionBreachedAt(ticket.getResolutionBreachedAt());
 		model.setCreatedAt(ticket.getCreatedAt());
 		model.setUpdatedAt(ticket.getUpdatedAt());
 		model.setCreatedBy(ticket.getCreatedBy());
 		model.setUpdatedBy(ticket.getUpdatedBy());
 
-		model.add(linkTo(methodOn(ChangeController.class).findById(change.getId())).withSelfRel());
+		model.add(linkTo(methodOn(ChangeController.class).findById(change.getId(), null)).withSelfRel());
 		model.add(
 				linkTo(methodOn(PersonController.class).findById(ticket.getRequester().getId())).withRel("requester"));
 		if (ticket.getAssignee() != null) {

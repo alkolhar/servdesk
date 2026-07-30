@@ -16,15 +16,20 @@ public class CommentQueryService {
 	}
 
 	/**
-	 * {@code includeInternal} is resolved by {@code CommentController} from the
-	 * authenticated caller's role — a Customer only ever sees non-internal comments
-	 * on their own ticket; an Agent sees both in one combined, chronological
-	 * stream.
+	 * {@code callerId}/{@code callerIsAgent} are resolved by
+	 * {@code CommentController} from the authenticated caller. A Customer can only
+	 * read the comment stream of a ticket they requested — a foreign ticket answers
+	 * 404, exactly like a missing one, so the ticket id's existence isn't leaked —
+	 * and within their own stream only sees non-internal comments; an Agent sees
+	 * every ticket's full stream.
 	 */
-	public List<TicketComment> findByTicket(Long ticketId, boolean includeInternal) {
-		ticketRepository.findById(ticketId)
+	public List<TicketComment> findByTicket(Long ticketId, Long callerId, boolean callerIsAgent) {
+		Ticket ticket = ticketRepository.findById(ticketId)
 				.orElseThrow(() -> new NotFoundException("Ticket " + ticketId + " not found"));
+		if (!callerIsAgent && !callerId.equals(ticket.getRequester().getId())) {
+			throw new NotFoundException("Ticket " + ticketId + " not found");
+		}
 		List<TicketComment> comments = commentRepository.findByTicketIdOrderByCreatedAtAsc(ticketId);
-		return includeInternal ? comments : comments.stream().filter(comment -> !comment.isInternal()).toList();
+		return callerIsAgent ? comments : comments.stream().filter(comment -> !comment.isInternal()).toList();
 	}
 }

@@ -7,11 +7,15 @@ import dev.alkolhar.servdesk.classification.PriorityDefinition;
 import dev.alkolhar.servdesk.classification.PriorityDefinitionRepository;
 import dev.alkolhar.servdesk.classification.Urgency;
 import dev.alkolhar.servdesk.common.MapsIdBaseEntity;
+import dev.alkolhar.servdesk.customfield.AttributeTarget;
+import dev.alkolhar.servdesk.customfield.AttributeValidator;
 import dev.alkolhar.servdesk.directory.Person;
 import dev.alkolhar.servdesk.directory.Team;
 import dev.alkolhar.servdesk.ticket.event.TicketStatusChangedEvent;
 import jakarta.persistence.EntityManager;
 import java.time.Instant;
+import java.util.HashMap;
+import java.util.Map;
 import org.jspecify.annotations.Nullable;
 import org.springframework.context.ApplicationEventPublisher;
 import org.springframework.data.jpa.repository.JpaRepository;
@@ -36,26 +40,42 @@ public abstract class AbstractTicketSubtypeCommandService<T extends MapsIdBaseEn
 	protected final EntityManager entityManager;
 	private final ApplicationEventPublisher events;
 	private final PriorityDefinitionRepository priorityDefinitionRepository;
+	private final AttributeValidator attributeValidator;
+	private final SlaHooks slaHooks;
 
 	protected AbstractTicketSubtypeCommandService(TicketRepository ticketRepository, EntityManager entityManager,
-			ApplicationEventPublisher events, PriorityDefinitionRepository priorityDefinitionRepository) {
+			ApplicationEventPublisher events, PriorityDefinitionRepository priorityDefinitionRepository,
+			AttributeValidator attributeValidator, SlaHooks slaHooks) {
 		this.ticketRepository = ticketRepository;
 		this.entityManager = entityManager;
 		this.events = events;
 		this.priorityDefinitionRepository = priorityDefinitionRepository;
+		this.attributeValidator = attributeValidator;
+		this.slaHooks = slaHooks;
 	}
 
 	protected Ticket newTicket(TicketCreateFields fields) {
 		Ticket ticket = new Ticket();
 		copySharedFields(ticket, fields);
+		slaHooks.applyOnWrite(ticket, null, null);
 		return ticket;
 	}
 
+	/**
+	 * {@code previousPriorityId} is read <i>before</i> {@link #copySharedFields}
+	 * re-derives the priority from the incoming impact/urgency pair, so
+	 * {@link SlaHooks#applyOnWrite} sees the real before/after and re-stamps the
+	 * deadlines exactly when the matrix actually moved the ticket to a different
+	 * priority. A client can no longer change the priority directly (issue #22), so
+	 * a derived change is the only kind there is.
+	 */
 	protected void applySharedUpdate(Ticket ticket, TicketUpdateFields fields) {
 		TicketStatus previousStatus = ticket.getStatus();
+		Long previousPriorityId = ticket.getPriority() == null ? null : ticket.getPriority().getId();
 		copySharedFields(ticket, fields);
 		ticket.setStatus(fields.status());
 		deriveResolvedAndClosedAt(ticket, previousStatus, fields.status());
+		slaHooks.applyOnWrite(ticket, previousStatus, previousPriorityId);
 	}
 
 	protected void deleteTicketAndSubtype(T subtype, Ticket ticket, JpaRepository<T, Long> repository) {
@@ -74,8 +94,8 @@ public abstract class AbstractTicketSubtypeCommandService<T extends MapsIdBaseEn
 	 * always be plain ASCII digits.
 	 */
 	protected String nextDisplayNumber(String prefix, String sequenceName) {
-		long next = ((Number) entityManager.createNativeQuery("SELECT NEXTVAL(" + sequenceName + ")").getSingleResult())
-				.longValue();
+		long next = ((Number) entityManager.createNativeQuery("SELECT nextval('" + sequenceName + "')")
+				.getSingleResult()).longValue();
 		String digits = Long.toString(next);
 		return prefix + "0".repeat(Math.max(0, 6 - digits.length())) + digits;
 	}
@@ -91,6 +111,12 @@ public abstract class AbstractTicketSubtypeCommandService<T extends MapsIdBaseEn
 	}
 
 	private void copySharedFields(Ticket ticket, TicketCreateFields fields) {
+		// null/omitted means empty — full replacement, consistent with PUT semantics
+		Map<String, Object> attributes = fields.attributes() == null
+				? new HashMap<>()
+				: new HashMap<>(fields.attributes());
+		attributeValidator.validate(AttributeTarget.TICKET, attributes);
+		ticket.setAttributes(attributes);
 		ticket.setSubject(fields.subject());
 		ticket.setDescription(fields.description());
 		ticket.setCategory(resolveReference(Category.class, fields.categoryId()));

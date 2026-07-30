@@ -10,6 +10,10 @@ import org.springframework.data.repository.query.Param;
 
 public interface ServiceRequestRepository extends JpaRepository<ServiceRequest, Long> {
 
-	@Query("select s from ServiceRequest s where (:status is null or s.ticket.status = :status)")
-	Page<ServiceRequest> findByOptionalStatus(@Param("status") @Nullable TicketStatus status, Pageable pageable);
+	@Query("""
+			select s from ServiceRequest s
+			where (:status is null or s.ticket.status = :status)
+			and (:requesterId is null or s.ticket.requester.id = :requesterId)""")
+	Page<ServiceRequest> findVisible(@Param("status") @Nullable TicketStatus status,
+			@Param("requesterId") @Nullable Long requesterId, Pageable pageable);
 }

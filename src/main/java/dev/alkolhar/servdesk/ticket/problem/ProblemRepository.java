@@ -10,6 +10,10 @@ import org.springframework.data.repository.query.Param;
 
 public interface ProblemRepository extends JpaRepository<Problem, Long> {
 
-	@Query("select p from Problem p where (:status is null or p.ticket.status = :status)")
-	Page<Problem> findByOptionalStatus(@Param("status") @Nullable TicketStatus status, Pageable pageable);
+	@Query("""
+			select p from Problem p
+			where (:status is null or p.ticket.status = :status)
+			and (:requesterId is null or p.ticket.requester.id = :requesterId)""")
+	Page<Problem> findVisible(@Param("status") @Nullable TicketStatus status,
+			@Param("requesterId") @Nullable Long requesterId, Pageable pageable);
 }

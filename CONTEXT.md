@@ -45,6 +45,22 @@ _Avoid_: Queue (describes the role a Team plays on a ticket, not a separate conc
 A hierarchical classification a ticket can be tagged with (e.g. "Hardware → Laptop → Battery"), used for filtering and reporting only. Purely descriptive — it does not drive routing or any other behavior today.
 _Avoid_: Tag, type (a ticket's type is which subtype it is — [[Incident]]/[[Problem]]/[[Change]]/[[Service Request]] — not a Category value)
 
+**SLA Policy**:
+Response and/or resolution time targets for tickets of one [[Priority]] — at most one policy per Priority. A ticket's deadlines are stamped from the policy when the ticket is created or re-prioritized; later policy edits do not touch existing tickets.
+_Avoid_: SLA (alone — the policy is the rule, the ticket's deadlines are its application)
+
+**First Response**:
+The first non-internal Agent comment on a ticket — what satisfies the response half of an [[SLA Policy]]. Internal notes do not count; the requester never saw them.
+_Avoid_: reply (ambiguous), reaction
+
+**Attribute Definition**:
+An admin-editable declaration that tickets (later also CMDB configuration items) accept a custom field: its machine key, label, value type, whether it is required, and — for enumerated fields — the allowed values. The per-deployment customization mechanism: each customer's administrators define their own set; no per-customer code.
+_Avoid_: custom field definition (say Attribute Definition), form field
+
+**Attribute**:
+A single custom-field value on a ticket, keyed by an [[Attribute Definition]]'s key. Validated against the definition when written; never validated on read.
+_Avoid_: custom field value, property, tag
+
 **Priority**:
 A flat ranking (`sortOrder`, lower = more severe) a ticket can be given. No longer directly selected — server-derived from a ticket's [[Impact]] and [[Urgency]] pair via [[Priority Definition]] (classic ITIL priority matrix), the same "never client-supplied" treatment as [[Resolved]]/[[Closed]]'s timestamps. Stays unset if either input is missing, or if the pair has no matching Priority Definition — a gap in the matrix is a data-quality concern for whoever maintains it, not a reason to reject the ticket write.
 _Avoid_: Severity (not yet a distinct concept in this domain)

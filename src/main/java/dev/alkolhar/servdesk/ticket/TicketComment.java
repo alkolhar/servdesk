@@ -6,11 +6,12 @@ import jakarta.persistence.Column;
 import jakarta.persistence.Entity;
 import jakarta.persistence.FetchType;
 import jakarta.persistence.JoinColumn;
-import jakarta.persistence.Lob;
 import jakarta.persistence.ManyToOne;
 import jakarta.persistence.Table;
+import org.hibernate.annotations.JdbcTypeCode;
 import org.hibernate.annotations.SQLDelete;
 import org.hibernate.annotations.SQLRestriction;
+import org.hibernate.type.SqlTypes;
 
 @Entity
 @Table(name = "ticket_comment")
@@ -27,15 +28,14 @@ public class TicketComment extends BaseEntity {
 	private Person author;
 
 	/**
-	 * {@code length = Integer.MAX_VALUE} is deliberate, not decorative:
-	 * {@code @Column}'s length defaults to 255 per the JPA spec, and merely having
-	 * {@code @Column(nullable = false)} present was enough to make Hibernate infer
-	 * a 255-char-capped LOB type (TINYTEXT) for what must be an unbounded comment
-	 * body — only caught once {@code ddl-auto=validate} started checking the
-	 * mapping against the actual LONGTEXT column.
+	 * {@code LONGVARCHAR}, not {@code @Lob}: on PostgreSQL Hibernate maps a
+	 * {@code @Lob String} to an {@code oid} large object (a separate row in
+	 * {@code pg_largeobject} reached via streaming API), while this column is a
+	 * plain unbounded {@code TEXT} — {@code ddl-auto=validate} checks the mapping
+	 * against it.
 	 */
-	@Lob
-	@Column(nullable = false, length = Integer.MAX_VALUE)
+	@JdbcTypeCode(SqlTypes.LONGVARCHAR)
+	@Column(nullable = false)
 	private String body;
 
 	/**

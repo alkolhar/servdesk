@@ -65,11 +65,11 @@ public class SecurityConfig {
 	 * {@code internal}-flag-is-Agent-only rule enforced by
 	 * {@code CommentCommandService} instead, since that's a data-dependent check
 	 * (the request body's {@code internal} flag together with the caller's role),
-	 * not a static URL+role rule. Deliberately out of scope here: row-level
-	 * ownership (a customer seeing only *their own* tickets/profile) — that needs
-	 * the caller's identity compared against the loaded resource, which is a
-	 * data-access decision the service layer would have to make, not a static
-	 * URL+role rule; left as a documented follow-up rather than guessed at now.
+	 * not a static URL+role rule. Row-level ownership (a customer seeing only
+	 * <i>their own</i> tickets, issue #28) lives in the service layer for the same
+	 * reason: it compares the caller's identity against the loaded ticket's
+	 * requester — see {@code AbstractTicketSubtypeQueryService.findByIdVisibleTo}
+	 * and the requester filter in each subtype repository's {@code findVisible}.
 	 * <p>
 	 * <b>OAuth2/OIDC migration path</b>: this method is the only place that would
 	 * change. Swap {@code .httpBasic(withDefaults())} for
@@ -110,19 +110,24 @@ public class SecurityConfig {
 				// person directory management is AGENT-only
 				.requestMatchers("/api/persons/**").hasRole("AGENT")
 				// classification lookup data (Category/Priority/Impact/Urgency/
-				// PriorityDefinition): either role can read, only an AGENT can
-				// create/update/delete
+				// PriorityDefinition), custom-field definitions, and SLA policies: either
+				// role can read, only an AGENT can create/update/delete — same
+				// reference-data shape
 				.requestMatchers(HttpMethod.GET, "/api/categories/**", "/api/priorities/**", "/api/impacts/**",
-						"/api/urgencies/**", "/api/priority-definitions/**")
+						"/api/urgencies/**", "/api/priority-definitions/**", "/api/attribute-definitions/**",
+						"/api/sla-policies/**")
 				.hasAnyRole("AGENT", "CUSTOMER")
 				.requestMatchers(HttpMethod.POST, "/api/categories/**", "/api/priorities/**", "/api/impacts/**",
-						"/api/urgencies/**", "/api/priority-definitions/**")
+						"/api/urgencies/**", "/api/priority-definitions/**", "/api/attribute-definitions/**",
+						"/api/sla-policies/**")
 				.hasRole("AGENT")
 				.requestMatchers(HttpMethod.PUT, "/api/categories/**", "/api/priorities/**", "/api/impacts/**",
-						"/api/urgencies/**", "/api/priority-definitions/**")
+						"/api/urgencies/**", "/api/priority-definitions/**", "/api/attribute-definitions/**",
+						"/api/sla-policies/**")
 				.hasRole("AGENT")
 				.requestMatchers(HttpMethod.DELETE, "/api/categories/**", "/api/priorities/**", "/api/impacts/**",
-						"/api/urgencies/**", "/api/priority-definitions/**")
+						"/api/urgencies/**", "/api/priority-definitions/**", "/api/attribute-definitions/**",
+						"/api/sla-policies/**")
 				.hasRole("AGENT")
 				// ticket subtypes: either role can read, only an AGENT can create, change
 				// status, or delete (see ADR-0001; a deliberate narrowing from the old flat
@@ -144,7 +149,12 @@ public class SecurityConfig {
 				// CommentCommandService, not here (see the class javadoc above)
 				.requestMatchers(HttpMethod.GET, "/api/tickets/*/comments").hasAnyRole("AGENT", "CUSTOMER")
 				.requestMatchers(HttpMethod.POST, "/api/tickets/*/comments").hasAnyRole("AGENT", "CUSTOMER")
-				.anyRequest().authenticated())
+				// cross-subtype ticket overview (issue #30): read-only for either role —
+				// there is no write surface under /api/tickets itself, writes stay on the
+				// subtype endpoints above; row-level ownership is enforced by
+				// TicketQueryService like everywhere else
+				.requestMatchers(HttpMethod.GET, "/api/tickets/**").hasAnyRole("AGENT", "CUSTOMER").anyRequest()
+				.authenticated())
 				.httpBasic(basic -> basic.authenticationEntryPoint(problemDetailAuthenticationEntryPoint()))
 				.exceptionHandling(exceptions -> exceptions.accessDeniedHandler(problemDetailAccessDeniedHandler()));
 		return http.build();

@@ -1,6 +1,7 @@
 package dev.alkolhar.servdesk.ticket.servicerequest;
 
 import dev.alkolhar.servdesk.ticket.AbstractTicketSubtypeQueryService;
+import dev.alkolhar.servdesk.ticket.Ticket;
 import dev.alkolhar.servdesk.ticket.TicketStatus;
 import org.jspecify.annotations.Nullable;
 import org.springframework.data.domain.Page;
@@ -17,13 +18,19 @@ public class ServiceRequestQueryService extends AbstractTicketSubtypeQueryServic
 		this.serviceRequestRepository = serviceRequestRepository;
 	}
 
-	public Page<ServiceRequest> findAll(@Nullable TicketStatus status, Pageable pageable) {
-		return serviceRequestRepository.findByOptionalStatus(status, pageable);
+	public Page<ServiceRequest> findAll(@Nullable TicketStatus status, Long callerId, boolean callerIsAgent,
+			Pageable pageable) {
+		return serviceRequestRepository.findVisible(status, requesterScope(callerId, callerIsAgent), pageable);
 	}
 
 	@Override
 	protected JpaRepository<ServiceRequest, Long> repository() {
 		return serviceRequestRepository;
+	}
+
+	@Override
+	protected Ticket ticketOf(ServiceRequest entity) {
+		return entity.getTicket();
 	}
 
 	@Override

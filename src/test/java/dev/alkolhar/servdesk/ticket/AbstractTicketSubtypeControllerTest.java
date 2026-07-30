@@ -52,6 +52,8 @@ public abstract class AbstractTicketSubtypeControllerTest {
 	private Number unmappedUrgencyId;
 	private Number derivedPriorityId;
 
+	protected Number otherCustomerId;
+
 	protected abstract String basePath();
 
 	protected abstract String expectedDisplayNumberPrefix();
@@ -63,6 +65,10 @@ public abstract class AbstractTicketSubtypeControllerTest {
 		Map<String, Object> customerRequest = Map.of("role", "CUSTOMER", "name", "Carla Customer", "email",
 				"carla@example.com", "username", "carla", "password", "carla12345");
 		requesterId = (Number) asAdmin().postForEntity("/api/persons", customerRequest, Map.class).getBody().get("id");
+		Map<String, Object> otherCustomerRequest = Map.of("role", "CUSTOMER", "name", "Otto Other", "email",
+				"otto@example.com", "username", "otto", "password", "otto12345");
+		otherCustomerId = (Number) asAdmin().postForEntity("/api/persons", otherCustomerRequest, Map.class).getBody()
+				.get("id");
 
 		impactId = (Number) asAdmin().postForEntity("/api/impacts", Map.of("name", "High", "sortOrder", 0), Map.class)
 				.getBody().get("id");
@@ -146,6 +152,48 @@ public abstract class AbstractTicketSubtypeControllerTest {
 		ResponseEntity<String> deleteResponse = asCustomer().exchange(basePath() + "/" + id, HttpMethod.DELETE, null,
 				String.class);
 		assertThat(deleteResponse.getStatusCode()).isEqualTo(HttpStatus.FORBIDDEN);
+	}
+
+	/**
+	 * Row-level ownership (issue #28): a Customer only ever sees tickets they
+	 * requested — in listings, by direct id, and on the ticket's comment stream
+	 * (read and write). A foreign ticket answers 404, indistinguishable from a
+	 * missing one, so a Customer can't probe which ids exist.
+	 */
+	@Test
+	void customersOnlySeeTicketsTheyRequested() {
+		Number mineId = (Number) asAdmin().postForEntity(basePath(), createBody("Carla's own ticket"), Map.class)
+				.getBody().get("id");
+		Map<String, Object> foreignBody = new HashMap<>();
+		foreignBody.put("subject", "Otto's ticket");
+		foreignBody.put("requesterId", otherCustomerId);
+		Number foreignId = (Number) asAdmin().postForEntity(basePath(), foreignBody, Map.class).getBody().get("id");
+
+		ResponseEntity<Map> listedForCarla = asCustomer().getForEntity(basePath() + "?size=100", Map.class);
+		List<Map> visible = embeddedTickets(listedForCarla);
+		assertThat(visible).extracting(ticket -> ((Number) ticket.get("requesterId")).longValue())
+				.containsOnly(requesterId.longValue());
+		assertThat(visible).extracting(ticket -> ((Number) ticket.get("id")).longValue()).contains(mineId.longValue())
+				.doesNotContain(foreignId.longValue());
+
+		assertThat(asCustomer().getForEntity(basePath() + "/" + foreignId, String.class).getStatusCode())
+				.isEqualTo(HttpStatus.NOT_FOUND);
+		assertThat(asAdmin().getForEntity(basePath() + "/" + foreignId, Map.class).getStatusCode())
+				.isEqualTo(HttpStatus.OK);
+
+		String foreignComments = "/api/tickets/" + foreignId + "/comments";
+		assertThat(asCustomer().getForEntity(foreignComments, String.class).getStatusCode())
+				.isEqualTo(HttpStatus.NOT_FOUND);
+		assertThat(asCustomer()
+				.postForEntity(foreignComments, Map.of("body", "Let me in", "internal", false), String.class)
+				.getStatusCode()).isEqualTo(HttpStatus.NOT_FOUND);
+	}
+
+	@SuppressWarnings("unchecked")
+	private List<Map> embeddedTickets(ResponseEntity<Map> response) {
+		Map<String, Object> embedded = (Map<String, Object>) response.getBody().get("_embedded");
+		assertThat(embedded).hasSize(1);
+		return (List<Map>) embedded.values().iterator().next();
 	}
 
 	@Test

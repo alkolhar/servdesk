@@ -10,6 +10,10 @@ import org.springframework.data.repository.query.Param;
 
 public interface ChangeRepository extends JpaRepository<Change, Long> {
 
-	@Query("select c from Change c where (:status is null or c.ticket.status = :status)")
-	Page<Change> findByOptionalStatus(@Param("status") @Nullable TicketStatus status, Pageable pageable);
+	@Query("""
+			select c from Change c
+			where (:status is null or c.ticket.status = :status)
+			and (:requesterId is null or c.ticket.requester.id = :requesterId)""")
+	Page<Change> findVisible(@Param("status") @Nullable TicketStatus status,
+			@Param("requesterId") @Nullable Long requesterId, Pageable pageable);
 }

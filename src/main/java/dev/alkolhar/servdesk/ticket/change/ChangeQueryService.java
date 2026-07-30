@@ -1,6 +1,7 @@
 package dev.alkolhar.servdesk.ticket.change;
 
 import dev.alkolhar.servdesk.ticket.AbstractTicketSubtypeQueryService;
+import dev.alkolhar.servdesk.ticket.Ticket;
 import dev.alkolhar.servdesk.ticket.TicketStatus;
 import org.jspecify.annotations.Nullable;
 import org.springframework.data.domain.Page;
@@ -17,13 +18,19 @@ public class ChangeQueryService extends AbstractTicketSubtypeQueryService<Change
 		this.changeRepository = changeRepository;
 	}
 
-	public Page<Change> findAll(@Nullable TicketStatus status, Pageable pageable) {
-		return changeRepository.findByOptionalStatus(status, pageable);
+	public Page<Change> findAll(@Nullable TicketStatus status, Long callerId, boolean callerIsAgent,
+			Pageable pageable) {
+		return changeRepository.findVisible(status, requesterScope(callerId, callerIsAgent), pageable);
 	}
 
 	@Override
 	protected JpaRepository<Change, Long> repository() {
 		return changeRepository;
+	}
+
+	@Override
+	protected Ticket ticketOf(Change entity) {
+		return entity.getTicket();
 	}
 
 	@Override

@@ -8,6 +8,7 @@ import dev.alkolhar.servdesk.directory.PersonController;
 import dev.alkolhar.servdesk.ticket.Ticket;
 import dev.alkolhar.servdesk.ticket.problem.Problem;
 import dev.alkolhar.servdesk.ticket.problem.ProblemController;
+import java.util.HashMap;
 import org.jspecify.annotations.Nullable;
 import org.springframework.hateoas.server.RepresentationModelAssembler;
 import org.springframework.stereotype.Component;
@@ -25,6 +26,7 @@ public class IncidentModelAssembler implements RepresentationModelAssembler<Inci
 		model.setStatus(ticket.getStatus());
 		model.setSubject(ticket.getSubject());
 		model.setDescription(ticket.getDescription());
+		model.setAttributes(new HashMap<>(ticket.getAttributes()));
 		model.setCategoryId(idOf(ticket.getCategory()));
 		model.setImpactId(idOf(ticket.getImpact()));
 		model.setUrgencyId(idOf(ticket.getUrgency()));
@@ -35,12 +37,17 @@ public class IncidentModelAssembler implements RepresentationModelAssembler<Inci
 		model.setRelatedProblemId(relatedProblem == null ? null : relatedProblem.getId());
 		model.setResolvedAt(ticket.getResolvedAt());
 		model.setClosedAt(ticket.getClosedAt());
+		model.setRespondBy(ticket.getRespondBy());
+		model.setResolveBy(ticket.getResolveBy());
+		model.setFirstRespondedAt(ticket.getFirstRespondedAt());
+		model.setResponseBreachedAt(ticket.getResponseBreachedAt());
+		model.setResolutionBreachedAt(ticket.getResolutionBreachedAt());
 		model.setCreatedAt(ticket.getCreatedAt());
 		model.setUpdatedAt(ticket.getUpdatedAt());
 		model.setCreatedBy(ticket.getCreatedBy());
 		model.setUpdatedBy(ticket.getUpdatedBy());
 
-		model.add(linkTo(methodOn(IncidentController.class).findById(incident.getId())).withSelfRel());
+		model.add(linkTo(methodOn(IncidentController.class).findById(incident.getId(), null)).withSelfRel());
 		model.add(
 				linkTo(methodOn(PersonController.class).findById(ticket.getRequester().getId())).withRel("requester"));
 		if (ticket.getAssignee() != null) {
@@ -48,7 +55,7 @@ public class IncidentModelAssembler implements RepresentationModelAssembler<Inci
 					.withRel("assignee"));
 		}
 		if (relatedProblem != null) {
-			model.add(linkTo(methodOn(ProblemController.class).findById(relatedProblem.getId()))
+			model.add(linkTo(methodOn(ProblemController.class).findById(relatedProblem.getId(), null))
 					.withRel("relatedProblem"));
 		}
 		return model;

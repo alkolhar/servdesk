@@ -28,12 +28,15 @@ OpenAPI contract testing (Redocly lint/bundle + Schemathesis) runs as its own CI
 ## Architecture
 
 - **Java 25**, **Spring Boot 4.1.0**, Maven build. Base package: `dev.alkolhar.servdesk`.
-- **Database**: MariaDB (`mariadb-java-client`) + **Flyway** (`flyway-mysql`); migrations under
-  `src/main/resources/db/migration`. Data access via **Spring Data JPA**.
+- **Database**: PostgreSQL (`postgresql` driver) + **Flyway** (`flyway-database-postgresql`);
+  migrations under `src/main/resources/db/migration`. Data access via **Spring Data JPA**.
+  Postgres-only by decision ([ADR-0002](docs/adr/0002-postgresql-only-product-owns-its-database.md)):
+  the DB ships with the product, Postgres-specific features (partial indexes, `jsonb`) are fair game.
 - **Web**: Spring MVC + **Spring HATEOAS** for hypermedia responses.
 - **Security**: `spring-boot-starter-security` + `spring-security-messaging`.
-- **Spring Integration** (`http`/`jpa`) and **Quartz** are on the classpath for future integration
-  flows and scheduled jobs, not yet used.
+- **Spring Integration** (`http`/`jpa`) is on the classpath for future integration flows, not yet
+  used. **Quartz** got its first consumer with the SLA breach scanner (`sla.SlaSchedulingConfig`,
+  default in-memory job store — a missed tick is harmless, the next pass is idempotent).
 - **Validation**: Jakarta Bean Validation. **Actuator**: health/metrics. **DevTools**: local hot reload.
 - **Code quality tooling** (Maven plugins, no new runtime deps except `jspecify`):
   - **Spotless** (Eclipse JDT formatter, tab-indented) enforces formatting on `./mvnw verify`;
@@ -73,9 +76,11 @@ Controllers return a `*Model` (or `CollectionModel<...>`/`PagedModel<...>`), nev
   - **Soft delete**: every concrete entity carries its own `@SQLDelete` + `@SQLRestriction("deleted_at
     IS NULL")` pair (can't live on `BaseEntity` — each needs its own table name in the SQL string).
     `@SQLRestriction` applies to every load including association fetches, so a soft-deleted agent can
-    no longer authenticate. **Trade-off**: MariaDB has no partial/filtered unique index, so a
-    soft-deleted row's unique columns (email/username/team name/priority name/ticket display numbers)
-    still occupy the index — recreating with the same value throws `DataIntegrityViolationException`
+    no longer authenticate. Unique constraints on soft-deletable columns (email/username/team
+    name/priority name/ticket display numbers) are **partial unique indexes** (`WHERE deleted_at IS
+    NULL`), so a soft-deleted row's values are free for reuse — recreating them is a normal 201, not
+    a 409 (`PersonControllerTest.recreatingASoftDeletedPersonsEmailSucceeds`). A *live* duplicate
+    racing past the service layer's own check still surfaces as `DataIntegrityViolationException`
     (mapped to 409 by `RestExceptionHandler`, not a domain exception, since the service layer never
     sees it coming).
   - `event.DomainEvent` — marker interface for `ApplicationEventPublisher` events (no broker).
@@ -90,9 +95,13 @@ Controllers return a `*Model` (or `CollectionModel<...>`/`PagedModel<...>`), nev
   - `web.RestExceptionHandler` — the only place that translates those exceptions to RFC 7807
     `ProblemDetail` HTTP responses (not `sendError`, so these never trigger Tomcat's `/error` forward —
     see `SecurityConfig` below). Also maps `DataIntegrityViolationException` → 409, and
-    `PropertyReferenceException`/`InvalidDataAccessApiUsageException` → 400 (an unrecognized or
-    malformed `?sort=` field otherwise reaches Spring Data's resolver unvalidated and surfaces as an
-    uncaught 500 — found by the contract-tests CI job, see Deployment below).
+    `PropertyReferenceException`/`InvalidDataAccessApiUsageException`/`IllegalArgumentException` → 400
+    (an unrecognized or malformed `?sort=` field otherwise reaches Spring Data's resolver unvalidated
+    and surfaces as an uncaught 500 — found by the contract-tests CI job, see Deployment below; the
+    `IllegalArgumentException` case, issue #38, is the resolver's own re-URI-decoding blowing up on a
+    literal `%` in a sort segment before any controller code. Convention this relies on:
+    `IllegalArgumentException` = unusable input → 400, `IllegalStateException` = broken server
+    invariant → 500).
 - `directory` — `Person` (single entity for agents and customers, distinguished by `role`;
   `username`/`password`/`enabled` only populated for login-capable people), `Team`.
   `PersonCommandService`/`PersonQueryService` — CQRS-light split (command depends on query, not vice
@@ -103,6 +112,37 @@ Controllers return a `*Model` (or `CollectionModel<...>`/`PagedModel<...>`), nev
 - `classification` — ticket lookup/reference data: `Category` (self-referencing tree, `CategoryController`
   at `/api/categories`), `Priority` (name + `sortOrder`, `PriorityController` at `/api/priorities`).
   Same read-open/write-Agent-only RBAC shape as ticket subtypes (see `SecurityConfig` below).
+- `sla` — service-level management (issue #31). `SlaPolicy` (at most one per `Priority`, partial
+  unique; `responseMinutes`/`resolutionMinutes`, either nullable, at least one required) at
+  `/api/sla-policies` (reference-data RBAC shape, unpaginated). Deadlines live on the shared
+  `Ticket` (`respondBy`/`resolveBy`, plus `firstRespondedAt`/`pendingSince`/`*BreachedAt`) and are
+  derived by `TicketSlaService` — v1 runs a **24/7 clock** (business-hours calendars are follow-up
+  scope and slot into this one service). Derivation only on create or an actual priority change,
+  anchored at `createdAt`; entering `PENDING` records `pendingSince`, leaving it shifts both
+  deadlines by the paused duration (known v1 imprecision: a priority change drops earlier pause
+  credit). First response = first non-internal Agent comment (`CommentCommandService`). Policy
+  edits deliberately don't touch existing tickets. **`ticket` never imports `sla`**: the command
+  layer calls `ticket.SlaHooks`, implemented by `sla.TicketSlaService` — dependency inversion to
+  keep `ArchitectureTest`'s cycle rule green (same trick as `ticket.overview`, other direction).
+  `SlaScanService` (the only `@Transactional` service method — its `@TransactionalEventListener`
+  consumers need a commit to fire) stamps `responseBreachedAt`/`resolutionBreachedAt` exactly once
+  per breach (idempotence across runs/restarts) and publishes `SlaBreachedEvent`; a thin Quartz
+  job (`SlaScanJob`, every `servdesk.sla.scan-interval-seconds`, default 60) provides the tick,
+  and tests call the service directly instead of waiting for Quartz.
+- `customfield` — customer-defined custom fields (issue #29), the product's core per-deployment
+  customization mechanism per ADR-0002. `AttributeDefinition` (admin-editable: `target` — only
+  `TICKET` yet, CMDB CIs later —, machine `key`, `label`, `type`
+  STRING/NUMBER/BOOLEAN/DATE/ENUM, `required`, `enumValues`; columns `attr_key`/`attr_type` since
+  the bare names are SQL keywords somewhere) says which keys a target accepts; values live in the
+  target's own `attributes` jsonb column (GIN-indexed). `key`/`type` are immutable after creation
+  (the update request can't express them). **Validation is write-time only**
+  (`AttributeValidator`, called from `AbstractTicketSubtypeCommandService.copySharedFields`):
+  unknown key/type mismatch/missing required/non-member ENUM → `IllegalArgumentException` → 400;
+  reads never validate, so rows written under older definitions stay readable, and soft-deleting a
+  definition strands its stored values harmlessly. `attributes` omitted/null on a request = empty
+  map (PUT semantics). `/api/attribute-definitions` CRUD shares classification's
+  read-open/write-Agent-only RBAC shape; list endpoint is deliberately unpaginated (per-deployment
+  admin config, consumers want the whole set).
 - `ticket` — the ticketing core, split per [ADR-0001](docs/adr/0001-ticket-subtypes-composed-not-inherited.md):
   - `Ticket` — concrete entity holding fields common to every subtype: `status`, `subject`,
     `description`, `category`/`priority` (nullable), `requester` (required), `assignee`/`team`
@@ -111,7 +151,7 @@ Controllers return a `*Model` (or `CollectionModel<...>`/`PagedModel<...>`), nev
     `.servicerequest`) — each an independent `@Entity` sharing `Ticket`'s PK via `@OneToOne @MapsId`
     (using `MapsIdBaseEntity`, not `BaseEntity`, since `@GeneratedValue(IDENTITY)` conflicts with
     `@MapsId`). Each has its own `displayNumber` + DB sequence: `INC-`/`PRB-`/`RFC-`/`REQ-` (Change's
-    table is `change_request` — `change` is a MariaDB reserved word), zero-padded by hand rather than
+    table is `change_request` — a MariaDB-era reserved-word workaround, kept as the clearer name), zero-padded by hand rather than
     `String.format` (default-locale `DecimalFormatSymbols` can substitute non-ASCII digits).
     `Incident.relatedProblem` is an optional many-to-one to `Problem` (no reverse query). Creating any
     subtype is Agent-only.
@@ -121,11 +161,23 @@ Controllers return a `*Model` (or `CollectionModel<...>`/`PagedModel<...>`), nev
     relies on `TicketStatus`'s enum order matching lifecycle order), publishes
     `TicketStatusChangedEvent` only when status actually changed. Delete soft-deletes both the subtype
     row and the shared `Ticket` row.
+  - `ticket.overview` — read-only cross-subtype surface `GET /api/tickets`(+`/{id}`) (issue #30,
+    amending ADR-0001's "no cross-type listing" consequence): pages the shared `ticket` table
+    (optional filters: status/requester/assignee/team/category/priority, plus an
+    `attrKey`+`attrValue` custom-field equality pair — jsonb `->>` text comparison served by the
+    GIN index), then resolves each row's
+    `TicketType` + display number with one `findAllById` batch per subtype repository — four
+    queries per page. Lives in its own subpackage because it depends on every subtype package,
+    which already depend on `ticket` — inside `ticket` it would trip `ArchitectureTest`'s
+    package-cycle rule. Writes and subtype-specific fields stay per-subtype; the model links to
+    the subtype resource under a type-named rel. Row-level ownership applies identically.
   - `TicketComment` — references the shared `Ticket` directly (not per-subtype); `internal` flag
     distinguishes agent-only notes from requester-visible replies. `CommentController`
     (`/api/tickets/{ticketId}/comments`, GET+POST only) is nested under the shared id for this reason.
     `CommentCommandService` rejects (`ForbiddenException`, 403) `internal=true` from a Customer;
-    `CommentQueryService` filters internal comments out of a Customer's read.
+    `CommentQueryService` filters internal comments out of a Customer's read. Both also enforce
+    row-level ownership on the comment stream: a Customer reading or commenting on a ticket they
+    didn't request gets 404 (see below).
 - `setup` — `SetupController` (`GET`/`POST /api/setup`, `permitAll`) bootstraps the first agent;
   `createInitialAgent`/`isSetupRequired` refuse to run once any `Person` exists (409) — no seeded
   credentials ship in a migration.
@@ -137,9 +189,17 @@ Controllers return a `*Model` (or `CollectionModel<...>`/`PagedModel<...>`), nev
     `GET` open to both roles, `POST`/`PUT`/`DELETE` Agent-only. Comments: `GET`/`POST` open to both
     (the `internal`-is-Agent-only rule is enforced in the service layer, not here, since it's
     data-dependent). Verified against the real filter chain in `PersonControllerTest` and
-    `AbstractTicketSubtypeControllerTest.customersCanReadButNotCreateUpdateOrDelete`. Out of scope:
-    row-level ownership (a customer seeing only their own tickets) — needs a data-access decision the
-    service layer would make, not a URL+role rule.
+    `AbstractTicketSubtypeControllerTest.customersCanReadButNotCreateUpdateOrDelete`.
+  - **Row-level ownership** (issue #28) lives in the service layer, like the `internal` rule, since
+    it depends on the ticket's own `requester`: a Customer only sees tickets they requested — in
+    listings (`findVisible` adds a requester filter for Customers), by direct id
+    (`AbstractTicketSubtypeQueryService.findByIdVisibleTo`), and on comment read/write. A foreign
+    ticket answers **404, not 403** — indistinguishable from a missing one, so ticket ids can't be
+    probed. Controllers resolve the caller from `Authentication` and pass plain
+    `callerId`/`callerIsAgent` facts into the services (keeps `ArchitectureTest`'s
+    no-web-types-in-services rule intact). Verified per subtype in
+    `AbstractTicketSubtypeControllerTest.customersOnlySeeTicketsTheyRequested`. Still out of scope:
+    shared visibility beyond the requester (watchers — #25, org-based visibility).
   - **OAuth2/OIDC migration path**: `spring-boot-starter-oauth2-resource-server` is on the classpath but
     inert until `issuer-uri` is set. Migrating swaps `.httpBasic(...)` for
     `.oauth2ResourceServer(oauth2 -> oauth2.jwt(...))` and replaces `PersonUserDetailsService` with a
@@ -166,8 +226,9 @@ Controllers return a `*Model` (or `CollectionModel<...>`/`PagedModel<...>`), nev
   schema (audit/soft-delete columns, each subtype's `*_number_seq`). Once anything is deployed, switch
   back to versioned migrations rather than editing this one.
 - `application.properties`: `ddl-auto=validate` (Flyway is the only schema source of truth; this just
-  fails fast on drift — e.g. a `@Lob String` needs an explicit `length` or Hibernate caps it at 255
-  chars, see `TicketComment.body`'s `@Column`), `open-in-view=false` (assemblers only call `.getId()`
+  fails fast on drift — e.g. unbounded text columns are `TEXT` and must be mapped
+  `@JdbcTypeCode(SqlTypes.LONGVARCHAR)`, not `@Lob`, which Postgres would map to `oid` large objects —
+  see `TicketComment.body`), `open-in-view=false` (assemblers only call `.getId()`
   on lazy associations, which a proxy answers without an open session), and
   `spring.mvc.problemdetails.enabled=true` — without it, Boot's own default
   `MethodArgumentNotValidException` handling falls back to a non-`ProblemDetail` body despite that
@@ -207,7 +268,7 @@ Controllers return a `*Model` (or `CollectionModel<...>`/`PagedModel<...>`), nev
   (`java -Djarmode=tools -jar app.jar extract --layers --launcher`) into
   `dependencies`/`spring-boot-loader`/`snapshot-dependencies`/`application` layers, copy into an
   `eclipse-temurin:25-jre` runtime image most-to-least-stable, run as non-root `servdesk`.
-- `docker-compose.yml` — `app` + `db` (MariaDB) for local dev; `docker compose up --build` needs no
+- `docker-compose.yml` — `app` + `db` (PostgreSQL) for local dev; `docker compose up --build` needs no
   local JDK at all.
 - `.github/workflows/ci.yml`:
   - `build-and-test` — `./mvnw verify` (compile, unit + Testcontainers integration tests, ArchUnit,
@@ -219,7 +280,7 @@ Controllers return a `*Model` (or `CollectionModel<...>`/`PagedModel<...>`), nev
     than shelling either out from a JUnit test (evaluated Portman/Schemathesis/Spectral for this job:
     Spectral only lints the spec document itself and can't validate a live server; Portman adds a
     Postman-collection indirection layer Schemathesis doesn't need). Builds the jar, starts it against
-    this job's own MariaDB service container, bootstraps the first agent through the real `/api/setup`,
+    this job's own PostgreSQL service container, bootstraps the first agent through the real `/api/setup`,
     then runs **Redocly CLI** (`redocly.yaml` at the repo root, via `npx` — Node is preinstalled on
     GitHub-hosted runners, same basis as Docker for Testcontainers) to lint and bundle the spec (bundling
     now future-proofs against the contract eventually splitting across multiple files), and finally
@@ -242,7 +303,7 @@ Two deliberately separate layers:
   fixture use `ReflectionTestUtils.setField(entity, "id", ...)` inside the mocked repository's `save`
   stub.
 - **Integration tests** (`*ControllerTest`, `SetupControllerTest`) — **Testcontainers**
-  (`TestcontainersConfiguration`, `MariaDBContainer`, `@ServiceConnection`; `public` so test classes
+  (`TestcontainersConfiguration`, `PostgreSQLContainer`, `@ServiceConnection`; `public` so test classes
   outside the root package can `@Import` it). Full `@SpringBootTest(webEnvironment = RANDOM_PORT)` +
   `TestRestTemplate` (lives in `org.springframework.boot.resttestclient`; needs
   `spring-boot-starter-restclient` + `@AutoConfigureTestRestTemplate` explicitly — Boot no longer
@@ -259,7 +320,7 @@ Two deliberately separate layers:
     same annotation, and use `@TestInstance(PER_CLASS)` + `@BeforeAll` to bootstrap an agent through
     the real `/api/setup` endpoint once per class.
 - `TestServdeskApplication` — dev-time entry point booting the app with Testcontainers applied, for
-  running locally against a disposable MariaDB without Docker Compose.
+  running locally against a disposable PostgreSQL without Docker Compose.
 - `architecture.ArchitectureTest` (ArchUnit, `@AnalyzeClasses` over the whole base package) freezes the
   layering rules above as executable checks: feature packages stay cycle-free, controllers never
   depend on a `*Repository`, `*CommandService`/`*QueryService` never depend on `org.springframework.web..`.

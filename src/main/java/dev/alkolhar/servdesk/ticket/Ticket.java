@@ -13,12 +13,15 @@ import jakarta.persistence.EnumType;
 import jakarta.persistence.Enumerated;
 import jakarta.persistence.FetchType;
 import jakarta.persistence.JoinColumn;
-import jakarta.persistence.Lob;
 import jakarta.persistence.ManyToOne;
 import jakarta.persistence.Table;
 import java.time.Instant;
+import java.util.HashMap;
+import java.util.Map;
+import org.hibernate.annotations.JdbcTypeCode;
 import org.hibernate.annotations.SQLDelete;
 import org.hibernate.annotations.SQLRestriction;
+import org.hibernate.type.SqlTypes;
 import org.jspecify.annotations.Nullable;
 
 /**
@@ -44,8 +47,25 @@ public class Ticket extends BaseEntity {
 	@Column(nullable = false)
 	private String subject;
 
-	@Lob
+	/**
+	 * {@code LONGVARCHAR}, not {@code @Lob}: on PostgreSQL Hibernate maps a
+	 * {@code @Lob String} to an {@code oid} large object (a separate row in
+	 * {@code pg_largeobject} reached via streaming API), while this column is a
+	 * plain unbounded {@code TEXT}.
+	 */
+	@JdbcTypeCode(SqlTypes.LONGVARCHAR)
 	private @Nullable String description;
+
+	/**
+	 * Customer-defined custom-field values (issue #29): a {@code jsonb} column
+	 * (GIN-indexed, see {@code V1__init_schema.sql}) keyed by
+	 * {@code AttributeDefinition.key}. Always written through
+	 * {@code AbstractTicketSubtypeCommandService}, which validates the full map via
+	 * {@code AttributeValidator} first — never mutated elsewhere.
+	 */
+	@JdbcTypeCode(SqlTypes.JSON)
+	@Column(nullable = false)
+	private Map<String, Object> attributes = new HashMap<>();
 
 	@ManyToOne(fetch = FetchType.LAZY)
 	@JoinColumn(name = "category_id")
@@ -86,6 +106,23 @@ public class Ticket extends BaseEntity {
 
 	private @Nullable Instant closedAt;
 
+	// SLA tracking (issue #31) — all written via the ticket package's SlaHooks
+	// (implemented in the sla package): deadlines derived from the priority's
+	// SlaPolicy, firstRespondedAt from the first non-internal Agent comment,
+	// pendingSince while the clock is paused, *BreachedAt stamped once by the
+	// Quartz breach scanner (its idempotence marker).
+	private @Nullable Instant respondBy;
+
+	private @Nullable Instant resolveBy;
+
+	private @Nullable Instant firstRespondedAt;
+
+	private @Nullable Instant pendingSince;
+
+	private @Nullable Instant responseBreachedAt;
+
+	private @Nullable Instant resolutionBreachedAt;
+
 	public TicketStatus getStatus() {
 		return status;
 	}
@@ -108,6 +145,14 @@ public class Ticket extends BaseEntity {
 
 	public void setDescription(@Nullable String description) {
 		this.description = description;
+	}
+
+	public Map<String, Object> getAttributes() {
+		return attributes;
+	}
+
+	public void setAttributes(Map<String, Object> attributes) {
+		this.attributes = attributes;
 	}
 
 	public @Nullable Category getCategory() {
@@ -180,5 +225,53 @@ public class Ticket extends BaseEntity {
 
 	public void setClosedAt(@Nullable Instant closedAt) {
 		this.closedAt = closedAt;
+	}
+
+	public @Nullable Instant getRespondBy() {
+		return respondBy;
+	}
+
+	public void setRespondBy(@Nullable Instant respondBy) {
+		this.respondBy = respondBy;
+	}
+
+	public @Nullable Instant getResolveBy() {
+		return resolveBy;
+	}
+
+	public void setResolveBy(@Nullable Instant resolveBy) {
+		this.resolveBy = resolveBy;
+	}
+
+	public @Nullable Instant getFirstRespondedAt() {
+		return firstRespondedAt;
+	}
+
+	public void setFirstRespondedAt(@Nullable Instant firstRespondedAt) {
+		this.firstRespondedAt = firstRespondedAt;
+	}
+
+	public @Nullable Instant getPendingSince() {
+		return pendingSince;
+	}
+
+	public void setPendingSince(@Nullable Instant pendingSince) {
+		this.pendingSince = pendingSince;
+	}
+
+	public @Nullable Instant getResponseBreachedAt() {
+		return responseBreachedAt;
+	}
+
+	public void setResponseBreachedAt(@Nullable Instant responseBreachedAt) {
+		this.responseBreachedAt = responseBreachedAt;
+	}
+
+	public @Nullable Instant getResolutionBreachedAt() {
+		return resolutionBreachedAt;
+	}
+
+	public void setResolutionBreachedAt(@Nullable Instant resolutionBreachedAt) {
+		this.resolutionBreachedAt = resolutionBreachedAt;
 	}
 }

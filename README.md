@@ -34,7 +34,7 @@ JDK/Tooling-Kompatibilitätsfragen, die während der Modernisierung aufgetreten 
 
 ## Voraussetzungen für die lokale Entwicklung
 
-- **Docker** — sowohl für Testcontainers (Integrationstests laufen gegen eine echte MariaDB) als
+- **Docker** — sowohl für Testcontainers (Integrationstests laufen gegen eine echte PostgreSQL) als
   auch für `docker compose`. Kein System-Maven und keine lokale JDK-Installation nötig, wenn nur
   über Docker Compose gearbeitet wird; für IDE-Nutzung wird **JDK 25** empfohlen (der
   Maven-Wrapper `./mvnw` bootstrapt Maven selbst).
@@ -47,7 +47,7 @@ JDK/Tooling-Kompatibilitätsfragen, die während der Modernisierung aufgetreten 
 docker compose up --build
 ```
 
-Startet MariaDB + die Anwendung; erreichbar unter `http://localhost:8080`. Ersten Agent-Account
+Startet PostgreSQL + die Anwendung; erreichbar unter `http://localhost:8080`. Ersten Agent-Account
 anlegen:
 
 ```bash
@@ -56,25 +56,25 @@ curl -X POST http://localhost:8080/api/setup \
   -d '{"name":"Admin","email":"admin@example.com","username":"admin","password":"admin123"}'
 ```
 
-### Option B: lokal mit Maven-Wrapper (eigene MariaDB-Instanz nötig)
+### Option B: lokal mit Maven-Wrapper (eigene PostgreSQL-Instanz nötig)
 
 ```bash
 ./mvnw spring-boot:run
 ```
 
-Erwartet eine erreichbare MariaDB (Verbindungsdaten in `application.properties` bzw. per
+Erwartet eine erreichbare PostgreSQL (Verbindungsdaten in `application.properties` bzw. per
 `--spring.datasource.*`-Argumenten überschreibbar). Für einen schnellen Einwegcontainer:
 
 ```bash
-docker run -d --name servdesk-db -p 3306:3306 \
-  -e MARIADB_DATABASE=servdesk -e MARIADB_USER=servdesk -e MARIADB_PASSWORD=servdesk \
-  -e MARIADB_ROOT_PASSWORD=root mariadb:latest
+docker run -d --name servdesk-db -p 5432:5432 \
+  -e POSTGRES_DB=servdesk -e POSTGRES_USER=servdesk -e POSTGRES_PASSWORD=servdesk \
+  postgres:latest
 ```
 
 ### Option C: `TestServdeskApplication`
 
 Ein Dev-Einstiegspunkt, der die Anwendung direkt mit einer Testcontainers-verwalteten,
-Wegwerf-MariaDB startet — kein manuelles Datenbank-Setup nötig, ideal für schnelles lokales
+Wegwerf-PostgreSQL startet — kein manuelles Datenbank-Setup nötig, ideal für schnelles lokales
 Ausprobieren aus der IDE heraus.
 
 ## Testausführung
@@ -82,7 +82,7 @@ Ausprobieren aus der IDE heraus.
 Zwei bewusst getrennte Ebenen (siehe `CLAUDE.md` → Testing für die volle Begründung):
 
 ```bash
-./mvnw test                          # alles: Unit- (Mockito, keine DB) + Integrationstests (Testcontainers/MariaDB)
+./mvnw test                          # alles: Unit- (Mockito, keine DB) + Integrationstests (Testcontainers/PostgreSQL)
 ./mvnw test -Dtest=ClassName          # eine Testklasse
 ./mvnw test -Dtest=ClassName#method   # eine einzelne Testmethode
 ```
@@ -115,9 +115,11 @@ Die folgenden Entscheidungen sind in `CLAUDE.md` im Detail begründet — hier n
   Tag, an dem sich das lohnt, ohne es vorzeitig zu erzwingen.
 - **Domain Events** über Spring's eingebauten `ApplicationEventPublisher` (kein externer Event-Bus)
   — Hook-Punkt für zukünftige SLA-/Notification-Module.
-- **Soft Delete** via Hibernate `@SQLDelete`/`@SQLRestriction` statt echtem `DELETE` — mit dem
-  bekannten Trade-off, dass MariaDB keine partiellen Unique-Indizes kennt (dokumentiert in
-  `CLAUDE.md`, sauber als 409 statt 500 abgefangen).
+- **Soft Delete** via Hibernate `@SQLDelete`/`@SQLRestriction` statt echtem `DELETE` — Unique-Spalten
+  gelöschter Zeilen bleiben dank partieller Unique-Indizes (`WHERE deleted_at IS NULL`)
+  wiederverwendbar.
+- **PostgreSQL exklusiv** — die Datenbank ist Teil des Produkts, kein austauschbarer Baustein
+  (siehe [ADR-0002](docs/adr/0002-postgresql-only-product-owns-its-database.md)).
 - **RFC 7807** (`ProblemDetail`) für alle Fehlerantworten statt eines eigenen Fehlerformats.
 - **API-Versionierung** über Header (`X-API-Version`), nicht über URI-Präfixe — bestehende
   Client-URLs bleiben stabil.

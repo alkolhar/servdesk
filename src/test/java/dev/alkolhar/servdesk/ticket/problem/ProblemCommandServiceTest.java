@@ -15,7 +15,9 @@ import dev.alkolhar.servdesk.classification.PriorityDefinition;
 import dev.alkolhar.servdesk.classification.PriorityDefinitionRepository;
 import dev.alkolhar.servdesk.classification.Urgency;
 import dev.alkolhar.servdesk.common.exception.NotFoundException;
+import dev.alkolhar.servdesk.customfield.AttributeValidator;
 import dev.alkolhar.servdesk.directory.Person;
+import dev.alkolhar.servdesk.ticket.SlaHooks;
 import dev.alkolhar.servdesk.ticket.Ticket;
 import dev.alkolhar.servdesk.ticket.TicketRepository;
 import dev.alkolhar.servdesk.ticket.TicketStatus;
@@ -62,12 +64,18 @@ class ProblemCommandServiceTest {
 	@Mock
 	private PriorityDefinitionRepository priorityDefinitionRepository;
 
+	@Mock
+	private AttributeValidator attributeValidator;
+
+	@Mock
+	private SlaHooks slaHooks;
+
 	private ProblemCommandService commandService;
 
 	@BeforeEach
 	void setUp() {
 		commandService = new ProblemCommandService(problemRepository, problemQueryService, ticketRepository,
-				entityManager, events, priorityDefinitionRepository);
+				entityManager, events, priorityDefinitionRepository, attributeValidator, slaHooks);
 	}
 
 	private void stubSavesToReturnTheirArgument() {
@@ -82,7 +90,7 @@ class ProblemCommandServiceTest {
 		when(entityManager.getReference(Person.class, 3L)).thenReturn(mock(Person.class));
 
 		Problem saved = commandService
-				.create(new ProblemCreateRequest("Printer on fire", null, null, null, null, 3L, null, null));
+				.create(new ProblemCreateRequest("Printer on fire", null, null, null, null, 3L, null, null, null));
 
 		assertThat(saved.getDisplayNumber()).isEqualTo("PRB-001007");
 	}
@@ -100,7 +108,7 @@ class ProblemCommandServiceTest {
 		when(priorityDefinitionRepository.findByImpactIdAndUrgencyId(10L, 20L)).thenReturn(Optional.of(definition));
 
 		Problem saved = commandService
-				.create(new ProblemCreateRequest("Printer on fire", null, null, 10L, 20L, 3L, null, null));
+				.create(new ProblemCreateRequest("Printer on fire", null, null, 10L, 20L, 3L, null, null, null));
 
 		assertThat(saved.getTicket().getPriority()).isEqualTo(derivedPriority);
 	}
@@ -113,7 +121,7 @@ class ProblemCommandServiceTest {
 		when(entityManager.getReference(Urgency.class, 20L)).thenReturn(mock(Urgency.class));
 
 		Problem saved = commandService
-				.create(new ProblemCreateRequest("Printer on fire", null, null, null, 20L, 3L, null, null));
+				.create(new ProblemCreateRequest("Printer on fire", null, null, null, 20L, 3L, null, null, null));
 
 		assertThat(saved.getTicket().getPriority()).isNull();
 		verifyNoInteractions(priorityDefinitionRepository);
@@ -129,9 +137,39 @@ class ProblemCommandServiceTest {
 		when(priorityDefinitionRepository.findByImpactIdAndUrgencyId(10L, 20L)).thenReturn(Optional.empty());
 
 		Problem saved = commandService
-				.create(new ProblemCreateRequest("Printer on fire", null, null, 10L, 20L, 3L, null, null));
+				.create(new ProblemCreateRequest("Printer on fire", null, null, 10L, 20L, 3L, null, null, null));
 
 		assertThat(saved.getTicket().getPriority()).isNull();
+	}
+
+	/**
+	 * The seam between issue #22 and the SLA engine (#31): a client can no longer
+	 * set the priority directly, so a matrix re-derivation is the only way it ever
+	 * changes — and {@code SlaHooks} has to be handed the id from <i>before</i>
+	 * that re-derivation for its "did the priority actually change" check to mean
+	 * anything.
+	 */
+	@Test
+	void updateHandsTheSlaHooksThePriorityIdFromBeforeTheMatrixRederivedIt() {
+		stubSavesToReturnTheirArgument();
+		Problem existing = existingProblem(TicketStatus.IN_PROGRESS);
+		Priority previousPriority = mock(Priority.class);
+		when(previousPriority.getId()).thenReturn(100L);
+		existing.getTicket().setPriority(previousPriority);
+		when(problemQueryService.findById(5L)).thenReturn(existing);
+		when(entityManager.getReference(Person.class, 3L)).thenReturn(mock(Person.class));
+		when(entityManager.getReference(Impact.class, 10L)).thenReturn(mock(Impact.class));
+		when(entityManager.getReference(Urgency.class, 20L)).thenReturn(mock(Urgency.class));
+		Priority rederivedPriority = mock(Priority.class);
+		PriorityDefinition definition = mock(PriorityDefinition.class);
+		when(definition.getPriority()).thenReturn(rederivedPriority);
+		when(priorityDefinitionRepository.findByImpactIdAndUrgencyId(10L, 20L)).thenReturn(Optional.of(definition));
+
+		commandService.update(5L, new ProblemUpdateRequest(TicketStatus.IN_PROGRESS, "Printer on fire", null, null, 10L,
+				20L, 3L, null, null, null));
+
+		assertThat(existing.getTicket().getPriority()).isEqualTo(rederivedPriority);
+		verify(slaHooks).applyOnWrite(existing.getTicket(), TicketStatus.IN_PROGRESS, 100L);
 	}
 
 	@Test
@@ -142,7 +180,7 @@ class ProblemCommandServiceTest {
 		when(entityManager.getReference(Person.class, 3L)).thenReturn(mock(Person.class));
 
 		commandService.update(5L, new ProblemUpdateRequest(TicketStatus.IN_PROGRESS, "Printer on fire", null, null,
-				null, null, 3L, null, null));
+				null, null, 3L, null, null, null));
 
 		assertThat(existing.getTicket().getResolvedAt()).isNull();
 		verifyNoInteractions(events);
@@ -156,7 +194,7 @@ class ProblemCommandServiceTest {
 		when(entityManager.getReference(Person.class, 3L)).thenReturn(mock(Person.class));
 
 		commandService.update(5L, new ProblemUpdateRequest(TicketStatus.RESOLVED, "Printer on fire", null, null, null,
-				null, 3L, null, null));
+				null, 3L, null, null, null));
 
 		assertThat(existing.getTicket().getResolvedAt()).isNotNull();
 		ArgumentCaptor<TicketStatusChangedEvent> captor = ArgumentCaptor.forClass(TicketStatusChangedEvent.class);
@@ -175,7 +213,7 @@ class ProblemCommandServiceTest {
 		when(entityManager.getReference(Person.class, 3L)).thenReturn(mock(Person.class));
 
 		commandService.update(5L, new ProblemUpdateRequest(TicketStatus.CLOSED, "Printer on fire", null, null, null,
-				null, 3L, null, null));
+				null, 3L, null, null, null));
 
 		assertThat(existing.getTicket().getResolvedAt()).isEqualTo(previouslyResolvedAt);
 		assertThat(existing.getTicket().getClosedAt()).isNotNull();
@@ -190,7 +228,7 @@ class ProblemCommandServiceTest {
 		when(entityManager.getReference(Person.class, 3L)).thenReturn(mock(Person.class));
 
 		commandService.update(5L, new ProblemUpdateRequest(TicketStatus.IN_PROGRESS, "Printer on fire", null, null,
-				null, null, 3L, null, null));
+				null, null, 3L, null, null, null));
 
 		assertThat(existing.getTicket().getResolvedAt()).isNull();
 	}
@@ -229,6 +267,6 @@ class ProblemCommandServiceTest {
 	private void stubSequence(String sequenceName, long value) {
 		Query query = mock(Query.class);
 		when(query.getSingleResult()).thenReturn(value);
-		when(entityManager.createNativeQuery("SELECT NEXTVAL(" + sequenceName + ")")).thenReturn(query);
+		when(entityManager.createNativeQuery("SELECT nextval('" + sequenceName + "')")).thenReturn(query);
 	}
 }

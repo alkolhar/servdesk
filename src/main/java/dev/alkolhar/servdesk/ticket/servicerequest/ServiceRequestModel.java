@@ -2,6 +2,7 @@ package dev.alkolhar.servdesk.ticket.servicerequest;
 
 import dev.alkolhar.servdesk.ticket.TicketStatus;
 import java.time.Instant;
+import java.util.Map;
 import org.jspecify.annotations.Nullable;
 import org.springframework.hateoas.RepresentationModel;
 
@@ -13,6 +14,8 @@ public class ServiceRequestModel extends RepresentationModel<ServiceRequestModel
 	private TicketStatus status;
 	private String subject;
 	private @Nullable String description;
+
+	private Map<String, Object> attributes;
 	private @Nullable Long categoryId;
 	private @Nullable Long impactId;
 	private @Nullable Long urgencyId;
@@ -22,6 +25,16 @@ public class ServiceRequestModel extends RepresentationModel<ServiceRequestModel
 	private @Nullable Long teamId;
 	private @Nullable Instant resolvedAt;
 	private @Nullable Instant closedAt;
+
+	private @Nullable Instant respondBy;
+
+	private @Nullable Instant resolveBy;
+
+	private @Nullable Instant firstRespondedAt;
+
+	private @Nullable Instant responseBreachedAt;
+
+	private @Nullable Instant resolutionBreachedAt;
 	private Instant createdAt;
 	private Instant updatedAt;
 	private @Nullable String createdBy;
@@ -65,6 +78,14 @@ public class ServiceRequestModel extends RepresentationModel<ServiceRequestModel
 
 	public void setDescription(@Nullable String description) {
 		this.description = description;
+	}
+
+	public Map<String, Object> getAttributes() {
+		return attributes;
+	}
+
+	public void setAttributes(Map<String, Object> attributes) {
+		this.attributes = attributes;
 	}
 
 	public @Nullable Long getCategoryId() {
@@ -137,6 +158,46 @@ public class ServiceRequestModel extends RepresentationModel<ServiceRequestModel
 
 	public void setClosedAt(@Nullable Instant closedAt) {
 		this.closedAt = closedAt;
+	}
+
+	public @Nullable Instant getRespondBy() {
+		return respondBy;
+	}
+
+	public void setRespondBy(@Nullable Instant respondBy) {
+		this.respondBy = respondBy;
+	}
+
+	public @Nullable Instant getResolveBy() {
+		return resolveBy;
+	}
+
+	public void setResolveBy(@Nullable Instant resolveBy) {
+		this.resolveBy = resolveBy;
+	}
+
+	public @Nullable Instant getFirstRespondedAt() {
+		return firstRespondedAt;
+	}
+
+	public void setFirstRespondedAt(@Nullable Instant firstRespondedAt) {
+		this.firstRespondedAt = firstRespondedAt;
+	}
+
+	public @Nullable Instant getResponseBreachedAt() {
+		return responseBreachedAt;
+	}
+
+	public void setResponseBreachedAt(@Nullable Instant responseBreachedAt) {
+		this.responseBreachedAt = responseBreachedAt;
+	}
+
+	public @Nullable Instant getResolutionBreachedAt() {
+		return resolutionBreachedAt;
+	}
+
+	public void setResolutionBreachedAt(@Nullable Instant resolutionBreachedAt) {
+		this.resolutionBreachedAt = resolutionBreachedAt;
 	}
 
 	public Instant getCreatedAt() {

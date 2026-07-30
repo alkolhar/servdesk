@@ -15,7 +15,7 @@ import org.springframework.context.annotation.Import;
 /**
  * Proves a bare {@link Ticket} — now holding only the fields shared across
  * every subtype, with {@code type}/{@code ticketNumber} removed per ADR-0001 —
- * still round-trips through a real MariaDB instance via
+ * still round-trips through a real PostgreSQL instance via
  * {@link TicketRepository}.
  */
 @Import(TestcontainersConfiguration.class)
