@@ -144,9 +144,10 @@ Controllers return a `*Model` (or `CollectionModel<...>`/`PagedModel<...>`), nev
   Behavior tests still call the service directly rather than waiting for Quartz, but the
   Quartz-to-service wiring now has a test of its own (`SlaScanSchedulingTest`) — leaving exactly
   that seam uncovered is how #56 shipped a scanner whose dependency was never injected, inert in
-  every real deployment while the suite stayed green. `SlaScanJob`'s setter carries `@Autowired`
-  for the same reason: Boot's `AutowireCapableBeanJobFactory` drives annotation-based injection
-  only, so a bare setter is never called.
+  every real deployment while the suite stayed green. `SlaScanJob` takes its dependency through a
+  **constructor**, which needs no registration of its own — Boot's `SpringBeanJobFactory` builds the
+  job via `AutowireCapableBeanFactory.createBean(...)`, resolving constructor args from the context —
+  and, unlike the setter it replaced, cannot leave a job ticking with a null field.
 - `customfield` — customer-defined custom fields (issue #29), the product's core per-deployment
   customization mechanism per ADR-0002. `AttributeDefinition` (admin-editable: `target` — only
   `TICKET` yet, CMDB CIs later —, machine `key`, `label`, `type`
