@@ -30,7 +30,8 @@ import org.springframework.test.context.event.RecordApplicationEvents;
  * endpoint, and the breach scanner's stamping/eventing/idempotence — the
  * scanner is exercised by calling {@link SlaScanService} directly rather than
  * waiting for a Quartz tick, since the Quartz shell contains no logic of its
- * own.
+ * own. It does contain wiring, though, which is why that seam is covered
+ * separately by {@link SlaScanSchedulingTest}.
  */
 @Import(TestcontainersConfiguration.class)
 @SpringBootTest(webEnvironment = SpringBootTest.WebEnvironment.RANDOM_PORT)
