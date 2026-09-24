@@ -109,6 +109,14 @@ Controllers return a `*Model` (or `CollectionModel<...>`/`PagedModel<...>`), nev
   `PersonCreatedEvent`). `PersonUserDetails(Service)` adapts `Person` to Spring Security, mapping
   `role` → `ROLE_*`; defining this bean is what makes Boot back off its default generated-password setup.
   `PersonRepository.findByUsername` returns empty for customers (who typically have none).
+  **On `PUT /api/persons/{id}`, the three login-bearing fields read null as "leave unchanged"**
+  (`username`/`password`/`enabled`), deliberately departing from PUT's replace-everything semantics:
+  omitting a field must never revoke a login. Issue #66 was exactly that — a generated PUT that
+  didn't mention `username` erased it and locked the only agent out of a live deployment, 200 OK and
+  all, after which every one of the run's remaining 3884 requests was a 401. `enabled` is
+  `@Nullable Boolean` rather than a primitive for the same reason (a primitive defaults an omitted
+  field to `false`, silently disabling the account). The cost, accepted: none of the three can be
+  *cleared* through this endpoint — revoking a login needs an operation that says so.
 - `classification` — ticket lookup/reference data: `Category` (self-referencing tree, `CategoryController`
   at `/api/categories`), `Priority` (name + `sortOrder`, `PriorityController` at `/api/priorities`),
   plus the **Impact × Urgency priority matrix** (issue #22): `Impact` and `Urgency` (both the same

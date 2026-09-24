@@ -141,6 +141,58 @@ class PersonCommandServiceTest {
 	}
 
 	@Test
+	void updateKeepsExistingUsernameWhenRequestUsernameIsNull() {
+		Person existing = new Person();
+		existing.setUsername("ada");
+		when(personQueryService.findById(1L)).thenReturn(existing);
+		when(personRepository.save(existing)).thenReturn(existing);
+
+		Person updated = commandService.update(1L, new PersonUpdateRequest(PersonRole.AGENT, "Ada Agent",
+				"ada@example.com", null, null, null, true, null));
+
+		assertThat(updated.getUsername()).isEqualTo("ada");
+	}
+
+	@Test
+	void updateReplacesUsernameWhenRequestUsernameIsPresent() {
+		Person existing = new Person();
+		existing.setUsername("ada");
+		when(personQueryService.findById(1L)).thenReturn(existing);
+		when(personRepository.save(existing)).thenReturn(existing);
+
+		Person updated = commandService.update(1L, new PersonUpdateRequest(PersonRole.AGENT, "Ada Agent",
+				"ada@example.com", null, "ada.lovelace", null, true, null));
+
+		assertThat(updated.getUsername()).isEqualTo("ada.lovelace");
+	}
+
+	@Test
+	void updateKeepsExistingEnabledFlagWhenRequestEnabledIsNull() {
+		Person existing = new Person();
+		existing.setEnabled(true);
+		when(personQueryService.findById(1L)).thenReturn(existing);
+		when(personRepository.save(existing)).thenReturn(existing);
+
+		Person updated = commandService.update(1L, new PersonUpdateRequest(PersonRole.AGENT, "Ada Agent",
+				"ada@example.com", null, null, null, null, null));
+
+		assertThat(updated.isEnabled()).isTrue();
+	}
+
+	@Test
+	void updateDisablesAPersonWhenEnabledIsExplicitlyFalse() {
+		Person existing = new Person();
+		existing.setEnabled(true);
+		when(personQueryService.findById(1L)).thenReturn(existing);
+		when(personRepository.save(existing)).thenReturn(existing);
+
+		Person updated = commandService.update(1L, new PersonUpdateRequest(PersonRole.AGENT, "Ada Agent",
+				"ada@example.com", null, null, null, false, null));
+
+		assertThat(updated.isEnabled()).isFalse();
+	}
+
+	@Test
 	void createInitialAgentRejectsWhenSetupAlreadyCompleted() {
 		when(personQueryService.isSetupRequired()).thenReturn(false);
 
