@@ -106,10 +106,13 @@ export_id SERVDESK_SLA_POLICY_DOOMED_ID "$SLA_POLICY_DOOMED_ID"
 # --- custom fields ---------------------------------------------------------------------------
 # required:false deliberately. A required attribute definition would make every subsequent ticket
 # create fail write-time validation, which would defeat the ticket fixtures below.
+#
+# The keys are snake_case because AttributeDefinitionCreateRequest constrains them to a machine name
+# (@Pattern("[a-z][a-z0-9_]*")) — camelCase is a 400.
 ATTRIBUTE_DEFINITION_ID=$(create /api/attribute-definitions \
-	'{"target":"TICKET","key":"fixtureField","label":"Fixture Field","type":"STRING","required":false}')
+	'{"target":"TICKET","key":"fixture_field","label":"Fixture Field","type":"STRING","required":false}')
 ATTRIBUTE_DEFINITION_DOOMED_ID=$(create /api/attribute-definitions \
-	'{"target":"TICKET","key":"fixtureDoomedField","label":"Fixture Doomed Field","type":"STRING","required":false}')
+	'{"target":"TICKET","key":"fixture_doomed_field","label":"Fixture Doomed Field","type":"STRING","required":false}')
 export_id SERVDESK_ATTRIBUTE_DEFINITION_ID "$ATTRIBUTE_DEFINITION_ID"
 export_id SERVDESK_ATTRIBUTE_DEFINITION_DOOMED_ID "$ATTRIBUTE_DEFINITION_DOOMED_ID"
 
