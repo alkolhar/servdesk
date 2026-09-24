@@ -23,6 +23,15 @@ public class PersonQueryService {
 		return personRepository.findById(id).orElseThrow(() -> new NotFoundException("Person " + id + " not found"));
 	}
 
+	/**
+	 * How many people can still log in and administer the deployment.
+	 *
+	 * @see PersonRepository#countByRoleAndEnabledTrueAndUsernameIsNotNullAndPasswordIsNotNull
+	 */
+	public long countLoginCapableAgents() {
+		return personRepository.countByRoleAndEnabledTrueAndUsernameIsNotNullAndPasswordIsNotNull(PersonRole.AGENT);
+	}
+
 	public boolean isSetupRequired() {
 		return personRepository.count() == 0;
 	}

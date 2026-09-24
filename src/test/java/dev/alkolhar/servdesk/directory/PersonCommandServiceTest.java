@@ -193,6 +193,92 @@ class PersonCommandServiceTest {
 	}
 
 	@Test
+	void deleteRejectsRemovingTheLastLoginCapableAgent() {
+		when(personQueryService.findById(1L)).thenReturn(loginCapableAgent());
+		when(personQueryService.countLoginCapableAgents()).thenReturn(1L);
+
+		assertThatThrownBy(() -> commandService.delete(1L)).isInstanceOf(ConflictException.class);
+
+		verifyNoInteractions(personRepository);
+	}
+
+	@Test
+	void deleteAllowsRemovingAnAgentWhileAnotherCanStillLogIn() {
+		Person existing = loginCapableAgent();
+		when(personQueryService.findById(1L)).thenReturn(existing);
+		when(personQueryService.countLoginCapableAgents()).thenReturn(2L);
+
+		commandService.delete(1L);
+
+		verify(personRepository).delete(existing);
+	}
+
+	/**
+	 * An Agent who cannot log in was never holding the deployment open, so removing
+	 * one is not the invariant's business — and the count query is never run.
+	 */
+	@Test
+	void deleteDoesNotConsultTheInvariantForAnAgentWhoCannotLogIn() {
+		Person existing = loginCapableAgent();
+		existing.setUsername(null);
+		when(personQueryService.findById(1L)).thenReturn(existing);
+
+		commandService.delete(1L);
+
+		verify(personRepository).delete(existing);
+		verify(personQueryService, never()).countLoginCapableAgents();
+	}
+
+	@Test
+	void updateRejectsDemotingTheLastLoginCapableAgent() {
+		when(personQueryService.findById(1L)).thenReturn(loginCapableAgent());
+		when(personQueryService.countLoginCapableAgents()).thenReturn(1L);
+
+		assertThatThrownBy(() -> commandService.update(1L, new PersonUpdateRequest(PersonRole.CUSTOMER, "Ada Agent",
+				"ada@example.com", null, null, null, null, null))).isInstanceOf(ConflictException.class);
+
+		verifyNoInteractions(personRepository);
+	}
+
+	@Test
+	void updateRejectsDisablingTheLastLoginCapableAgent() {
+		when(personQueryService.findById(1L)).thenReturn(loginCapableAgent());
+		when(personQueryService.countLoginCapableAgents()).thenReturn(1L);
+
+		assertThatThrownBy(() -> commandService.update(1L, new PersonUpdateRequest(PersonRole.AGENT, "Ada Agent",
+				"ada@example.com", null, null, null, false, null))).isInstanceOf(ConflictException.class);
+
+		verifyNoInteractions(personRepository);
+	}
+
+	/**
+	 * The invariant guards login capability, not the row: renaming the last agent
+	 * leaves them able to log in, so nothing is counted and nothing is refused.
+	 */
+	@Test
+	void updateLeavesTheLastAgentEditableWhileLoginCapabilitySurvives() {
+		Person existing = loginCapableAgent();
+		when(personQueryService.findById(1L)).thenReturn(existing);
+		when(personRepository.save(existing)).thenReturn(existing);
+
+		Person updated = commandService.update(1L, new PersonUpdateRequest(PersonRole.AGENT, "Ada Lovelace",
+				"ada@example.com", null, null, null, null, null));
+
+		assertThat(updated.getName()).isEqualTo("Ada Lovelace");
+		verify(personQueryService, never()).countLoginCapableAgents();
+	}
+
+	private static Person loginCapableAgent() {
+		Person person = new Person();
+		person.setRole(PersonRole.AGENT);
+		person.setName("Ada Agent");
+		person.setUsername("ada");
+		person.setPassword("already-encoded");
+		person.setEnabled(true);
+		return person;
+	}
+
+	@Test
 	void createInitialAgentRejectsWhenSetupAlreadyCompleted() {
 		when(personQueryService.isSetupRequired()).thenReturn(false);
 

@@ -117,6 +117,18 @@ Controllers return a `*Model` (or `CollectionModel<...>`/`PagedModel<...>`), nev
   `@Nullable Boolean` rather than a primitive for the same reason (a primitive defaults an omitted
   field to `false`, silently disabling the account). The cost, accepted: none of the three can be
   *cleared* through this endpoint — revoking a login needs an operation that says so.
+  **Last-Agent invariant** (issue #63): `PersonCommandService` refuses (409) to delete, demote or
+  disable the last *login-capable* Agent — role `AGENT` with a username, a password and
+  `enabled = true`. Anything less is a directory row, not an administrator, and losing the last one
+  bricks the deployment outright: `/api/setup` only runs while no `Person` exists at all, so it
+  cannot recover a database that still has rows. 409 rather than 403 because the caller is a fully
+  authorised Agent and the answer doesn't change if a different Agent asks — the request is refused
+  for the state it would leave behind, not for who sent it (`ForbiddenException` stays reserved for
+  rejections about the *caller*, like a Customer marking their own comment internal). `update`/
+  `delete` are `@Transactional` so the count check and the write are one unit; two callers removing
+  the last two Agents in the same instant can still both pass, an accepted residual on the same
+  footing as the live-duplicate case (Postgres can't express "at least one row matching a
+  predicate" as a constraint — a guarantee would need SERIALIZABLE or an advisory lock).
 - `classification` — ticket lookup/reference data: `Category` (self-referencing tree, `CategoryController`
   at `/api/categories`), `Priority` (name + `sortOrder`, `PriorityController` at `/api/priorities`),
   plus the **Impact × Urgency priority matrix** (issue #22): `Impact` and `Urgency` (both the same
@@ -145,7 +157,7 @@ Controllers return a `*Model` (or `CollectionModel<...>`/`PagedModel<...>`), nev
   edits deliberately don't touch existing tickets. **`ticket` never imports `sla`**: the command
   layer calls `ticket.SlaHooks`, implemented by `sla.TicketSlaService` — dependency inversion to
   keep `ArchitectureTest`'s cycle rule green (same trick as `ticket.overview`, other direction).
-  `SlaScanService` (the only `@Transactional` service method — its `@TransactionalEventListener`
+  `SlaScanService` (`@Transactional` — its `@TransactionalEventListener`
   consumers need a commit to fire) stamps `responseBreachedAt`/`resolutionBreachedAt` exactly once
   per breach (idempotence across runs/restarts) and publishes `SlaBreachedEvent`; a thin Quartz
   job (`SlaScanJob`, every `servdesk.sla.scan-interval-seconds`, default 60) provides the tick,
