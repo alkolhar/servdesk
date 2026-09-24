@@ -27,10 +27,13 @@ class PersonControllerTest {
 	@Autowired
 	private TestRestTemplate restTemplate;
 
+	private Number adminId;
+
 	@BeforeAll
 	void bootstrapAgent() {
-		restTemplate.postForEntity("/api/setup",
-				new SetupRequest("Administrator", "admin@example.com", null, "admin", "admin123"), String.class);
+		ResponseEntity<Map> created = restTemplate.postForEntity("/api/setup",
+				new SetupRequest("Administrator", "admin@example.com", null, "admin", "admin123"), Map.class);
+		adminId = (Number) created.getBody().get("id");
 	}
 
 	private TestRestTemplate asAdmin() {
@@ -113,6 +116,65 @@ class PersonControllerTest {
 
 		assertThat(restTemplate.withBasicAuth("ida", "ida12345").getForEntity("/api/persons", String.class)
 				.getStatusCode()).isEqualTo(HttpStatus.OK);
+
+		// a second login-capable agent would change the count the last-agent tests
+		// below depend on, so this one does not outlive its test
+		asAdmin().delete("/api/persons/" + id);
+	}
+
+	/**
+	 * Issue #63: a deployment must never lose its last Agent who can still log in.
+	 * All three doors are shut — deleting them, demoting them to CUSTOMER, and
+	 * disabling them — because {@code /api/setup} cannot recover the situation: it
+	 * only runs while no person exists at all, and a bricked deployment still has
+	 * rows. 409 rather than 403: the caller is a fully authorised Agent, so nothing
+	 * about the caller is the problem.
+	 */
+	@Test
+	void theLastLoginCapableAgentCannotBeDeletedDemotedOrDisabled() {
+		ResponseEntity<String> deleted = asAdmin().exchange("/api/persons/" + adminId,
+				org.springframework.http.HttpMethod.DELETE, null, String.class);
+		assertThat(deleted.getStatusCode()).isEqualTo(HttpStatus.CONFLICT);
+
+		Map<String, Object> demotion = Map.of("role", "CUSTOMER", "name", "Administrator", "email",
+				"admin@example.com");
+		assertThat(putAdmin(demotion).getStatusCode()).isEqualTo(HttpStatus.CONFLICT);
+
+		Map<String, Object> disable = Map.of("role", "AGENT", "name", "Administrator", "email", "admin@example.com",
+				"enabled", false);
+		assertThat(putAdmin(disable).getStatusCode()).isEqualTo(HttpStatus.CONFLICT);
+
+		// the rejections left the account exactly as it was
+		assertThat(asAdmin().getForEntity("/api/persons", String.class).getStatusCode()).isEqualTo(HttpStatus.OK);
+	}
+
+	/**
+	 * The invariant is about the last one, not about agents in general: a second
+	 * credentialed agent is removable, and renaming the remaining one is untouched
+	 * because it never costs them their login.
+	 */
+	@Test
+	void anAgentIsRemovableWhileAnotherCanStillLogIn() {
+		Map<String, Object> second = Map.of("role", "AGENT", "name", "Second Agent", "email", "second@example.com",
+				"username", "second", "password", "second12345");
+		Number id = (Number) asAdmin().postForEntity("/api/persons", second, Map.class).getBody().get("id");
+
+		ResponseEntity<String> deleted = asAdmin().exchange("/api/persons/" + id,
+				org.springframework.http.HttpMethod.DELETE, null, String.class);
+		assertThat(deleted.getStatusCode()).isEqualTo(HttpStatus.NO_CONTENT);
+
+		Map<String, Object> rename = Map.of("role", "AGENT", "name", "Administrator Renamed", "email",
+				"admin@example.com");
+		ResponseEntity<String> renamed = putAdmin(rename);
+		assertThat(renamed.getStatusCode()).isEqualTo(HttpStatus.OK);
+
+		// put the name back so the rest of the class sees the fixture it expects
+		putAdmin(Map.of("role", "AGENT", "name", "Administrator", "email", "admin@example.com"));
+	}
+
+	private ResponseEntity<String> putAdmin(Map<String, Object> body) {
+		return asAdmin().exchange("/api/persons/" + adminId, org.springframework.http.HttpMethod.PUT,
+				new org.springframework.http.HttpEntity<>(body), String.class);
 	}
 
 	/**

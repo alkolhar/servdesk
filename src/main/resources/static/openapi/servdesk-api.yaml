@@ -171,6 +171,10 @@ paths:
     put:
       tags: [persons]
       summary: Replace a person's editable fields.
+      description: >-
+        Refuses with 409 when the change would strip the last login-capable
+        Agent of that capability — demoting them to CUSTOMER or setting
+        enabled = false.
       requestBody:
         required: true
         content:
@@ -195,6 +199,11 @@ paths:
     delete:
       tags: [persons]
       summary: Soft-delete a person.
+      description: >-
+        Refuses with 409 when the person is the last Agent who can still log in
+        (an Agent with a username, a password and enabled = true). A deployment
+        that loses its last such Agent cannot be administered, and /api/setup
+        will not help — it only runs while no person exists at all.
       responses:
         "default":
           $ref: "#/components/responses/DefaultProblem"
@@ -202,6 +211,8 @@ paths:
           description: Deleted.
         "404":
           $ref: "#/components/responses/NotFoundProblem"
+        "409":
+          $ref: "#/components/responses/ConflictProblem"
   /api/categories:
     parameters:
       - $ref: "#/components/parameters/ApiVersionHeader"
