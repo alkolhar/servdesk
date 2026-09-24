@@ -24,12 +24,14 @@ public class PersonQueryService {
 	}
 
 	/**
-	 * How many people can still log in and administer the deployment.
+	 * Whether somebody other than {@code excludedId} can still log in and
+	 * administer the deployment.
 	 *
-	 * @see PersonRepository#countByRoleAndEnabledTrueAndUsernameIsNotNullAndPasswordIsNotNull
+	 * @see PersonRepository#existsByRoleAndEnabledTrueAndUsernameIsNotNullAndPasswordIsNotNullAndIdNot
 	 */
-	public long countLoginCapableAgents() {
-		return personRepository.countByRoleAndEnabledTrueAndUsernameIsNotNullAndPasswordIsNotNull(PersonRole.AGENT);
+	public boolean anotherLoginCapableAgentExists(Long excludedId) {
+		return personRepository.existsByRoleAndEnabledTrueAndUsernameIsNotNullAndPasswordIsNotNullAndIdNot(
+				PersonRole.AGENT, excludedId);
 	}
 
 	public boolean isSetupRequired() {

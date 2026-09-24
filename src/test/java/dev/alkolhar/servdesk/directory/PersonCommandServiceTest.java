@@ -195,7 +195,7 @@ class PersonCommandServiceTest {
 	@Test
 	void deleteRejectsRemovingTheLastLoginCapableAgent() {
 		when(personQueryService.findById(1L)).thenReturn(loginCapableAgent());
-		when(personQueryService.countLoginCapableAgents()).thenReturn(1L);
+		when(personQueryService.anotherLoginCapableAgentExists(null)).thenReturn(false);
 
 		assertThatThrownBy(() -> commandService.delete(1L)).isInstanceOf(ConflictException.class);
 
@@ -206,7 +206,7 @@ class PersonCommandServiceTest {
 	void deleteAllowsRemovingAnAgentWhileAnotherCanStillLogIn() {
 		Person existing = loginCapableAgent();
 		when(personQueryService.findById(1L)).thenReturn(existing);
-		when(personQueryService.countLoginCapableAgents()).thenReturn(2L);
+		when(personQueryService.anotherLoginCapableAgentExists(null)).thenReturn(true);
 
 		commandService.delete(1L);
 
@@ -226,13 +226,13 @@ class PersonCommandServiceTest {
 		commandService.delete(1L);
 
 		verify(personRepository).delete(existing);
-		verify(personQueryService, never()).countLoginCapableAgents();
+		verify(personQueryService, never()).anotherLoginCapableAgentExists(any());
 	}
 
 	@Test
 	void updateRejectsDemotingTheLastLoginCapableAgent() {
 		when(personQueryService.findById(1L)).thenReturn(loginCapableAgent());
-		when(personQueryService.countLoginCapableAgents()).thenReturn(1L);
+		when(personQueryService.anotherLoginCapableAgentExists(null)).thenReturn(false);
 
 		assertThatThrownBy(() -> commandService.update(1L, new PersonUpdateRequest(PersonRole.CUSTOMER, "Ada Agent",
 				"ada@example.com", null, null, null, null, null))).isInstanceOf(ConflictException.class);
@@ -243,7 +243,7 @@ class PersonCommandServiceTest {
 	@Test
 	void updateRejectsDisablingTheLastLoginCapableAgent() {
 		when(personQueryService.findById(1L)).thenReturn(loginCapableAgent());
-		when(personQueryService.countLoginCapableAgents()).thenReturn(1L);
+		when(personQueryService.anotherLoginCapableAgentExists(null)).thenReturn(false);
 
 		assertThatThrownBy(() -> commandService.update(1L, new PersonUpdateRequest(PersonRole.AGENT, "Ada Agent",
 				"ada@example.com", null, null, null, false, null))).isInstanceOf(ConflictException.class);
@@ -265,7 +265,7 @@ class PersonCommandServiceTest {
 				"ada@example.com", null, null, null, null, null));
 
 		assertThat(updated.getName()).isEqualTo("Ada Lovelace");
-		verify(personQueryService, never()).countLoginCapableAgents();
+		verify(personQueryService, never()).anotherLoginCapableAgentExists(any());
 	}
 
 	private static Person loginCapableAgent() {

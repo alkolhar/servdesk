@@ -57,7 +57,7 @@ public class PersonCommandService {
 	public Person update(Long id, PersonUpdateRequest request) {
 		Person existing = personQueryService.findById(id);
 		if (isLoginCapableAgent(existing) && !wouldRemainLoginCapable(existing, request)) {
-			requireAnotherLoginCapableAgent("demote or disable");
+			requireAnotherLoginCapableAgent(existing, "demote or disable");
 		}
 		existing.setRole(request.role());
 		existing.setName(request.name());
@@ -80,7 +80,7 @@ public class PersonCommandService {
 	public void delete(Long id) {
 		Person existing = personQueryService.findById(id);
 		if (isLoginCapableAgent(existing)) {
-			requireAnotherLoginCapableAgent("delete");
+			requireAnotherLoginCapableAgent(existing, "delete");
 		}
 		personRepository.delete(existing);
 	}
@@ -104,9 +104,14 @@ public class PersonCommandService {
 	 * predicate" as a constraint, so closing it would take SERIALIZABLE or an
 	 * advisory lock: disproportionate for an administrative action two people would
 	 * have to race on the same second.
+	 * <p>
+	 * Deliberately not cached. The query only runs on the rare write that would
+	 * actually cost someone their login — never on an ordinary edit — and a cache
+	 * would go stale in precisely the situation the invariant exists for: a stale
+	 * "someone else can log in" is how the deployment gets bricked.
 	 */
-	private void requireAnotherLoginCapableAgent(String action) {
-		if (personQueryService.countLoginCapableAgents() <= 1) {
+	private void requireAnotherLoginCapableAgent(Person person, String action) {
+		if (!personQueryService.anotherLoginCapableAgentExists(person.getId())) {
 			throw new ConflictException("Cannot " + action
 					+ " the last agent who can log in — the deployment would be left unadministrable");
 		}

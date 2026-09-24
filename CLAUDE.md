@@ -124,11 +124,15 @@ Controllers return a `*Model` (or `CollectionModel<...>`/`PagedModel<...>`), nev
   cannot recover a database that still has rows. 409 rather than 403 because the caller is a fully
   authorised Agent and the answer doesn't change if a different Agent asks — the request is refused
   for the state it would leave behind, not for who sent it (`ForbiddenException` stays reserved for
-  rejections about the *caller*, like a Customer marking their own comment internal). `update`/
-  `delete` are `@Transactional` so the count check and the write are one unit; two callers removing
-  the last two Agents in the same instant can still both pass, an accepted residual on the same
-  footing as the live-duplicate case (Postgres can't express "at least one row matching a
-  predicate" as a constraint — a guarantee would need SERIALIZABLE or an advisory lock).
+  rejections about the *caller*, like a Customer marking their own comment internal). The check is an
+  `exists ... AND id <> ?` (stops at the first match, and asks the question the invariant actually
+  has — "is there somebody else?"), deliberately uncached: it only runs on a write that would
+  genuinely cost someone their login, never on an ordinary edit, and a stale "someone else can log
+  in" is exactly how the deployment gets bricked. `update`/`delete` are `@Transactional` so the
+  check and the write are one unit; two callers removing the last two Agents in the same instant can
+  still both pass, an accepted residual on the same footing as the live-duplicate case (Postgres
+  can't express "at least one row matching a predicate" as a constraint — a guarantee would need
+  SERIALIZABLE or an advisory lock).
 - `classification` — ticket lookup/reference data: `Category` (self-referencing tree, `CategoryController`
   at `/api/categories`), `Priority` (name + `sortOrder`, `PriorityController` at `/api/priorities`),
   plus the **Impact × Urgency priority matrix** (issue #22): `Impact` and `Urgency` (both the same
