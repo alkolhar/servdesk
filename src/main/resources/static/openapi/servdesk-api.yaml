@@ -1742,6 +1742,8 @@ components:
           $ref: "#/components/schemas/PersonRole"
         name:
           type: string
+          minLength: 1
+          pattern: '\S'
         email:
           type: string
           format: email
@@ -1771,6 +1773,8 @@ components:
           $ref: "#/components/schemas/PersonRole"
         name:
           type: string
+          minLength: 1
+          pattern: '\S'
         email:
           type: string
           format: email
@@ -1843,6 +1847,8 @@ components:
       properties:
         name:
           type: string
+          minLength: 1
+          pattern: '\S'
         parentId:
           type: integer
           format: int64
@@ -1853,6 +1859,8 @@ components:
       properties:
         name:
           type: string
+          minLength: 1
+          pattern: '\S'
         parentId:
           type: integer
           format: int64
@@ -1909,6 +1917,8 @@ components:
       properties:
         name:
           type: string
+          minLength: 1
+          pattern: '\S'
         sortOrder:
           type: integer
     PriorityUpdateRequest:
@@ -1917,6 +1927,8 @@ components:
       properties:
         name:
           type: string
+          minLength: 1
+          pattern: '\S'
         sortOrder:
           type: integer
     PriorityPage:
@@ -1969,6 +1981,8 @@ components:
       properties:
         name:
           type: string
+          minLength: 1
+          pattern: '\S'
         sortOrder:
           type: integer
     ImpactUpdateRequest:
@@ -1977,6 +1991,8 @@ components:
       properties:
         name:
           type: string
+          minLength: 1
+          pattern: '\S'
         sortOrder:
           type: integer
     ImpactPage:
@@ -2029,6 +2045,8 @@ components:
       properties:
         name:
           type: string
+          minLength: 1
+          pattern: '\S'
         sortOrder:
           type: integer
     UrgencyUpdateRequest:
@@ -2037,6 +2055,8 @@ components:
       properties:
         name:
           type: string
+          minLength: 1
+          pattern: '\S'
         sortOrder:
           type: integer
     UrgencyPage:
@@ -2269,6 +2289,8 @@ components:
           pattern: "[a-z][a-z0-9_]*"
         label:
           type: string
+          minLength: 1
+          pattern: '\S'
         type:
           $ref: "#/components/schemas/AttributeType"
         required:
@@ -2285,6 +2307,8 @@ components:
       properties:
         label:
           type: string
+          minLength: 1
+          pattern: '\S'
         required:
           type: boolean
         enumValues:
@@ -2544,6 +2568,8 @@ components:
       properties:
         subject:
           type: string
+          minLength: 1
+          pattern: '\S'
         attributes:
           type: object
           additionalProperties: true
@@ -2589,6 +2615,8 @@ components:
           $ref: "#/components/schemas/TicketStatus"
         subject:
           type: string
+          minLength: 1
+          pattern: '\S'
         attributes:
           type: object
           additionalProperties: true
@@ -2747,6 +2775,8 @@ components:
       properties:
         subject:
           type: string
+          minLength: 1
+          pattern: '\S'
         attributes:
           type: object
           additionalProperties: true
@@ -2788,6 +2818,8 @@ components:
           $ref: "#/components/schemas/TicketStatus"
         subject:
           type: string
+          minLength: 1
+          pattern: '\S'
         attributes:
           type: object
           additionalProperties: true
@@ -2943,6 +2975,8 @@ components:
       properties:
         subject:
           type: string
+          minLength: 1
+          pattern: '\S'
         attributes:
           type: object
           additionalProperties: true
@@ -2984,6 +3018,8 @@ components:
           $ref: "#/components/schemas/TicketStatus"
         subject:
           type: string
+          minLength: 1
+          pattern: '\S'
         attributes:
           type: object
           additionalProperties: true
@@ -3139,6 +3175,8 @@ components:
       properties:
         subject:
           type: string
+          minLength: 1
+          pattern: '\S'
         attributes:
           type: object
           additionalProperties: true
@@ -3180,6 +3218,8 @@ components:
           $ref: "#/components/schemas/TicketStatus"
         subject:
           type: string
+          minLength: 1
+          pattern: '\S'
         attributes:
           type: object
           additionalProperties: true
@@ -3270,6 +3310,8 @@ components:
       properties:
         body:
           type: string
+          minLength: 1
+          pattern: '\S'
         internal:
           type: boolean
           default: false
@@ -3310,6 +3352,8 @@ components:
       properties:
         name:
           type: string
+          minLength: 1
+          pattern: '\S'
         email:
           type: string
           format: email
@@ -3318,6 +3362,10 @@ components:
           nullable: true
         username:
           type: string
+          minLength: 1
+          pattern: '\S'
         password:
           type: string
+          minLength: 1
+          pattern: '\S'
           format: password

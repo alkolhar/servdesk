@@ -81,12 +81,16 @@ jobs:
       - name: Build the jar
         run: ./mvnw --batch-mode package -DskipTests
 
+      # stdout/stderr go to a file rather than the step's console pipe, which closes when this step
+      # ends — everything the app logged for the rest of the job used to be lost, so there was no
+      # file for anything to read (#61).
       - name: Start the app against the PostgreSQL service container
         run: |
           java -jar target/*.jar \
             --spring.datasource.url=jdbc:postgresql://localhost:5432/servdesk \
             --spring.datasource.username=postgres \
-            --spring.datasource.password=root &
+            --spring.datasource.password=root \
+            > "$GITHUB_WORKSPACE/app.log" 2>&1 &
           for i in $(seq 1 30); do
             curl -sf http://localhost:8080/api/setup && exit 0
             sleep 2
@@ -148,3 +152,49 @@ jobs:
           # by design: each is pinned to one sacrificial row, so the first call answers 204 and
           # every later one 404. Judge this number by the non-DELETE operations only.
           max-examples: 100
+
+      # if: always() because a failed run is exactly when the log is wanted — #56's NPE was found by
+      # reading one of these by hand, and the job was green at the time.
+      - name: Upload the app log
+        if: always()
+        uses: actions/upload-artifact@v7.0.1
+        with:
+          name: contract-tests-app-log
+          path: app.log
+          if-no-files-found: error
+
+      # Uploaded first, so the evidence survives even when this check is what fails.
+      #
+      # A silently-broken redirect would leave #65's future ERROR gate reading a file that ends at
+      # boot and passing vacuously — the hollow green this whole map exists to remove. So the
+      # capture checks itself rather than trusting that it still works.
+      #
+      # The check is deliberately marker-free: it asserts that output kept arriving *after* Boot's
+      # "Started ServdeskApplication" line, which is what a closed pipe would truncate. An earlier
+      # version asserted on a specific DEBUG marker instead and failed — not because the capture was
+      # broken (4478 lines were captured) but because the marker never fires, which is its own bug
+      # (#79). Tying this check to one log line made it a test of that line, not of the redirect.
+      - name: Confirm the app log captured post-startup output
+        if: always()
+        run: |
+          LOG="$GITHUB_WORKSPACE/app.log"
+          if [ ! -s "$LOG" ]; then
+            echo "app.log is missing or empty — the redirect is broken" >&2
+            exit 1
+          fi
+          total=$(wc -l < "$LOG")
+          boot=$(grep -n "Started ServdeskApplication" "$LOG" | head -1 | cut -d: -f1)
+          if [ -z "$boot" ]; then
+            echo "app.log never recorded startup completing — the app did not boot cleanly" >&2
+            tail -n 20 "$LOG" >&2
+            exit 1
+          fi
+          after=$((total - boot))
+          echo "app.log: $total lines, startup completed at line $boot, $after lines after it"
+          if [ "$after" -lt 1 ]; then
+            echo "Nothing was captured after startup: output stopped reaching the file, which is" >&2
+            echo "exactly the failure this job used to have silently." >&2
+            exit 1
+          fi
+          echo "ERROR/WARN lines in the captured log (informational — #65 decides the gate):"
+          grep -cE " (ERROR|WARN) " "$LOG" || true

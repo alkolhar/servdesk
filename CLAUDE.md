@@ -286,6 +286,14 @@ Controllers return a `*Model` (or `CollectionModel<...>`/`PagedModel<...>`), nev
 
 ### API architecture
 
+- **`@NotBlank` maps to `minLength: 1` + `pattern: '\S'`** in the contract (issue #62), on all 24
+  request-DTO fields that carry it without an `@Email`/`@Pattern` of their own. `minLength: 1` alone
+  would be unfaithful — it accepts `" "`, which `@NotBlank` (`trim().length() > 0`) rejects — and the
+  unanchored `\S` is what makes the mapping exact. The exception exists because those fields already
+  declare `format: email` or a pattern, and adding `\S` risks the generator drawing from the regex
+  instead of the format. Deliberately **not** swept: `@Positive` → `minimum`, `@NotNull` → `required`
+  (ruled out at charting as unbounded per-field judgement), and `maxLength`, which is a different and
+  sharper risk — an unbounded generated string against a length-bounded column is a 500, not a warning.
 - **OpenAPI contract-first, no codegen**: `src/main/resources/static/openapi/servdesk-api.yaml` is
   hand-authored and is the source of truth; controllers are written to match it. Served as a static
   resource, viewable at `/docs/index.html` via a Swagger UI webjar (deliberately not `springdoc-openapi`,
@@ -342,6 +350,15 @@ Controllers return a `*Model` (or `CollectionModel<...>`/`PagedModel<...>`), nev
     one row would have `DELETE` soft-delete it, and `@SQLRestriction` would then hide it from every
     later read. `max-examples` is fitted to a budget (Schemathesis ≤ 600s against the 900s job
     timeout) rather than chosen by preference; raise it only with a re-measurement.
+    The backgrounded app's stdout/stderr is redirected to `app.log` and uploaded as a job artifact
+    with `if: always()` (issue #61) — previously it went to the step's console pipe, which closes when
+    the readiness step ends, so everything logged during the actual fuzzing was lost and there was no
+    file for anything to read. A step after Schemathesis asserts that output kept arriving *after*
+    Boot's `Started ServdeskApplication` line — what a closed pipe truncates — since a
+    silently-broken capture would make any future app-log gate pass vacuously. That check is
+    deliberately tied to no particular log line: an earlier version keyed on a DEBUG marker and
+    failed against a capture that was working perfectly, because the marker itself never fires
+    (issue #79 — `@TransactionalEventListener` with no transaction to commit).
     This is what actually found the `spring.mvc.problemdetails.enabled`, sort-exception, and
     401/403/firewall gaps documented above — none of the hand-written tests asserted on response body
     shape or content type, only status codes. A blocking gate, not `continue-on-error`.
