@@ -127,8 +127,12 @@ jobs:
           # unset variable is a hard error, so broken wiring fails the run rather than silently
           # reverting to 404s.
           config-file: schemathesis.toml
-          # Provisional. #69 decided this is set by measurement, not preference: raise it on a
-          # workflow_dispatch branch and take the largest value that keeps the Schemathesis step
-          # under 600s (measured 105.9s at 10, against a 900s job timeout) while clearing the
-          # missing_test_data warning. Do not raise it without re-measuring that budget.
-          max-examples: 10
+          # Fitted to a budget, not chosen by preference (#69): the largest value keeping the
+          # Schemathesis step under 600s, against a 900s job timeout. Measured with the fixture
+          # pinning in place: 119s at 10. Do not raise this without re-measuring — the step is the
+          # long pole in the job, and the ceiling exists so a slow runner cannot time the job out.
+          #
+          # The missing_test_data warning will NOT clear for the 12 DELETE operations however high
+          # this goes, and that is by design: each is pinned to one sacrificial row, so the first
+          # call answers 204 and every later one 404. Judge this number by the non-DELETE operations.
+          max-examples: 50
