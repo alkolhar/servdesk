@@ -135,4 +135,4 @@ jobs:
           # The missing_test_data warning will NOT clear for the 12 DELETE operations however high
           # this goes, and that is by design: each is pinned to one sacrificial row, so the first
           # call answers 204 and every later one 404. Judge this number by the non-DELETE operations.
-          max-examples: 50
+          max-examples: 100
