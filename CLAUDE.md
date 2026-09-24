@@ -350,6 +350,13 @@ Controllers return a `*Model` (or `CollectionModel<...>`/`PagedModel<...>`), nev
     one row would have `DELETE` soft-delete it, and `@SQLRestriction` would then hide it from every
     later read. `max-examples` is fitted to a budget (Schemathesis ≤ 600s against the 900s job
     timeout) rather than chosen by preference; raise it only with a re-measurement.
+    The backgrounded app's stdout/stderr is redirected to `app.log` and uploaded as a job artifact
+    with `if: always()` (issue #61) — previously it went to the step's console pipe, which closes when
+    the readiness step ends, so everything logged during the actual fuzzing was lost and there was no
+    file for anything to read. `dev.alkolhar.servdesk.common.event` runs at DEBUG there purely so the
+    capture is checkable: the app is otherwise silent after boot, and a log holding only a boot
+    sequence looks identical to a broken redirect. A step after Schemathesis asserts those lines
+    exist, because a silently-broken capture would make any future app-log gate pass vacuously.
     This is what actually found the `spring.mvc.problemdetails.enabled`, sort-exception, and
     401/403/firewall gaps documented above — none of the hand-written tests asserted on response body
     shape or content type, only status codes. A blocking gate, not `continue-on-error`.

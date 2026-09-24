@@ -81,12 +81,24 @@ jobs:
       - name: Build the jar
         run: ./mvnw --batch-mode package -DskipTests
 
+      # stdout/stderr go to a file rather than the step's console pipe, which closes when this step
+      # ends — everything the app logged for the rest of the job used to be lost, so there was no
+      # file for anything to read (#61).
+      #
+      # The DEBUG level on the domain-event logger is what makes the capture *checkable*: the app is
+      # otherwise silent after boot, so a log containing only a boot sequence is indistinguishable
+      # from a broken redirect. Every Person create and ticket status change now leaves a line, and
+      # the step after Schemathesis asserts those lines exist. (#61 proposed the SLA scanner's
+      # 60-second tick as this marker, but that only logged because it was throwing — #56 fixed it,
+      # and a healthy tick is silent.)
       - name: Start the app against the PostgreSQL service container
         run: |
           java -jar target/*.jar \
             --spring.datasource.url=jdbc:postgresql://localhost:5432/servdesk \
             --spring.datasource.username=postgres \
-            --spring.datasource.password=root &
+            --spring.datasource.password=root \
+            --logging.level.dev.alkolhar.servdesk.common.event=DEBUG \
+            > "$GITHUB_WORKSPACE/app.log" 2>&1 &
           for i in $(seq 1 30); do
             curl -sf http://localhost:8080/api/setup && exit 0
             sleep 2
@@ -148,3 +160,36 @@ jobs:
           # by design: each is pinned to one sacrificial row, so the first call answers 204 and
           # every later one 404. Judge this number by the non-DELETE operations only.
           max-examples: 100
+
+      # if: always() because a failed run is exactly when the log is wanted — #56's NPE was found by
+      # reading one of these by hand, and the job was green at the time.
+      - name: Upload the app log
+        if: always()
+        uses: actions/upload-artifact@v7.0.1
+        with:
+          name: contract-tests-app-log
+          path: app.log
+          if-no-files-found: error
+
+      # Uploaded first, so the evidence survives even when this check is what fails.
+      #
+      # A silently-broken redirect would leave #65's future ERROR gate reading a file that ends at
+      # boot and passing vacuously — the hollow green this whole map exists to remove. So the
+      # capture checks itself rather than trusting that it still works.
+      - name: Confirm the app log captured post-startup output
+        if: always()
+        run: |
+          if [ ! -s "$GITHUB_WORKSPACE/app.log" ]; then
+            echo "app.log is missing or empty — the redirect is broken" >&2
+            exit 1
+          fi
+          events=$(grep -c "Domain event published" "$GITHUB_WORKSPACE/app.log" || true)
+          echo "app.log: $(wc -l < "$GITHUB_WORKSPACE/app.log") lines, $events domain-event lines"
+          if [ "$events" -eq 0 ]; then
+            echo "app.log contains no post-startup output: the fixtures alone publish several" >&2
+            echo "PersonCreatedEvents, so zero means output stopped reaching the file." >&2
+            tail -n 20 "$GITHUB_WORKSPACE/app.log" >&2
+            exit 1
+          fi
+          echo "ERROR/WARN lines in the captured log (informational — #65 decides the gate):"
+          grep -cE " (ERROR|WARN) " "$GITHUB_WORKSPACE/app.log" || true
