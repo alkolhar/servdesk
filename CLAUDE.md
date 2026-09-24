@@ -332,6 +332,16 @@ Controllers return a `*Model` (or `CollectionModel<...>`/`PagedModel<...>`), nev
     now future-proofs against the contract eventually splitting across multiple files), and finally
     **`schemathesis/action@v3`** against the bundled spec and the live instance, checking
     `not_a_server_error`/`status_code_conformance`/`content_type_conformance`/`response_schema_conformance`.
+    Before Schemathesis runs, `.github/scripts/seed-contract-fixtures.sh` creates a fixture graph and
+    exports its ids, which `schemathesis.toml` pins every `{id}` (and the required `requesterId` on
+    ticket writes) to via `${VAR}` interpolation — an unset variable is a hard error there, so broken
+    wiring fails the run instead of silently reverting to 404s (issue #69: nearly every id in the
+    contract is an unbounded `int64`, so 28 operations once spent an entire run on 404s and never had
+    a success response schema-checked). Each aggregate seeds **two** rows: a durable one for
+    `GET`/`PUT`, and a sacrificial one, referenced by nothing, that `DELETE` is pinned to — sharing
+    one row would have `DELETE` soft-delete it, and `@SQLRestriction` would then hide it from every
+    later read. `max-examples` is fitted to a budget (Schemathesis ≤ 600s against the 900s job
+    timeout) rather than chosen by preference; raise it only with a re-measurement.
     This is what actually found the `spring.mvc.problemdetails.enabled`, sort-exception, and
     401/403/firewall gaps documented above — none of the hand-written tests asserted on response body
     shape or content type, only status codes. A blocking gate, not `continue-on-error`.

@@ -101,6 +101,15 @@ jobs:
           curl -sf -X POST http://localhost:8080/api/setup -H "Content-Type: application/json" \
             -d '{"name":"Administrator","email":"admin@example.com","username":"admin","password":"admin123"}'
 
+      # Creates the rows every {id} in schemathesis.toml is pinned to, and exports their ids to
+      # $GITHUB_ENV. Without this the fuzzer draws ids across the full int64 range and 28 operations
+      # spend the whole run on 404s, never once exercising a success response (#69).
+      - name: Seed the fixture graph the contract tests need
+        run: .github/scripts/seed-contract-fixtures.sh
+        env:
+          BASE_URL: http://localhost:8080
+          AUTH: admin:admin123
+
       - name: Lint and bundle the OpenAPI contract (Redocly CLI)
         run: |
           npx --yes @redocly/cli@2.39.0 lint
@@ -114,4 +123,12 @@ jobs:
           checks: not_a_server_error,status_code_conformance,content_type_conformance,response_schema_conformance
           # base64 of admin:admin123 — the fixture credentials bootstrapped above
           authorization: "Basic YWRtaW46YWRtaW4xMjM="
+          # Pins every {id} to a row the step above created, via ${SERVDESK_*} interpolation. An
+          # unset variable is a hard error, so broken wiring fails the run rather than silently
+          # reverting to 404s.
+          config-file: schemathesis.toml
+          # Provisional. #69 decided this is set by measurement, not preference: raise it on a
+          # workflow_dispatch branch and take the largest value that keeps the Schemathesis step
+          # under 600s (measured 105.9s at 10, against a 900s job timeout) while clearing the
+          # missing_test_data warning. Do not raise it without re-measuring that budget.
           max-examples: 10

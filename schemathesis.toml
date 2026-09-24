@@ -1,0 +1,204 @@
+# Schemathesis configuration for the contract-tests CI job (issue #69).
+#
+# WHY THIS EXISTS. Nearly every {id} in the contract is an unbounded int64, so Hypothesis draws
+# across the full 64-bit range and names a row that exists essentially never. One run spent 28
+# operations entirely on 404s, which means their *success* responses were never schema-checked —
+# and response_schema_conformance on success bodies is the one thing this gate provides that the
+# hand-written integration tests do not.
+#
+# Ids come from .github/scripts/seed-contract-fixtures.sh via ${VAR} interpolation. An unset
+# variable is a hard error in Schemathesis, which is the property that makes this safe: if the
+# seeding step breaks or a name is changed on one side only, the run fails loudly instead of
+# silently reverting to 404s under a warning nobody reads.
+#
+# DURABLE vs DOOMED. GET and PUT are pinned to a row that must survive the run; DELETE is pinned to
+# a sacrificial row that nothing references. Sharing one row would have DELETE soft-delete it, after
+# which @SQLRestriction hides it from every later GET/PUT — recreating the exact problem this fixes.
+# Repeat deletes are fine: the first answers 204 and the rest 404, both documented.
+#
+# NOT SET HERE: max-examples. The action passes --max-examples on the CLI and CLI beats this file.
+
+# --- reads and writes against the durable rows -------------------------------------------------
+
+[[operations]]
+include-name = "GET /api/persons/{id}"
+parameters = { "path.id" = "${SERVDESK_PERSON_ID}" }
+
+[[operations]]
+include-name = "PUT /api/persons/{id}"
+parameters = { "path.id" = "${SERVDESK_PERSON_ID}" }
+
+[[operations]]
+include-name = "GET /api/categories/{id}"
+parameters = { "path.id" = "${SERVDESK_CATEGORY_ID}" }
+
+[[operations]]
+include-name = "PUT /api/categories/{id}"
+parameters = { "path.id" = "${SERVDESK_CATEGORY_ID}" }
+
+[[operations]]
+include-name = "GET /api/priorities/{id}"
+parameters = { "path.id" = "${SERVDESK_PRIORITY_ID}" }
+
+[[operations]]
+include-name = "PUT /api/priorities/{id}"
+parameters = { "path.id" = "${SERVDESK_PRIORITY_ID}" }
+
+[[operations]]
+include-name = "GET /api/impacts/{id}"
+parameters = { "path.id" = "${SERVDESK_IMPACT_ID}" }
+
+[[operations]]
+include-name = "PUT /api/impacts/{id}"
+parameters = { "path.id" = "${SERVDESK_IMPACT_ID}" }
+
+[[operations]]
+include-name = "GET /api/urgencies/{id}"
+parameters = { "path.id" = "${SERVDESK_URGENCY_ID}" }
+
+[[operations]]
+include-name = "PUT /api/urgencies/{id}"
+parameters = { "path.id" = "${SERVDESK_URGENCY_ID}" }
+
+[[operations]]
+include-name = "GET /api/priority-definitions/{id}"
+parameters = { "path.id" = "${SERVDESK_PRIORITY_DEFINITION_ID}" }
+
+# The matrix cell is partial-unique on (impact, urgency), so a PUT that keeps the pair it already
+# occupies updates in place instead of colliding with the other seeded definition.
+[[operations]]
+include-name = "PUT /api/priority-definitions/{id}"
+parameters = { "path.id" = "${SERVDESK_PRIORITY_DEFINITION_ID}", "body.impactId" = "${SERVDESK_IMPACT_ID}", "body.urgencyId" = "${SERVDESK_URGENCY_ID}", "body.priorityId" = "${SERVDESK_PRIORITY_ID}" }
+
+[[operations]]
+include-name = "GET /api/sla-policies/{id}"
+parameters = { "path.id" = "${SERVDESK_SLA_POLICY_ID}" }
+
+[[operations]]
+include-name = "PUT /api/sla-policies/{id}"
+parameters = { "path.id" = "${SERVDESK_SLA_POLICY_ID}" }
+
+[[operations]]
+include-name = "GET /api/attribute-definitions/{id}"
+parameters = { "path.id" = "${SERVDESK_ATTRIBUTE_DEFINITION_ID}" }
+
+[[operations]]
+include-name = "PUT /api/attribute-definitions/{id}"
+parameters = { "path.id" = "${SERVDESK_ATTRIBUTE_DEFINITION_ID}" }
+
+# --- ticket subtypes ---------------------------------------------------------------------------
+# requesterId is required and must name a real person, so it is pinned on writes as well as reads.
+
+[[operations]]
+include-name = "GET /api/incidents/{id}"
+parameters = { "path.id" = "${SERVDESK_INCIDENT_ID}" }
+
+[[operations]]
+include-name = "PUT /api/incidents/{id}"
+parameters = { "path.id" = "${SERVDESK_INCIDENT_ID}", "body.requesterId" = "${SERVDESK_PERSON_ID}" }
+
+[[operations]]
+include-name = "POST /api/incidents"
+parameters = { "body.requesterId" = "${SERVDESK_PERSON_ID}" }
+
+[[operations]]
+include-name = "GET /api/problems/{id}"
+parameters = { "path.id" = "${SERVDESK_PROBLEM_ID}" }
+
+[[operations]]
+include-name = "PUT /api/problems/{id}"
+parameters = { "path.id" = "${SERVDESK_PROBLEM_ID}", "body.requesterId" = "${SERVDESK_PERSON_ID}" }
+
+[[operations]]
+include-name = "POST /api/problems"
+parameters = { "body.requesterId" = "${SERVDESK_PERSON_ID}" }
+
+[[operations]]
+include-name = "GET /api/changes/{id}"
+parameters = { "path.id" = "${SERVDESK_CHANGE_ID}" }
+
+[[operations]]
+include-name = "PUT /api/changes/{id}"
+parameters = { "path.id" = "${SERVDESK_CHANGE_ID}", "body.requesterId" = "${SERVDESK_PERSON_ID}" }
+
+[[operations]]
+include-name = "POST /api/changes"
+parameters = { "body.requesterId" = "${SERVDESK_PERSON_ID}" }
+
+[[operations]]
+include-name = "GET /api/service-requests/{id}"
+parameters = { "path.id" = "${SERVDESK_SERVICE_REQUEST_ID}" }
+
+[[operations]]
+include-name = "PUT /api/service-requests/{id}"
+parameters = { "path.id" = "${SERVDESK_SERVICE_REQUEST_ID}", "body.requesterId" = "${SERVDESK_PERSON_ID}" }
+
+[[operations]]
+include-name = "POST /api/service-requests"
+parameters = { "body.requesterId" = "${SERVDESK_PERSON_ID}" }
+
+# --- the shared ticket surface -------------------------------------------------------------------
+# A subtype shares its id with the underlying Ticket row (@OneToOne @MapsId, ADR-0001), so the
+# durable incident's id addresses /api/tickets/{id} and the comment stream as well.
+
+[[operations]]
+include-name = "GET /api/tickets/{id}"
+parameters = { "path.id" = "${SERVDESK_TICKET_ID}" }
+
+[[operations]]
+include-name = "GET /api/tickets/{ticketId}/comments"
+parameters = { "path.ticketId" = "${SERVDESK_TICKET_ID}" }
+
+[[operations]]
+include-name = "POST /api/tickets/{ticketId}/comments"
+parameters = { "path.ticketId" = "${SERVDESK_TICKET_ID}" }
+
+# --- deletes, pinned to the sacrificial rows ------------------------------------------------------
+
+[[operations]]
+include-name = "DELETE /api/persons/{id}"
+parameters = { "path.id" = "${SERVDESK_PERSON_DOOMED_ID}" }
+
+[[operations]]
+include-name = "DELETE /api/categories/{id}"
+parameters = { "path.id" = "${SERVDESK_CATEGORY_DOOMED_ID}" }
+
+[[operations]]
+include-name = "DELETE /api/priorities/{id}"
+parameters = { "path.id" = "${SERVDESK_PRIORITY_DOOMED_ID}" }
+
+[[operations]]
+include-name = "DELETE /api/impacts/{id}"
+parameters = { "path.id" = "${SERVDESK_IMPACT_DOOMED_ID}" }
+
+[[operations]]
+include-name = "DELETE /api/urgencies/{id}"
+parameters = { "path.id" = "${SERVDESK_URGENCY_DOOMED_ID}" }
+
+[[operations]]
+include-name = "DELETE /api/priority-definitions/{id}"
+parameters = { "path.id" = "${SERVDESK_PRIORITY_DEFINITION_DOOMED_ID}" }
+
+[[operations]]
+include-name = "DELETE /api/sla-policies/{id}"
+parameters = { "path.id" = "${SERVDESK_SLA_POLICY_DOOMED_ID}" }
+
+[[operations]]
+include-name = "DELETE /api/attribute-definitions/{id}"
+parameters = { "path.id" = "${SERVDESK_ATTRIBUTE_DEFINITION_DOOMED_ID}" }
+
+[[operations]]
+include-name = "DELETE /api/incidents/{id}"
+parameters = { "path.id" = "${SERVDESK_INCIDENT_DOOMED_ID}" }
+
+[[operations]]
+include-name = "DELETE /api/problems/{id}"
+parameters = { "path.id" = "${SERVDESK_PROBLEM_DOOMED_ID}" }
+
+[[operations]]
+include-name = "DELETE /api/changes/{id}"
+parameters = { "path.id" = "${SERVDESK_CHANGE_DOOMED_ID}" }
+
+[[operations]]
+include-name = "DELETE /api/service-requests/{id}"
+parameters = { "path.id" = "${SERVDESK_SERVICE_REQUEST_DOOMED_ID}" }
