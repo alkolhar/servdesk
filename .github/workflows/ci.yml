@@ -101,6 +101,15 @@ jobs:
           curl -sf -X POST http://localhost:8080/api/setup -H "Content-Type: application/json" \
             -d '{"name":"Administrator","email":"admin@example.com","username":"admin","password":"admin123"}'
 
+      # Creates the rows every {id} in schemathesis.toml is pinned to, and exports their ids to
+      # $GITHUB_ENV. Without this the fuzzer draws ids across the full int64 range and 28 operations
+      # spend the whole run on 404s, never once exercising a success response (#69).
+      - name: Seed the fixture graph the contract tests need
+        run: .github/scripts/seed-contract-fixtures.sh
+        env:
+          BASE_URL: http://localhost:8080
+          AUTH: admin:admin123
+
       - name: Lint and bundle the OpenAPI contract (Redocly CLI)
         run: |
           npx --yes @redocly/cli@2.39.0 lint
@@ -114,4 +123,28 @@ jobs:
           checks: not_a_server_error,status_code_conformance,content_type_conformance,response_schema_conformance
           # base64 of admin:admin123 — the fixture credentials bootstrapped above
           authorization: "Basic YWRtaW46YWRtaW4xMjM="
-          max-examples: 10
+          # Pins every {id} to a row the step above created, via ${SERVDESK_*} interpolation. An
+          # unset variable is a hard error, so broken wiring fails the run rather than silently
+          # reverting to 404s.
+          config-file: schemathesis.toml
+          # Fitted to a budget, not chosen by preference (#69): the largest value keeping the
+          # Schemathesis step under 600s, against the 900s job timeout above. Measured on this
+          # branch with the fixture pinning in place, and scaling is sublinear:
+          #
+          #   max-examples  step     links covered  mismatched ops  requests
+          #   10            119.0s   3              19              3703
+          #   50            237.7s   14             16              6817
+          #   100           400.9s   18             16              10710
+          #
+          # 150 would land on the ceiling, so 100 is the budget's largest usable value. Re-measure
+          # before changing it — this step is the long pole in the job, and the ceiling is what
+          # stops a slow runner timing the job out.
+          #
+          # Note the returns: 50 -> 100 bought four more covered links and no mismatch improvement
+          # for 163s on every PR. If PR feedback speed ever matters more than link depth, 50 is the
+          # defensible step down; anything below that regresses reachability materially.
+          #
+          # The missing_test_data warning will NOT clear for the 12 DELETE operations at any value,
+          # by design: each is pinned to one sacrificial row, so the first call answers 204 and
+          # every later one 404. Judge this number by the non-DELETE operations only.
+          max-examples: 100
