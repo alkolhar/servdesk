@@ -128,11 +128,23 @@ jobs:
           # reverting to 404s.
           config-file: schemathesis.toml
           # Fitted to a budget, not chosen by preference (#69): the largest value keeping the
-          # Schemathesis step under 600s, against a 900s job timeout. Measured with the fixture
-          # pinning in place: 119s at 10. Do not raise this without re-measuring — the step is the
-          # long pole in the job, and the ceiling exists so a slow runner cannot time the job out.
+          # Schemathesis step under 600s, against the 900s job timeout above. Measured on this
+          # branch with the fixture pinning in place, and scaling is sublinear:
           #
-          # The missing_test_data warning will NOT clear for the 12 DELETE operations however high
-          # this goes, and that is by design: each is pinned to one sacrificial row, so the first
-          # call answers 204 and every later one 404. Judge this number by the non-DELETE operations.
+          #   max-examples  step     links covered  mismatched ops  requests
+          #   10            119.0s   3              19              3703
+          #   50            237.7s   14             16              6817
+          #   100           400.9s   18             16              10710
+          #
+          # 150 would land on the ceiling, so 100 is the budget's largest usable value. Re-measure
+          # before changing it — this step is the long pole in the job, and the ceiling is what
+          # stops a slow runner timing the job out.
+          #
+          # Note the returns: 50 -> 100 bought four more covered links and no mismatch improvement
+          # for 163s on every PR. If PR feedback speed ever matters more than link depth, 50 is the
+          # defensible step down; anything below that regresses reachability materially.
+          #
+          # The missing_test_data warning will NOT clear for the 12 DELETE operations at any value,
+          # by design: each is pinned to one sacrificial row, so the first call answers 204 and
+          # every later one 404. Judge this number by the non-DELETE operations only.
           max-examples: 100
