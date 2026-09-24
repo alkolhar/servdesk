@@ -1749,7 +1749,12 @@ components:
           nullable: true
     PersonUpdateRequest:
       type: object
-      required: [role, name, email, enabled]
+      required: [role, name, email]
+      description: >-
+        Every field replaces the stored value except the three that carry a
+        login (username, password, enabled), where null means "leave unchanged".
+        Omitting one must never revoke a login, so none of the three can be
+        cleared through this endpoint.
       properties:
         role:
           $ref: "#/components/schemas/PersonRole"
@@ -1764,12 +1769,15 @@ components:
         username:
           type: string
           nullable: true
+          description: Null leaves the existing username unchanged.
         password:
           type: string
           nullable: true
           description: Null leaves the existing password unchanged.
         enabled:
           type: boolean
+          nullable: true
+          description: Null leaves the existing enabled flag unchanged.
         teamId:
           type: integer
           format: int64

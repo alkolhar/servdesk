@@ -41,17 +41,32 @@ public class PersonCommandService {
 		return saved;
 	}
 
+	/**
+	 * Every field replaces what the row holds, as PUT implies — except the three
+	 * that carry a login. A null {@code username}, {@code password} or
+	 * {@code enabled} leaves the stored value alone, so a client that updates a
+	 * name or a team without echoing back credentials cannot revoke access by
+	 * omission (issue #66). The cost of that choice is that none of the three can
+	 * be *cleared* through this endpoint; revoking a login needs an operation that
+	 * says so.
+	 *
+	 * @see PersonUpdateRequest
+	 */
 	public Person update(Long id, PersonUpdateRequest request) {
 		Person existing = personQueryService.findById(id);
 		existing.setRole(request.role());
 		existing.setName(request.name());
 		existing.setEmail(request.email());
 		existing.setPhone(request.phone());
-		existing.setUsername(request.username());
+		if (request.username() != null) {
+			existing.setUsername(request.username());
+		}
 		if (request.password() != null) {
 			existing.setPassword(passwordEncoder.encode(request.password()));
 		}
-		existing.setEnabled(request.enabled());
+		if (request.enabled() != null) {
+			existing.setEnabled(request.enabled());
+		}
 		existing.setTeam(resolveTeam(request.teamId()));
 		return personRepository.save(existing);
 	}

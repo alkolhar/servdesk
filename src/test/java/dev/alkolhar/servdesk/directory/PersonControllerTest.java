@@ -89,6 +89,33 @@ class PersonControllerTest {
 	}
 
 	/**
+	 * Issue #66: a PUT that mentions neither {@code username}, {@code password} nor
+	 * {@code enabled} used to erase the first two and disable the third, answering
+	 * 200 while locking the person out of the application. Asserting on the login
+	 * rather than on the row is the point — the harm was an account that could no
+	 * longer authenticate.
+	 */
+	@Test
+	void updatingAPersonWithoutEchoingCredentialsLeavesTheLoginIntact() {
+		Map<String, Object> createRequest = Map.of("role", "AGENT", "name", "Ida Agent", "email", "ida@example.com",
+				"username", "ida", "password", "ida12345");
+		Number id = (Number) asAdmin().postForEntity("/api/persons", createRequest, Map.class).getBody().get("id");
+		assertThat(restTemplate.withBasicAuth("ida", "ida12345").getForEntity("/api/persons", String.class)
+				.getStatusCode()).isEqualTo(HttpStatus.OK);
+
+		Map<String, Object> rename = Map.of("role", "AGENT", "name", "Ida Renamed", "email", "ida@example.com");
+		ResponseEntity<Map> updated = asAdmin().exchange("/api/persons/" + id, org.springframework.http.HttpMethod.PUT,
+				new org.springframework.http.HttpEntity<>(rename), Map.class);
+		assertThat(updated.getStatusCode()).isEqualTo(HttpStatus.OK);
+		assertThat(updated.getBody().get("name")).isEqualTo("Ida Renamed");
+		assertThat(updated.getBody().get("username")).isEqualTo("ida");
+		assertThat(updated.getBody().get("enabled")).isEqualTo(true);
+
+		assertThat(restTemplate.withBasicAuth("ida", "ida12345").getForEntity("/api/persons", String.class)
+				.getStatusCode()).isEqualTo(HttpStatus.OK);
+	}
+
+	/**
 	 * The unique indexes on soft-deletable columns are partial
 	 * ({@code WHERE deleted_at IS NULL} — see {@code V1__init_schema.sql}), so a
 	 * soft-deleted person's email is free for reuse instead of squatting on the
