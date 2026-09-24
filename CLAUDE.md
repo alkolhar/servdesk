@@ -286,6 +286,14 @@ Controllers return a `*Model` (or `CollectionModel<...>`/`PagedModel<...>`), nev
 
 ### API architecture
 
+- **`@NotBlank` maps to `minLength: 1` + `pattern: '\S'`** in the contract (issue #62), on all 24
+  request-DTO fields that carry it without an `@Email`/`@Pattern` of their own. `minLength: 1` alone
+  would be unfaithful — it accepts `" "`, which `@NotBlank` (`trim().length() > 0`) rejects — and the
+  unanchored `\S` is what makes the mapping exact. The exception exists because those fields already
+  declare `format: email` or a pattern, and adding `\S` risks the generator drawing from the regex
+  instead of the format. Deliberately **not** swept: `@Positive` → `minimum`, `@NotNull` → `required`
+  (ruled out at charting as unbounded per-field judgement), and `maxLength`, which is a different and
+  sharper risk — an unbounded generated string against a length-bounded column is a 500, not a warning.
 - **OpenAPI contract-first, no codegen**: `src/main/resources/static/openapi/servdesk-api.yaml` is
   hand-authored and is the source of truth; controllers are written to match it. Served as a static
   resource, viewable at `/docs/index.html` via a Swagger UI webjar (deliberately not `springdoc-openapi`,
