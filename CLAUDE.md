@@ -140,8 +140,14 @@ Controllers return a `*Model` (or `CollectionModel<...>`/`PagedModel<...>`), nev
   `SlaScanService` (the only `@Transactional` service method — its `@TransactionalEventListener`
   consumers need a commit to fire) stamps `responseBreachedAt`/`resolutionBreachedAt` exactly once
   per breach (idempotence across runs/restarts) and publishes `SlaBreachedEvent`; a thin Quartz
-  job (`SlaScanJob`, every `servdesk.sla.scan-interval-seconds`, default 60) provides the tick,
-  and tests call the service directly instead of waiting for Quartz.
+  job (`SlaScanJob`, every `servdesk.sla.scan-interval-seconds`, default 60) provides the tick.
+  Behavior tests still call the service directly rather than waiting for Quartz, but the
+  Quartz-to-service wiring now has a test of its own (`SlaScanSchedulingTest`) — leaving exactly
+  that seam uncovered is how #56 shipped a scanner whose dependency was never injected, inert in
+  every real deployment while the suite stayed green. `SlaScanJob` takes its dependency through a
+  **constructor**, which needs no registration of its own — Boot's `SpringBeanJobFactory` builds the
+  job via `AutowireCapableBeanFactory.createBean(...)`, resolving constructor args from the context —
+  and, unlike the setter it replaced, cannot leave a job ticking with a null field.
 - `customfield` — customer-defined custom fields (issue #29), the product's core per-deployment
   customization mechanism per ADR-0002. `AttributeDefinition` (admin-editable: `target` — only
   `TICKET` yet, CMDB CIs later —, machine `key`, `label`, `type`
