@@ -23,6 +23,7 @@ superseded rather than rewritten when a decision is genuinely reversed.
 | [0002](adr/0002-postgresql-only-product-owns-its-database.md) | PostgreSQL exclusively; the database ships as part of the product | Accepted |
 | [0003](adr/0003-ui-is-an-angular-spa-over-the-public-api.md) | The UI is an Angular SPA over the public API, built into the same jar | Accepted |
 | [0004](adr/0004-flowable-drives-the-ticket-lifecycle.md) | Flowable drives the ticket lifecycle; `Ticket.status` is its projection | Accepted |
+| [0005](adr/0005-browser-sessions-alongside-http-basic.md) | Browser sessions alongside HTTP Basic; CSRF back on for session requests | Accepted |
 
 New ADRs get the next number, a short imperative title, and the same shape: the decision up front,
 then the options considered and rejected, then the consequences that follow from it.
