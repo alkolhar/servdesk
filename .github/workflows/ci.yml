@@ -131,27 +131,29 @@ jobs:
           # unset variable is a hard error, so broken wiring fails the run rather than silently
           # reverting to 404s.
           config-file: schemathesis.toml
-          # Fitted to a budget, not chosen by preference (#69): the largest value keeping the
-          # Schemathesis step under 600s, against the 900s job timeout above. Measured on this
-          # branch with the fixture pinning in place, and scaling is sublinear:
+          # Deliberately cut to the minimum while feature work takes priority (2026-09-29): this job
+          # was the long pole on every PR (7-10 min vs ~2 for build-and-test). Measured on #69's
+          # branch with the fixture pinning in place:
           #
           #   max-examples  step     links covered  mismatched ops  requests
           #   10            119.0s   3              19              3703
           #   50            237.7s   14             16              6817
           #   100           400.9s   18             16              10710
           #
-          # 150 would land on the ceiling, so 100 is the budget's largest usable value. Re-measure
-          # before changing it — this step is the long pole in the job, and the ceiling is what
-          # stops a slow runner timing the job out.
-          #
-          # Note the returns: 50 -> 100 bought four more covered links and no mismatch improvement
-          # for 163s on every PR. If PR feedback speed ever matters more than link depth, 50 is the
-          # defensible step down; anything below that regresses reachability materially.
+          # The cost is stateful link depth (18 -> 3 covered links); every operation is still
+          # exercised and every response still checked. 50 is the step back up if link depth starts
+          # mattering, 100 the ceiling under the 600s step budget — re-measure before going past it.
           #
           # The missing_test_data warning will NOT clear for the 12 DELETE operations at any value,
           # by design: each is pinned to one sacrificial row, so the first call answers 204 and
           # every later one 404. Judge this number by the non-DELETE operations only.
-          max-examples: 100
+          max-examples: 10
+          # At max-examples 10, Hypothesis's filter_too_much health check fires on ~1 run in 10 —
+          # a random red PR with no contract break behind it. It reports generation efficiency
+          # (negative-mode rejection sampling), never an API defect: #68 reproduced it with a stub
+          # server that answers everything 201. Suppressing all four health checks is #64's
+          # decision; the cost is fewer negative examples on the affected operation, nothing more.
+          args: --suppress-health-check=all
 
       # if: always() because a failed run is exactly when the log is wanted — #56's NPE was found by
       # reading one of these by hand, and the job was green at the time.
