@@ -79,6 +79,10 @@ _Avoid_: Priority matrix (describes the whole mapping table this entity is one r
 An entry in a ticket's activity/conversation history, written by an Agent or Requester. The `internal` flag distinguishes an Agent-only note from a reply visible to the Requester — one concept with a visibility attribute, not two different kinds of thing. Only an Agent can author an internal Comment — a Customer's own comment is always visible, since "internal" means "hidden from the requester," which is meaningless for a comment the requester wrote themselves. Enforced in code: `CommentCommandService.create` rejects `internal=true` from a non-Agent caller, and `CommentQueryService.findByTicket` filters internal comments out of a Customer's view.
 _Avoid_: Note, Work Note, Reply (as separate concepts — these describe the Comment's visibility, not a different kind of entity)
 
+**Lifecycle Process**:
+The BPMN process (run by the embedded Flowable engine) that drives one ticket from creation to Closed — one process definition per subtype, one process instance per ticket. It is the authority on where a ticket is; the ticket's status is its projection. See [ADR-0004](./docs/adr/0004-flowable-drives-the-ticket-lifecycle.md) and [ADR-0007](./docs/adr/0007-one-bpmn-lifecycle-process-per-ticket-subtype.md).
+_Avoid_: Workflow
+
 ## Ticket Status
 
 **Open**:
@@ -88,10 +92,10 @@ The ticket has been raised and no agent has started work on it yet.
 An agent is actively working the ticket.
 
 **Pending**:
-The ticket is blocked, waiting on someone outside the agent's control to respond or act — the requester, a vendor, an approval, etc. A broader concept than "waiting on customer"; narrower, more detailed statuses may be split out later once a workflow/process engine exists.
+The ticket is blocked, waiting on someone outside the agent's control to respond or act — the requester, a vendor, an approval (a Change awaiting approval is Pending), etc. A broader concept than "waiting on customer". Finer distinctions live in the [[Lifecycle Process]]'s stages, which all project onto this one status rather than becoming statuses of their own.
 
 **Resolved**:
-The agent believes the underlying issue is fixed, but the ticket stays open for the requester to confirm or reopen. `resolvedAt` is set by the server the moment status transitions to Resolved — never client-supplied.
+The agent believes the underlying issue is fixed, but the ticket stays open to be confirmed or reopened. An Agent can close or reopen it; otherwise it closes automatically after a configurable period (5 days by default). Requester confirmation will attach here once customers have a portal. `resolvedAt` is set by the server the moment status transitions to Resolved — never client-supplied.
 
 **Closed**:
-Terminal — no further action is expected, whether reached by requester confirmation or an automatic timeout. `closedAt` is set by the server the moment status transitions to Closed — never client-supplied.
+Terminal — no further action is expected, whether reached by an Agent closing it, the automatic timeout, or a rejected Change. The ticket's [[Lifecycle Process]] ends; a closed ticket is never reopened, and a recurrence is a new ticket. `closedAt` is set by the server the moment status transitions to Closed — never client-supplied.
