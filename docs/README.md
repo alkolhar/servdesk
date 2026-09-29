@@ -27,6 +27,7 @@ superseded rather than rewritten when a decision is genuinely reversed.
 | [0006](adr/0006-flowable-owns-its-tables-flyway-owns-servdesks.md) | Flowable owns its own tables; Flyway owns servdesk's; PostgreSQL 17 pinned | Accepted |
 | [0007](adr/0007-one-bpmn-lifecycle-process-per-ticket-subtype.md) | One BPMN lifecycle process per ticket subtype, projecting onto the shared five statuses | Accepted |
 | [0008](adr/0008-agents-act-on-tickets-through-task-backed-actions.md) | Agents act on tickets through task-backed actions; the inbox is the ticket listing | Accepted |
+| [0009](adr/0009-assignment-lives-on-the-task.md) | Assignment lives on the task; the ticket's assignee and team mirror it | Accepted |
 
 New ADRs get the next number, a short imperative title, and the same shape: the decision up front,
 then the options considered and rejected, then the consequences that follow from it.
