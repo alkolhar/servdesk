@@ -1,6 +1,8 @@
 package dev.alkolhar.servdesk.ticket;
 
 import static org.assertj.core.api.Assertions.assertThat;
+import static org.junit.jupiter.api.Assumptions.assumeFalse;
+import static org.junit.jupiter.api.Assumptions.assumeTrue;
 
 import dev.alkolhar.servdesk.TestcontainersConfiguration;
 import dev.alkolhar.servdesk.setup.SetupRequest;
@@ -57,6 +59,16 @@ public abstract class AbstractTicketSubtypeControllerTest {
 	protected abstract String basePath();
 
 	protected abstract String expectedDisplayNumberPrefix();
+
+	/**
+	 * Whether this subtype's status is its lifecycle process's projection
+	 * (ADR-0004) rather than a field of its update request. Each subtype flips this
+	 * with its own lifecycle slice; its transitions are then tested against a
+	 * running engine (e.g. {@code IncidentLifecycleTest}), not through {@code PUT}.
+	 */
+	protected boolean statusFollowsALifecycleProcess() {
+		return false;
+	}
 
 	@BeforeAll
 	void bootstrapFixtures() {
@@ -198,6 +210,7 @@ public abstract class AbstractTicketSubtypeControllerTest {
 
 	@Test
 	void updateSetsResolvedAtOnResolutionAndClearsItOnReopen() {
+		assumeFalse(statusFollowsALifecycleProcess(), "status moves only through the process");
 		Number id = (Number) asAdmin().postForEntity(basePath(), createBody("Needs resolving"), Map.class).getBody()
 				.get("id");
 
@@ -214,6 +227,27 @@ public abstract class AbstractTicketSubtypeControllerTest {
 				new HttpEntity<>(reopenBody), Map.class);
 		assertThat(reopened.getStatusCode()).isEqualTo(HttpStatus.OK);
 		assertThat(reopened.getBody().get("resolvedAt")).isNull();
+	}
+
+	/**
+	 * {@code status} is gone from the update request: sent anyway, it's an unknown
+	 * property, so the descriptive fields change and the status doesn't.
+	 */
+	@Test
+	void updateCannotChangeTheStatusOfAProcessDrivenTicket() {
+		assumeTrue(statusFollowsALifecycleProcess(), "status is still a field of this update request");
+		Number id = (Number) asAdmin().postForEntity(basePath(), createBody("Only the process moves me"), Map.class)
+				.getBody().get("id");
+
+		Map<String, Object> body = createBody("Renamed, still open");
+		body.put("status", "RESOLVED");
+		ResponseEntity<Map> updated = asAdmin().exchange(basePath() + "/" + id, HttpMethod.PUT, new HttpEntity<>(body),
+				Map.class);
+
+		assertThat(updated.getStatusCode()).isEqualTo(HttpStatus.OK);
+		assertThat(updated.getBody().get("subject")).isEqualTo("Renamed, still open");
+		assertThat(updated.getBody().get("status")).isEqualTo("OPEN");
+		assertThat(updated.getBody().get("resolvedAt")).isNull();
 	}
 
 	@Test

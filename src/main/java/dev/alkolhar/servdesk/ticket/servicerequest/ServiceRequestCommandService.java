@@ -5,9 +5,9 @@ import dev.alkolhar.servdesk.customfield.AttributeValidator;
 import dev.alkolhar.servdesk.ticket.AbstractTicketSubtypeCommandService;
 import dev.alkolhar.servdesk.ticket.SlaHooks;
 import dev.alkolhar.servdesk.ticket.Ticket;
+import dev.alkolhar.servdesk.ticket.TicketLifecycle;
 import dev.alkolhar.servdesk.ticket.TicketRepository;
 import jakarta.persistence.EntityManager;
-import org.springframework.context.ApplicationEventPublisher;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
@@ -19,10 +19,10 @@ public class ServiceRequestCommandService extends AbstractTicketSubtypeCommandSe
 
 	public ServiceRequestCommandService(ServiceRequestRepository serviceRequestRepository,
 			ServiceRequestQueryService serviceRequestQueryService, TicketRepository ticketRepository,
-			EntityManager entityManager, ApplicationEventPublisher events,
+			EntityManager entityManager, TicketLifecycle lifecycle,
 			PriorityDefinitionRepository priorityDefinitionRepository, AttributeValidator attributeValidator,
 			SlaHooks slaHooks) {
-		super(ticketRepository, entityManager, events, priorityDefinitionRepository, attributeValidator, slaHooks);
+		super(ticketRepository, entityManager, lifecycle, priorityDefinitionRepository, attributeValidator, slaHooks);
 		this.serviceRequestRepository = serviceRequestRepository;
 		this.serviceRequestQueryService = serviceRequestQueryService;
 	}
@@ -40,6 +40,7 @@ public class ServiceRequestCommandService extends AbstractTicketSubtypeCommandSe
 	public ServiceRequest update(Long id, ServiceRequestUpdateRequest request) {
 		ServiceRequest existing = serviceRequestQueryService.findById(id);
 		applySharedUpdate(existing.getTicket(), request);
+		applyRequestedStatus(existing.getTicket(), request.status());
 		ticketRepository.save(existing.getTicket());
 		return serviceRequestRepository.saveAndFlush(existing);
 	}

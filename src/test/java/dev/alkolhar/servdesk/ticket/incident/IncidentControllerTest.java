@@ -13,4 +13,10 @@ class IncidentControllerTest extends AbstractTicketSubtypeControllerTest {
 	protected String expectedDisplayNumberPrefix() {
 		return "INC-";
 	}
+
+	/** Since #110: the Incident lifecycle is {@code ticket-incident} (ADR-0007). */
+	@Override
+	protected boolean statusFollowsALifecycleProcess() {
+		return true;
+	}
 }

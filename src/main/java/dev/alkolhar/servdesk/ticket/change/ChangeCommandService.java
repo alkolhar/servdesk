@@ -5,9 +5,9 @@ import dev.alkolhar.servdesk.customfield.AttributeValidator;
 import dev.alkolhar.servdesk.ticket.AbstractTicketSubtypeCommandService;
 import dev.alkolhar.servdesk.ticket.SlaHooks;
 import dev.alkolhar.servdesk.ticket.Ticket;
+import dev.alkolhar.servdesk.ticket.TicketLifecycle;
 import dev.alkolhar.servdesk.ticket.TicketRepository;
 import jakarta.persistence.EntityManager;
-import org.springframework.context.ApplicationEventPublisher;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
@@ -18,10 +18,10 @@ public class ChangeCommandService extends AbstractTicketSubtypeCommandService<Ch
 	private final ChangeQueryService changeQueryService;
 
 	public ChangeCommandService(ChangeRepository changeRepository, ChangeQueryService changeQueryService,
-			TicketRepository ticketRepository, EntityManager entityManager, ApplicationEventPublisher events,
+			TicketRepository ticketRepository, EntityManager entityManager, TicketLifecycle lifecycle,
 			PriorityDefinitionRepository priorityDefinitionRepository, AttributeValidator attributeValidator,
 			SlaHooks slaHooks) {
-		super(ticketRepository, entityManager, events, priorityDefinitionRepository, attributeValidator, slaHooks);
+		super(ticketRepository, entityManager, lifecycle, priorityDefinitionRepository, attributeValidator, slaHooks);
 		this.changeRepository = changeRepository;
 		this.changeQueryService = changeQueryService;
 	}
@@ -39,6 +39,7 @@ public class ChangeCommandService extends AbstractTicketSubtypeCommandService<Ch
 	public Change update(Long id, ChangeUpdateRequest request) {
 		Change existing = changeQueryService.findById(id);
 		applySharedUpdate(existing.getTicket(), request);
+		applyRequestedStatus(existing.getTicket(), request.status());
 		ticketRepository.save(existing.getTicket());
 		return changeRepository.saveAndFlush(existing);
 	}

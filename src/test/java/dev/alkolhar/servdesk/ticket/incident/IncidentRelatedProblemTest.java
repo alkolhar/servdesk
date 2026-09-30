@@ -83,8 +83,8 @@ class IncidentRelatedProblemTest {
 				Map.of("subject", "Relinked incident", "requesterId", requesterId, "relatedProblemId", firstProblemId),
 				Map.class).getBody().get("id");
 
-		Map<String, Object> updateBody = Map.of("subject", "Relinked incident", "requesterId", requesterId, "status",
-				"OPEN", "relatedProblemId", secondProblemId);
+		Map<String, Object> updateBody = Map.of("subject", "Relinked incident", "requesterId", requesterId,
+				"relatedProblemId", secondProblemId);
 		ResponseEntity<Map> updated = asAdmin().exchange("/api/incidents/" + incidentId, HttpMethod.PUT,
 				new HttpEntity<>(updateBody), Map.class);
 
@@ -126,15 +126,13 @@ class IncidentRelatedProblemTest {
 		Number id = (Number) asAdmin().postForEntity("/api/incidents",
 				Map.of("subject", "Original subject", "requesterId", requesterId), Map.class).getBody().get("id");
 
-		ResponseEntity<String> updated = asAdmin()
-				.exchange(
-						"/api/incidents/" + id, HttpMethod.PUT, new HttpEntity<>(Map.of("subject", "Changed subject",
-								"status", "IN_PROGRESS", "requesterId", requesterId, "relatedProblemId", 999_999)),
-						String.class);
+		ResponseEntity<String> updated = asAdmin().exchange("/api/incidents/" + id, HttpMethod.PUT,
+				new HttpEntity<>(
+						Map.of("subject", "Changed subject", "requesterId", requesterId, "relatedProblemId", 999_999)),
+				String.class);
 
 		assertThat(updated.getStatusCode()).isEqualTo(HttpStatus.CONFLICT);
 		Map<?, ?> incident = asAdmin().getForEntity("/api/incidents/" + id, Map.class).getBody();
 		assertThat(incident.get("subject")).isEqualTo("Original subject");
-		assertThat(incident.get("status")).isNotEqualTo("IN_PROGRESS");
 	}
 }

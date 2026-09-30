@@ -11,13 +11,10 @@ import dev.alkolhar.servdesk.customfield.AttributeTarget;
 import dev.alkolhar.servdesk.customfield.AttributeValidator;
 import dev.alkolhar.servdesk.directory.Person;
 import dev.alkolhar.servdesk.directory.Team;
-import dev.alkolhar.servdesk.ticket.event.TicketStatusChangedEvent;
 import jakarta.persistence.EntityManager;
-import java.time.Instant;
 import java.util.HashMap;
 import java.util.Map;
 import org.jspecify.annotations.Nullable;
-import org.springframework.context.ApplicationEventPublisher;
 import org.springframework.data.jpa.repository.JpaRepository;
 
 /**
@@ -25,10 +22,10 @@ import org.springframework.data.jpa.repository.JpaRepository;
  * Service Request) composes with via the shared {@link Ticket} record — see
  * ADR-0001. Handles resolving requester/assignee/team/category/impact/urgency
  * ids to managed references, deriving {@code priority} from the impact/urgency
- * pair via a {@link PriorityDefinition} matrix lookup, and deriving
- * {@code resolvedAt}/{@code closedAt} from a status transition (publishing
- * {@link TicketStatusChangedEvent} only when the status actually changes,
- * clearing the corresponding timestamp on reopen). Each concrete subtype's own
+ * pair via a {@link PriorityDefinition} matrix lookup. Status is not written
+ * here: {@link TicketLifecycle} is its only writer (ADR-0004), called by the
+ * subtype's lifecycle process — or, for a subtype not yet on one, from its
+ * update request via {@link #applyRequestedStatus}. Each concrete subtype's own
  * command service extends this for the shared-field handling and adds only
  * what's genuinely subtype-specific: instantiating its own entity, assigning
  * its own prefixed display number from its own DB sequence, and any field of
@@ -43,24 +40,25 @@ import org.springframework.data.jpa.repository.JpaRepository;
  * The last write is {@code saveAndFlush}, so a constraint violation still
  * surfaces inside the method as {@code DataIntegrityViolationException} (409)
  * rather than at commit. Being inside a transaction is also what lets
- * {@link TicketStatusChangedEvent} reach its
- * {@code @TransactionalEventListener}s.
+ * {@code TicketStatusChangedEvent} reach its
+ * {@code @TransactionalEventListener}s, and what a lifecycle process start
+ * joins.
  */
 public abstract class AbstractTicketSubtypeCommandService<T extends MapsIdBaseEntity> {
 
 	protected final TicketRepository ticketRepository;
 	protected final EntityManager entityManager;
-	private final ApplicationEventPublisher events;
+	private final TicketLifecycle lifecycle;
 	private final PriorityDefinitionRepository priorityDefinitionRepository;
 	private final AttributeValidator attributeValidator;
 	private final SlaHooks slaHooks;
 
 	protected AbstractTicketSubtypeCommandService(TicketRepository ticketRepository, EntityManager entityManager,
-			ApplicationEventPublisher events, PriorityDefinitionRepository priorityDefinitionRepository,
+			TicketLifecycle lifecycle, PriorityDefinitionRepository priorityDefinitionRepository,
 			AttributeValidator attributeValidator, SlaHooks slaHooks) {
 		this.ticketRepository = ticketRepository;
 		this.entityManager = entityManager;
-		this.events = events;
+		this.lifecycle = lifecycle;
 		this.priorityDefinitionRepository = priorityDefinitionRepository;
 		this.attributeValidator = attributeValidator;
 		this.slaHooks = slaHooks;
@@ -74,20 +72,29 @@ public abstract class AbstractTicketSubtypeCommandService<T extends MapsIdBaseEn
 	}
 
 	/**
-	 * {@code previousPriorityId} is read <i>before</i> {@link #copySharedFields}
-	 * re-derives the priority from the incoming impact/urgency pair, so
-	 * {@link SlaHooks#applyOnWrite} sees the real before/after and re-stamps the
-	 * deadlines exactly when the matrix actually moved the ticket to a different
-	 * priority. A client can no longer change the priority directly (issue #22), so
-	 * a derived change is the only kind there is.
+	 * The descriptive fields only — never the status. {@code previousPriorityId} is
+	 * read <i>before</i> {@link #copySharedFields} re-derives the priority from the
+	 * incoming impact/urgency pair, so {@link SlaHooks#applyOnWrite} sees the real
+	 * before/after and re-stamps the deadlines exactly when the matrix actually
+	 * moved the ticket to a different priority. A client can no longer change the
+	 * priority directly (issue #22), so a derived change is the only kind there is.
+	 * The status hasn't moved here, so the SLA pause is untouched.
 	 */
-	protected void applySharedUpdate(Ticket ticket, TicketUpdateFields fields) {
-		TicketStatus previousStatus = ticket.getStatus();
+	protected void applySharedUpdate(Ticket ticket, TicketCreateFields fields) {
 		Long previousPriorityId = ticket.getPriority() == null ? null : ticket.getPriority().getId();
 		copySharedFields(ticket, fields);
-		ticket.setStatus(fields.status());
-		deriveResolvedAndClosedAt(ticket, previousStatus, fields.status());
-		slaHooks.applyOnWrite(ticket, previousStatus, previousPriorityId);
+		slaHooks.applyOnWrite(ticket, ticket.getStatus(), previousPriorityId);
+	}
+
+	/**
+	 * A status from the update request, for the subtypes whose lifecycle isn't on a
+	 * process yet (Problem, Change, Service Request — each until its own slice).
+	 * Called after {@link #applySharedUpdate}, which keeps the SLA order it always
+	 * had: deadlines re-derived for a new priority first, then shifted for a pause
+	 * that ends.
+	 */
+	protected void applyRequestedStatus(Ticket ticket, TicketStatus status) {
+		lifecycle.applyStatus(ticket, status);
 	}
 
 	protected void deleteTicketAndSubtype(T subtype, Ticket ticket, JpaRepository<T, Long> repository) {
@@ -154,27 +161,5 @@ public abstract class AbstractTicketSubtypeCommandService<T extends MapsIdBaseEn
 		}
 		return priorityDefinitionRepository.findByImpactIdAndUrgencyId(impactId, urgencyId)
 				.map(PriorityDefinition::getPriority).orElse(null);
-	}
-
-	/**
-	 * Relies on {@link TicketStatus}'s declared enum order (OPEN, IN_PROGRESS,
-	 * PENDING, RESOLVED, CLOSED) matching the ticket lifecycle's actual order, so
-	 * {@code ordinal()} can distinguish "reopened to an earlier status" (clear the
-	 * timestamp) from "progressed forward" (e.g. RESOLVED to CLOSED, where
-	 * {@code resolvedAt} must survive rather than being wiped just because the
-	 * status moved on).
-	 */
-	private void deriveResolvedAndClosedAt(Ticket ticket, TicketStatus previousStatus, TicketStatus newStatus) {
-		if (previousStatus == newStatus) {
-			return;
-		}
-		Instant now = Instant.now();
-		if (newStatus == TicketStatus.RESOLVED) {
-			ticket.setResolvedAt(now);
-		} else if (newStatus.ordinal() < TicketStatus.RESOLVED.ordinal()) {
-			ticket.setResolvedAt(null);
-		}
-		ticket.setClosedAt(newStatus == TicketStatus.CLOSED ? now : null);
-		events.publishEvent(new TicketStatusChangedEvent(ticket.getId(), previousStatus, newStatus));
 	}
 }
