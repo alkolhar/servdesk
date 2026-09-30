@@ -71,7 +71,7 @@ from the IDE too. Needs Docker.
 
 ```bash
 docker run -d --name servdesk-db -p 5432:5432 \
-  -e POSTGRES_DB=servdesk -e POSTGRES_USER=servdesk -e POSTGRES_PASSWORD=servdesk postgres:latest
+  -e POSTGRES_DB=servdesk -e POSTGRES_USER=servdesk -e POSTGRES_PASSWORD=servdesk postgres:17.11
 
 ./mvnw spring-boot:run \
   -Dspring-boot.run.arguments="--spring.datasource.url=jdbc:postgresql://localhost:5432/servdesk \
