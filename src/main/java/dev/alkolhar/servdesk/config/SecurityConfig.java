@@ -3,6 +3,7 @@ package dev.alkolhar.servdesk.config;
 import jakarta.servlet.http.HttpServletRequest;
 import jakarta.servlet.http.HttpServletResponse;
 import java.io.IOException;
+import java.nio.charset.StandardCharsets;
 import java.util.List;
 import java.util.Map;
 import java.util.Set;
@@ -318,6 +319,9 @@ public class SecurityConfig {
 	private void writeProblemDetail(HttpServletResponse response, HttpStatus status, String detail) throws IOException {
 		response.setStatus(status.value());
 		response.setContentType(MediaType.APPLICATION_PROBLEM_JSON_VALUE);
+		// JSON is UTF-8 (RFC 8259); left unset, getWriter() falls back to the servlet
+		// default ISO-8859-1 and any non-Latin-1 character in the body becomes '?'
+		response.setCharacterEncoding(StandardCharsets.UTF_8);
 		objectMapper.writeValue(response.getWriter(), ProblemDetail.forStatusAndDetail(status, detail));
 	}
 

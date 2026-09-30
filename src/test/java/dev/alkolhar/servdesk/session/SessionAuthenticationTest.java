@@ -128,7 +128,8 @@ class SessionAuthenticationTest {
 		ResponseEntity<String> response = login("admin", "wrong");
 
 		assertThat(response.getStatusCode()).isEqualTo(HttpStatus.UNAUTHORIZED);
-		assertThat(response.getHeaders().getContentType()).isEqualTo(MediaType.APPLICATION_PROBLEM_JSON);
+		assertThat(response.getHeaders().getContentType().isCompatibleWith(MediaType.APPLICATION_PROBLEM_JSON))
+				.isTrue();
 		assertThat(response.getHeaders().containsHeader(HttpHeaders.WWW_AUTHENTICATE)).isFalse();
 		assertThat(setCookieHeaders(response)).noneMatch(header -> header.startsWith("JSESSIONID="));
 	}
@@ -150,7 +151,8 @@ class SessionAuthenticationTest {
 		ResponseEntity<String> response = createCategory("Without token", session.cookies());
 
 		assertThat(response.getStatusCode()).isEqualTo(HttpStatus.FORBIDDEN);
-		assertThat(response.getHeaders().getContentType()).isEqualTo(MediaType.APPLICATION_PROBLEM_JSON);
+		assertThat(response.getHeaders().getContentType().isCompatibleWith(MediaType.APPLICATION_PROBLEM_JSON))
+				.isTrue();
 	}
 
 	@Test
