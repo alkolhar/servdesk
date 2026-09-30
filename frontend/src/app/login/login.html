@@ -7,10 +7,13 @@
     </mat-card-header>
     <form [formGroup]="form" (ngSubmit)="submit()">
       <mat-card-content>
+        @if (notice(); as key) {
+          <p class="notice" role="status">{{ t(key) }}</p>
+        }
         <mat-form-field appearance="outline">
           <mat-label>{{ t('login.username') }}</mat-label>
           <input matInput formControlName="username" autocomplete="username" required />
-          <mat-error>{{ t('login.required') }}</mat-error>
+          <mat-error>{{ t('form.required') }}</mat-error>
         </mat-form-field>
         <mat-form-field appearance="outline">
           <mat-label>{{ t('login.password') }}</mat-label>
@@ -21,7 +24,7 @@
             autocomplete="current-password"
             required
           />
-          <mat-error>{{ t('login.required') }}</mat-error>
+          <mat-error>{{ t('form.required') }}</mat-error>
         </mat-form-field>
         @if (error(); as key) {
           <p class="error" role="alert">{{ t(key) }}</p>

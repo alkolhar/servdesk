@@ -1,0 +1,64 @@
+<main class="page" *transloco="let t">
+  <mat-card class="setup-card" appearance="outlined">
+    <mat-card-header>
+      <mat-card-title
+        ><h1>{{ t('setup.title') }}</h1></mat-card-title
+      >
+      <mat-card-subtitle>{{ t('setup.intro') }}</mat-card-subtitle>
+    </mat-card-header>
+    <form [formGroup]="form" (ngSubmit)="submit()">
+      <mat-card-content>
+        <mat-form-field appearance="outline">
+          <mat-label>{{ t('setup.name') }}</mat-label>
+          <input matInput formControlName="name" autocomplete="name" required />
+          <mat-error>{{ t('form.required') }}</mat-error>
+        </mat-form-field>
+        <mat-form-field appearance="outline">
+          <mat-label>{{ t('setup.email') }}</mat-label>
+          <input matInput type="email" formControlName="email" autocomplete="email" required />
+          <mat-error>
+            {{ form.controls.email.hasError('email') ? t('form.email') : t('form.required') }}
+          </mat-error>
+        </mat-form-field>
+        <mat-form-field appearance="outline">
+          <mat-label>{{ t('setup.username') }}</mat-label>
+          <input matInput formControlName="username" autocomplete="username" required />
+          <mat-error>{{ t('form.required') }}</mat-error>
+        </mat-form-field>
+        <mat-form-field appearance="outline">
+          <mat-label>{{ t('setup.password') }}</mat-label>
+          <input
+            matInput
+            type="password"
+            formControlName="password"
+            autocomplete="new-password"
+            required
+          />
+          <mat-error>{{ t('form.required') }}</mat-error>
+        </mat-form-field>
+        <mat-form-field appearance="outline">
+          <mat-label>{{ t('setup.passwordConfirmation') }}</mat-label>
+          <input
+            matInput
+            type="password"
+            formControlName="passwordConfirmation"
+            autocomplete="new-password"
+            required
+          />
+          <mat-error>{{ t('form.required') }}</mat-error>
+        </mat-form-field>
+        @if (form.hasError('passwordMismatch') && form.controls.passwordConfirmation.touched) {
+          <p class="error" role="alert">{{ t('setup.passwordMismatch') }}</p>
+        }
+        @if (error(); as key) {
+          <p class="error" role="alert">{{ t(key) }}</p>
+        }
+      </mat-card-content>
+      <mat-card-actions align="end">
+        <button mat-flat-button type="submit" [disabled]="submitting()">
+          {{ t('setup.submit') }}
+        </button>
+      </mat-card-actions>
+    </form>
+  </mat-card>
+</main>

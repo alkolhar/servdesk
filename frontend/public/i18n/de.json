@@ -1,13 +1,19 @@
 {
+  "form": {
+    "required": "Pflichtfeld",
+    "email": "Keine gültige E-Mail-Adresse"
+  },
   "login": {
     "title": "Bei servdesk anmelden",
     "username": "Benutzername",
     "password": "Passwort",
     "submit": "Anmelden",
-    "required": "Pflichtfeld",
     "error": {
       "invalidCredentials": "Benutzername oder Passwort ist falsch.",
       "unavailable": "servdesk ist gerade nicht erreichbar. Bitte versuchen Sie es erneut."
+    },
+    "notice": {
+      "setupAlreadyDone": "servdesk ist bereits eingerichtet. Bitte melden Sie sich an."
     }
   },
   "account": {
@@ -21,5 +27,20 @@
   "role": {
     "AGENT": "Agent",
     "CUSTOMER": "Kunde"
+  },
+  "setup": {
+    "title": "servdesk einrichten",
+    "intro": "Legen Sie das erste Agent-Konto an. Damit lässt sich alles Weitere verwalten.",
+    "name": "Name",
+    "email": "E-Mail",
+    "username": "Benutzername",
+    "password": "Passwort",
+    "passwordConfirmation": "Passwort wiederholen",
+    "passwordMismatch": "Die Passwörter stimmen nicht überein.",
+    "submit": "Konto anlegen und anmelden",
+    "error": {
+      "invalid": "Der Server hat diese Angaben abgelehnt. Bitte prüfen Sie sie und versuchen Sie es erneut.",
+      "unavailable": "servdesk ist gerade nicht erreichbar. Bitte versuchen Sie es erneut."
+    }
   }
 }

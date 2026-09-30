@@ -250,6 +250,10 @@ Controllers return a `*Model` (or `CollectionModel<...>`/`PagedModel<...>`), nev
 - `setup` — `SetupController` (`GET`/`POST /api/setup`, `permitAll`) bootstraps the first agent;
   `createInitialAgent`/`isSetupRequired` refuse to run once any `Person` exists (409) — no seeded
   credentials ship in a migration.
+  The SPA's **Setup** screen (#125) drives it: `setupDoneGuard` runs first on every route and sends
+  everything to `/setup` while `GET /api/setup` says it's required; on success it signs in via
+  `/api/login`; a 409 (someone finished first) lands on `/login?notice=setupAlreadyDone` — the login
+  screen maps only whitelisted `notice` values to translation keys.
 - `session` — `LoginController` (`POST /api/login`, JSON credentials → 204 + session cookie; unversioned,
   like setup). Authenticates against the same `AuthenticationManager` Basic uses, applies the
   `SessionAuthenticationStrategy` (new session id + rotated CSRF token) and saves the context to the

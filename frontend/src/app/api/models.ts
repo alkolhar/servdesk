@@ -8,3 +8,5 @@ type Schemas = components['schemas'];
 export type MeModel = Schemas['MeModel'];
 export type LoginRequest = Schemas['LoginRequest'];
 export type PersonRole = Schemas['PersonRole'];
+export type SetupStatus = Schemas['SetupStatus'];
+export type SetupRequest = Schemas['SetupRequest'];

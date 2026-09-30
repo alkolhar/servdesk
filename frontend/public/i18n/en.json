@@ -1,13 +1,19 @@
 {
+  "form": {
+    "required": "Required",
+    "email": "Not a valid email address"
+  },
   "login": {
     "title": "Sign in to servdesk",
     "username": "Username",
     "password": "Password",
     "submit": "Sign in",
-    "required": "Required",
     "error": {
       "invalidCredentials": "Wrong username or password.",
       "unavailable": "servdesk can't be reached right now. Please try again."
+    },
+    "notice": {
+      "setupAlreadyDone": "servdesk has already been set up. Please sign in."
     }
   },
   "account": {
@@ -21,5 +27,20 @@
   "role": {
     "AGENT": "Agent",
     "CUSTOMER": "Customer"
+  },
+  "setup": {
+    "title": "Set up servdesk",
+    "intro": "Create the first agent account. It can manage everything else.",
+    "name": "Name",
+    "email": "Email",
+    "username": "Username",
+    "password": "Password",
+    "passwordConfirmation": "Repeat password",
+    "passwordMismatch": "The passwords don't match.",
+    "submit": "Create account and sign in",
+    "error": {
+      "invalid": "The server rejected these details. Please check them and try again.",
+      "unavailable": "servdesk can't be reached right now. Please try again."
+    }
   }
 }
