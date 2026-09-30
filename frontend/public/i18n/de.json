@@ -24,7 +24,6 @@
     "role": "Rolle",
     "username": "Benutzername",
     "email": "E-Mail",
-    "logout": "Abmelden",
     "password": {
       "title": "Passwort ändern",
       "current": "Aktuelles Passwort",
@@ -55,6 +54,71 @@
     "error": {
       "invalid": "Der Server hat diese Angaben abgelehnt. Bitte prüfen Sie sie und versuchen Sie es erneut.",
       "unavailable": "servdesk ist gerade nicht erreichbar. Bitte versuchen Sie es erneut."
+    }
+  },
+  "shell": {
+    "account": "Mein Konto",
+    "logout": "Abmelden"
+  },
+  "status": {
+    "OPEN": "Offen",
+    "IN_PROGRESS": "In Bearbeitung",
+    "PENDING": "Wartend",
+    "RESOLVED": "Gelöst",
+    "CLOSED": "Geschlossen"
+  },
+  "task": {
+    "triage": "Sichtung",
+    "work": "Bearbeiten",
+    "on-hold": "Zurückgestellt",
+    "confirm-resolution": "Lösung bestätigen"
+  },
+  "action": {
+    "start-work": "Bearbeitung beginnen",
+    "put-on-hold": "Zurückstellen",
+    "resume": "Fortsetzen",
+    "resolve": "Lösen",
+    "close": "Schließen",
+    "reopen": "Wieder öffnen",
+    "cancel": "Ticket stornieren"
+  },
+  "ticket": {
+    "status": "Status",
+    "priority": "Priorität",
+    "requester": "Anfragende Person",
+    "createdAt": "Erstellt",
+    "respondBy": "Antwort bis",
+    "resolveBy": "Lösung bis",
+    "resolvedAt": "Gelöst",
+    "closedAt": "Geschlossen",
+    "task": {
+      "title": "Wartet auf",
+      "since": "seit {{when}}",
+      "none": "Nichts – dieses Ticket ist geschlossen."
+    },
+    "comment": {
+      "label": "Kommentar",
+      "back": "Zurück",
+      "why": {
+        "resolve": "Beschreiben Sie, wie es gelöst wurde. Die anfragende Person sieht diese Notiz.",
+        "cancel": "Begründen Sie, warum dieses Ticket ohne Lösung geschlossen wird.",
+        "reject": "Begründen Sie die Ablehnung."
+      }
+    },
+    "done": {
+      "start-work": "Bearbeitung begonnen.",
+      "put-on-hold": "Zurückgestellt.",
+      "resume": "Fortgesetzt.",
+      "resolve": "Gelöst.",
+      "close": "Geschlossen.",
+      "reopen": "Wieder geöffnet.",
+      "cancel": "Ticket storniert."
+    },
+    "error": {
+      "notFound": "Dieses Ticket gibt es nicht.",
+      "unavailable": "servdesk ist gerade nicht erreichbar. Bitte versuchen Sie es erneut.",
+      "movedOn": "Jemand anderes hat das Ticket inzwischen weiterbewegt. Hier ist der aktuelle Stand.",
+      "commentRequired": "Diese Aktion braucht einen Kommentar."
     }
   }
 }

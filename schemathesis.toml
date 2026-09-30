@@ -153,6 +153,13 @@ parameters = { "path.ticketId" = "${SERVDESK_TICKET_ID}" }
 include-name = "POST /api/tickets/{ticketId}/comments"
 parameters = { "path.ticketId" = "${SERVDESK_TICKET_ID}" }
 
+# Actions move the durable incident through its lifecycle; once it's closed every further action
+# answers 409, which is documented. Nothing else pinned to it depends on its stage: GET/PUT and the
+# comment stream work the same on a closed ticket.
+[[operations]]
+include-name = "POST /api/tickets/{ticketId}/actions/{action}"
+parameters = { "path.ticketId" = "${SERVDESK_TICKET_ID}" }
+
 # --- deletes, pinned to the sacrificial rows ------------------------------------------------------
 
 [[operations]]

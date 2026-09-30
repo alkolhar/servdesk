@@ -1,0 +1,86 @@
+<ng-container *transloco="let t">
+  @switch (state()) {
+    @case ('notFound') {
+      <p class="message" role="alert">{{ t('ticket.error.notFound') }}</p>
+    }
+    @case ('unavailable') {
+      <p class="message" role="alert">{{ t('ticket.error.unavailable') }}</p>
+    }
+    @case ('loaded') {
+      @if (incident(); as incident) {
+        <mat-card appearance="outlined">
+          <mat-card-header>
+            <mat-card-subtitle data-testid="display-number">
+              {{ incident.displayNumber }}
+            </mat-card-subtitle>
+            <mat-card-title>
+              <h1>{{ incident.subject }}</h1>
+            </mat-card-title>
+          </mat-card-header>
+          <mat-card-content>
+            <dl>
+              <dt>{{ t('ticket.status') }}</dt>
+              <dd data-testid="status">{{ t('status.' + incident.status) }}</dd>
+              <dt>{{ t('ticket.priority') }}</dt>
+              <dd>{{ priority() ?? '—' }}</dd>
+              <dt>{{ t('ticket.requester') }}</dt>
+              <dd>{{ requester() ?? '—' }}</dd>
+              <dt>{{ t('ticket.createdAt') }}</dt>
+              <dd>{{ formatDateTime(incident.createdAt) }}</dd>
+              <dt>{{ t('ticket.respondBy') }}</dt>
+              <dd>{{ formatDateTime(incident.respondBy) }}</dd>
+              <dt>{{ t('ticket.resolveBy') }}</dt>
+              <dd>{{ formatDateTime(incident.resolveBy) }}</dd>
+              @if (incident.resolvedAt) {
+                <dt>{{ t('ticket.resolvedAt') }}</dt>
+                <dd>{{ formatDateTime(incident.resolvedAt) }}</dd>
+              }
+              @if (incident.closedAt) {
+                <dt>{{ t('ticket.closedAt') }}</dt>
+                <dd>{{ formatDateTime(incident.closedAt) }}</dd>
+              }
+            </dl>
+            @if (incident.description) {
+              <p class="description">{{ incident.description }}</p>
+            }
+          </mat-card-content>
+        </mat-card>
+
+        <mat-card appearance="outlined" class="task" data-testid="task-panel">
+          <mat-card-header>
+            <mat-card-title
+              ><h2>{{ t('ticket.task.title') }}</h2></mat-card-title
+            >
+          </mat-card-header>
+          <mat-card-content>
+            @if (task(); as task) {
+              <p data-testid="task">
+                {{ t('task.' + task.key) }}
+                <span class="since">
+                  · {{ t('ticket.task.since', { when: formatDateTime(task.createdAt) }) }}
+                </span>
+              </p>
+            } @else {
+              <p data-testid="task">{{ t('ticket.task.none') }}</p>
+            }
+          </mat-card-content>
+          @if (actions().length) {
+            <mat-card-actions class="actions">
+              @for (action of actions(); track action.name) {
+                <button
+                  mat-stroked-button
+                  type="button"
+                  [attr.data-action]="action.name"
+                  [disabled]="busy()"
+                  (click)="perform(action)"
+                >
+                  {{ t('action.' + action.name) }}
+                </button>
+              }
+            </mat-card-actions>
+          }
+        </mat-card>
+      }
+    }
+  }
+</ng-container>

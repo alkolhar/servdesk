@@ -6,6 +6,7 @@ import static org.springframework.hateoas.server.mvc.WebMvcLinkBuilder.methodOn;
 import dev.alkolhar.servdesk.common.BaseEntity;
 import dev.alkolhar.servdesk.directory.PersonController;
 import dev.alkolhar.servdesk.ticket.Ticket;
+import dev.alkolhar.servdesk.ticket.TicketTaskModels;
 import dev.alkolhar.servdesk.ticket.problem.Problem;
 import dev.alkolhar.servdesk.ticket.problem.ProblemController;
 import java.util.HashMap;
@@ -15,6 +16,12 @@ import org.springframework.stereotype.Component;
 
 @Component
 public class IncidentModelAssembler implements RepresentationModelAssembler<Incident, IncidentModel> {
+
+	private final TicketTaskModels taskModels;
+
+	public IncidentModelAssembler(TicketTaskModels taskModels) {
+		this.taskModels = taskModels;
+	}
 
 	@Override
 	public IncidentModel toModel(Incident incident) {
@@ -46,6 +53,8 @@ public class IncidentModelAssembler implements RepresentationModelAssembler<Inci
 		model.setUpdatedAt(ticket.getUpdatedAt());
 		model.setCreatedBy(ticket.getCreatedBy());
 		model.setUpdatedBy(ticket.getUpdatedBy());
+		TicketTaskModels.Rendered lifecycle = taskModels.render(incident.getId());
+		model.setTasks(lifecycle.tasks());
 
 		model.add(linkTo(methodOn(IncidentController.class).findById(incident.getId(), null)).withSelfRel());
 		model.add(
@@ -58,6 +67,7 @@ public class IncidentModelAssembler implements RepresentationModelAssembler<Inci
 			model.add(linkTo(methodOn(ProblemController.class).findById(relatedProblem.getId(), null))
 					.withRel("relatedProblem"));
 		}
+		model.add(lifecycle.actionLinks());
 		return model;
 	}
 

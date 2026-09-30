@@ -1,25 +1,43 @@
 import { Routes } from '@angular/router';
-import { Account } from './account/account';
 import { loggedInGuard, loggedOutGuard } from './auth/auth.guards';
-import { Login } from './login/login';
 import { setupDoneGuard, setupPendingGuard } from './setup/setup.guards';
-import { Setup } from './setup/setup';
+import { Shell } from './shell/shell';
 
-// setupDoneGuard runs first everywhere: on an empty database every screen leads to setup
+// setupDoneGuard runs first everywhere: on an empty database every screen leads to setup.
+// Every screen is lazy: the initial bundle is the shell, the router and i18n; Material's form
+// components load with the first screen that uses them.
 export const routes: Routes = [
-  { path: 'setup', component: Setup, canActivate: [setupPendingGuard], title: 'servdesk' },
+  {
+    // lazy: used once per deployment
+    path: 'setup',
+    loadComponent: () => import('./setup/setup').then((m) => m.Setup),
+    canActivate: [setupPendingGuard],
+    title: 'servdesk',
+  },
   {
     path: 'login',
-    component: Login,
+    loadComponent: () => import('./login/login').then((m) => m.Login),
     canActivate: [setupDoneGuard, loggedOutGuard],
     title: 'servdesk',
   },
   {
-    path: 'account',
-    component: Account,
+    path: '',
+    component: Shell,
     canActivate: [setupDoneGuard, loggedInGuard],
-    title: 'servdesk',
+    children: [
+      {
+        path: 'account',
+        loadComponent: () => import('./account/account').then((m) => m.Account),
+        title: 'servdesk',
+      },
+      {
+        // lazy: dialogs and snack bars stay out of the initial bundle
+        path: 'incidents/:id',
+        loadComponent: () => import('./ticket/incident-detail').then((m) => m.IncidentDetail),
+        title: 'servdesk',
+      },
+      { path: '', pathMatch: 'full', redirectTo: 'account' },
+    ],
   },
-  { path: '', pathMatch: 'full', redirectTo: 'account' },
   { path: '**', redirectTo: 'account' },
 ];

@@ -42,6 +42,6 @@ describe('Account', () => {
     const element = await render('de');
 
     expect(element.querySelector('h1')?.textContent).toContain('Mein Konto');
-    expect(element.textContent).toContain('Abmelden');
+    expect(element.textContent).toContain('Rolle');
   });
 });
