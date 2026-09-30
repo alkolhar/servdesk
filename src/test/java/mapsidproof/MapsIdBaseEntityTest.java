@@ -2,6 +2,7 @@ package mapsidproof;
 
 import static org.assertj.core.api.Assertions.assertThat;
 
+import dev.alkolhar.servdesk.TestcontainersConfiguration;
 import dev.alkolhar.servdesk.classification.Category;
 import dev.alkolhar.servdesk.classification.Impact;
 import dev.alkolhar.servdesk.classification.Priority;
@@ -45,7 +46,8 @@ import org.testcontainers.postgresql.PostgreSQLContainer;
 class MapsIdBaseEntityTest {
 
 	@Container
-	private static final PostgreSQLContainer postgres = new PostgreSQLContainer("postgres:latest");
+	private static final PostgreSQLContainer postgres = new PostgreSQLContainer(
+			TestcontainersConfiguration.POSTGRES_IMAGE);
 
 	private static SessionFactory sessionFactory;
 

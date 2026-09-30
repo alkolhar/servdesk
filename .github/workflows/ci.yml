@@ -59,7 +59,11 @@ jobs:
     timeout-minutes: 15
     services:
       postgres:
-        image: postgres:latest
+        # Same image as docker-compose.yml and TestcontainersConfiguration.POSTGRES_IMAGE — keep all
+        # three in step. 17 because Flowable 8's CI covers 14-17 (ADR-0006); move to 18 deliberately,
+        # once Flowable covers it. Bumped by hand: Dependabot's github-actions ecosystem only updates
+        # `uses:` references, not `services:` images (#60 amendment).
+        image: postgres:17.11@sha256:d74eeac9a635390a49bc21bd49fccd973de707e2a53a76ac49b552b8712ec46f
         env:
           POSTGRES_PASSWORD: root
           POSTGRES_DB: servdesk
