@@ -5,10 +5,11 @@ import { MatToolbarModule } from '@angular/material/toolbar';
 import { Router } from '@angular/router';
 import { TranslocoDirective } from '@jsverse/transloco';
 import { AuthService } from '../auth/auth.service';
+import { ChangePassword } from './change-password';
 
 @Component({
   selector: 'app-account',
-  imports: [MatButtonModule, MatCardModule, MatToolbarModule, TranslocoDirective],
+  imports: [ChangePassword, MatButtonModule, MatCardModule, MatToolbarModule, TranslocoDirective],
   templateUrl: './account.html',
   styleUrl: './account.scss',
   changeDetection: ChangeDetectionStrategy.OnPush,

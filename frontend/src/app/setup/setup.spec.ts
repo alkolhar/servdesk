@@ -35,8 +35,8 @@ describe('Setup', () => {
     name: 'Ada Admin',
     email: 'ada@example.com',
     username: 'admin',
-    password: 'admin123',
-    passwordConfirmation: 'admin123',
+    password: 'admin-password',
+    passwordConfirmation: 'admin-password',
   };
 
   async function submit(values: Partial<typeof valid> = {}): Promise<HTMLElement> {
@@ -66,9 +66,9 @@ describe('Setup', () => {
       name: 'Ada Admin',
       email: 'ada@example.com',
       username: 'admin',
-      password: 'admin123',
+      password: 'admin-password',
     });
-    expect(login).toHaveBeenCalledWith('admin', 'admin123');
+    expect(login).toHaveBeenCalledWith('admin', 'admin-password');
     expect(navigateByUrl).toHaveBeenCalledWith('/account');
   });
 
@@ -79,6 +79,13 @@ describe('Setup', () => {
     expect(element.querySelector('[role="alert"]')?.textContent).toContain(
       "The passwords don't match.",
     );
+  });
+
+  it('holds the first password to the policy', async () => {
+    const element = await submit({ password: 'too-short', passwordConfirmation: 'too-short' });
+
+    expect(complete).not.toHaveBeenCalled();
+    expect(element.textContent).toContain('12 to 72 characters');
   });
 
   it('sends a late arrival to the login screen with a notice', async () => {

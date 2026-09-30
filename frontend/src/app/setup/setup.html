@@ -34,7 +34,14 @@
             autocomplete="new-password"
             required
           />
-          <mat-error>{{ t('form.required') }}</mat-error>
+          <mat-hint>{{ t('form.passwordLength', passwordLength) }}</mat-hint>
+          <mat-error>
+            {{
+              form.controls.password.hasError('required')
+                ? t('form.required')
+                : t('form.passwordLength', passwordLength)
+            }}
+          </mat-error>
         </mat-form-field>
         <mat-form-field appearance="outline">
           <mat-label>{{ t('setup.passwordConfirmation') }}</mat-label>
@@ -48,7 +55,7 @@
           <mat-error>{{ t('form.required') }}</mat-error>
         </mat-form-field>
         @if (form.hasError('passwordMismatch') && form.controls.passwordConfirmation.touched) {
-          <p class="error" role="alert">{{ t('setup.passwordMismatch') }}</p>
+          <p class="error" role="alert">{{ t('form.passwordMismatch') }}</p>
         }
         @if (error(); as key) {
           <p class="error" role="alert">{{ t(key) }}</p>

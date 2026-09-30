@@ -1,7 +1,9 @@
 {
   "form": {
     "required": "Required",
-    "email": "Not a valid email address"
+    "email": "Not a valid email address",
+    "passwordLength": "{{min}} to {{max}} characters",
+    "passwordMismatch": "The passwords don't match."
   },
   "login": {
     "title": "Sign in to servdesk",
@@ -22,7 +24,20 @@
     "role": "Role",
     "username": "Username",
     "email": "Email",
-    "logout": "Sign out"
+    "logout": "Sign out",
+    "password": {
+      "title": "Change password",
+      "current": "Current password",
+      "new": "New password",
+      "repeat": "Repeat new password",
+      "submit": "Change password",
+      "changed": "Your password has been changed.",
+      "error": {
+        "wrongCurrent": "The current password is wrong.",
+        "invalid": "The server rejected the new password. Please check it and try again.",
+        "unavailable": "servdesk can't be reached right now. Please try again."
+      }
+    }
   },
   "role": {
     "AGENT": "Agent",
@@ -36,7 +51,6 @@
     "username": "Username",
     "password": "Password",
     "passwordConfirmation": "Repeat password",
-    "passwordMismatch": "The passwords don't match.",
     "submit": "Create account and sign in",
     "error": {
       "invalid": "The server rejected these details. Please check them and try again.",

@@ -1,7 +1,7 @@
 import { HttpClient, HttpErrorResponse } from '@angular/common/http';
 import { Injectable, inject, signal } from '@angular/core';
 import { firstValueFrom } from 'rxjs';
-import { LoginRequest, MeModel } from '../api/models';
+import { ChangePasswordRequest, LoginRequest, MeModel } from '../api/models';
 
 /**
  * The browser session (ADR-0005). The server holds it in an HttpOnly cookie the SPA never sees;
@@ -46,6 +46,12 @@ export class AuthService {
   async logout(): Promise<void> {
     await firstValueFrom(this.http.post<void>('/api/logout', null));
     this.current.set(null);
+  }
+
+  /** Rejects with the HttpErrorResponse; 403 means the current password was wrong. */
+  async changePassword(currentPassword: string, newPassword: string): Promise<void> {
+    const body: ChangePasswordRequest = { currentPassword, newPassword };
+    await firstValueFrom(this.http.put<void>('/api/me/password', body));
   }
 
   /** The server stopped recognising the session (idle timeout, restart, deactivation). */

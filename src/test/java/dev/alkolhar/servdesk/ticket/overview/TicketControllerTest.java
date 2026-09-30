@@ -46,9 +46,9 @@ class TicketControllerTest {
 	@BeforeAll
 	void bootstrapFixtures() {
 		restTemplate.postForEntity("/api/setup",
-				new SetupRequest("Administrator", "admin@example.com", null, "admin", "admin123"), String.class);
-		customerId = createCustomer("Carla Customer", "carla@example.com", "carla", "carla12345");
-		otherCustomerId = createCustomer("Otto Other", "otto@example.com", "otto", "otto12345");
+				new SetupRequest("Administrator", "admin@example.com", null, "admin", "admin-password"), String.class);
+		customerId = createCustomer("Carla Customer", "carla@example.com", "carla", "carla-password");
+		otherCustomerId = createCustomer("Otto Other", "otto@example.com", "otto", "otto-password");
 
 		incidentId = createTicket("/api/incidents", "Mail down", customerId);
 		problemId = createTicket("/api/problems", "Mail outages recurring", customerId);
@@ -136,11 +136,11 @@ class TicketControllerTest {
 	}
 
 	private TestRestTemplate asAdmin() {
-		return restTemplate.withBasicAuth("admin", "admin123");
+		return restTemplate.withBasicAuth("admin", "admin-password");
 	}
 
 	private TestRestTemplate asCustomer() {
-		return restTemplate.withBasicAuth("carla", "carla12345");
+		return restTemplate.withBasicAuth("carla", "carla-password");
 	}
 
 	@SuppressWarnings("unchecked")

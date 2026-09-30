@@ -202,3 +202,10 @@ parameters = { "path.id" = "${SERVDESK_CHANGE_DOOMED_ID}" }
 [[operations]]
 include-name = "DELETE /api/service-requests/{id}"
 parameters = { "path.id" = "${SERVDESK_SERVICE_REQUEST_DOOMED_ID}" }
+
+# --- deliberately NOT pinned ---------------------------------------------------------------------
+#
+# PUT /api/me/password stays unpinned on purpose. Its currentPassword is generated, so it never
+# matches and the run only ever sees the 403/400 paths. Pinning it to the fixture password would
+# make every run change the admin's password on its first success, after which each remaining
+# request is a 401 — #66's lockout, rebuilt by configuration.

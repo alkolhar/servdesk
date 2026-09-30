@@ -61,12 +61,12 @@ public abstract class AbstractTicketSubtypeControllerTest {
 	@BeforeAll
 	void bootstrapFixtures() {
 		restTemplate.postForEntity("/api/setup",
-				new SetupRequest("Administrator", "admin@example.com", null, "admin", "admin123"), String.class);
+				new SetupRequest("Administrator", "admin@example.com", null, "admin", "admin-password"), String.class);
 		Map<String, Object> customerRequest = Map.of("role", "CUSTOMER", "name", "Carla Customer", "email",
-				"carla@example.com", "username", "carla", "password", "carla12345");
+				"carla@example.com", "username", "carla", "password", "carla-password");
 		requesterId = (Number) asAdmin().postForEntity("/api/persons", customerRequest, Map.class).getBody().get("id");
 		Map<String, Object> otherCustomerRequest = Map.of("role", "CUSTOMER", "name", "Otto Other", "email",
-				"otto@example.com", "username", "otto", "password", "otto12345");
+				"otto@example.com", "username", "otto", "password", "otto-password");
 		otherCustomerId = (Number) asAdmin().postForEntity("/api/persons", otherCustomerRequest, Map.class).getBody()
 				.get("id");
 
@@ -84,11 +84,11 @@ public abstract class AbstractTicketSubtypeControllerTest {
 	}
 
 	protected TestRestTemplate asAdmin() {
-		return restTemplate.withBasicAuth("admin", "admin123");
+		return restTemplate.withBasicAuth("admin", "admin-password");
 	}
 
 	protected TestRestTemplate asCustomer() {
-		return restTemplate.withBasicAuth("carla", "carla12345");
+		return restTemplate.withBasicAuth("carla", "carla-password");
 	}
 
 	private Map<String, Object> createBody(String subject) {

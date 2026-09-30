@@ -53,13 +53,13 @@ refuses):
 ```bash
 curl -X POST http://localhost:8080/api/setup \
   -H "Content-Type: application/json" \
-  -d '{"name":"Admin","email":"admin@example.com","username":"admin","password":"admin123"}'
+  -d '{"name":"Admin","email":"admin@example.com","username":"admin","password":"admin-password"}'
 ```
 
 From a script, every other endpoint takes HTTP Basic:
 
 ```bash
-curl -u admin:admin123 http://localhost:8080/api/tickets
+curl -u admin:admin-password http://localhost:8080/api/tickets
 ```
 
 ### `./mvnw spring-boot:test-run` — throwaway database, nothing to configure

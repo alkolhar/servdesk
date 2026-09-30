@@ -10,3 +10,4 @@ export type LoginRequest = Schemas['LoginRequest'];
 export type PersonRole = Schemas['PersonRole'];
 export type SetupStatus = Schemas['SetupStatus'];
 export type SetupRequest = Schemas['SetupRequest'];
+export type ChangePasswordRequest = Schemas['ChangePasswordRequest'];

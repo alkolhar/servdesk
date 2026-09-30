@@ -135,14 +135,23 @@ Controllers return a `*Model` (or `CollectionModel<...>`/`PagedModel<...>`), nev
   `PersonCreatedEvent`). `PersonUserDetails(Service)` adapts `Person` to Spring Security, mapping
   `role` → `ROLE_*`; defining this bean is what makes Boot back off its default generated-password setup.
   `PersonRepository.findByUsername` returns empty for customers (who typically have none).
-  **On `PUT /api/persons/{id}`, the three login-bearing fields read null as "leave unchanged"**
-  (`username`/`password`/`enabled`), deliberately departing from PUT's replace-everything semantics:
+  **On `PUT /api/persons/{id}`, the two login-bearing fields read null as "leave unchanged"**
+  (`username`/`enabled`), deliberately departing from PUT's replace-everything semantics:
   omitting a field must never revoke a login. Issue #66 was exactly that — a generated PUT that
   didn't mention `username` erased it and locked the only agent out of a live deployment, 200 OK and
   all, after which every one of the run's remaining 3884 requests was a 401. `enabled` is
   `@Nullable Boolean` rather than a primitive for the same reason (a primitive defaults an omitted
-  field to `false`, silently disabling the account). The cost, accepted: none of the three can be
+  field to `false`, silently disabling the account). The cost, accepted: neither can be
   *cleared* through this endpoint — revoking a login needs an operation that says so.
+  **Passwords have one door each** (#89, #102): `password` is on create only, never on update (sent
+  anyway, it's an unknown property and ignored). A person changes their own with
+  `PUT /api/me/password` (`currentPassword` + `newPassword` → 204; a mismatch is a **403**
+  `ForbiddenException`, not 401 — the caller is authenticated, and the SPA reads any 401 as "session
+  gone"). Other sessions stay logged in. **Password policy**: `directory.PasswordPolicy`, a composed
+  `@Size(12, 72)` constraint with no composition rules (NIST; 72 is BCrypt's limit), on every
+  password a request *sets* — person create, `/api/setup`, `newPassword` — and never on one that is
+  only compared, so an account from before the policy can still change its old, shorter password.
+  The frontend mirrors it in `auth/password-policy.ts` for early feedback only.
   **Last-Agent invariant** (issue #63): `PersonCommandService` refuses (409) to delete, demote or
   disable the last *login-capable* Agent — role `AGENT` with a username, a password and
   `enabled = true`. Anything less is a directory row, not an administrator, and losing the last one
@@ -355,6 +364,10 @@ Controllers return a `*Model` (or `CollectionModel<...>`/`PagedModel<...>`), nev
   instead of the format. Deliberately **not** swept: `@Positive` → `minimum`, `@NotNull` → `required`
   (ruled out at charting as unbounded per-field judgement), and `maxLength`, which is a different and
   sharper risk — an unbounded generated string against a length-bounded column is a 500, not a warning.
+  The password fields are the one place `minLength: 12`/`maxLength: 72` *are* declared: there they
+  are the policy itself, not a column bound. `PUT /api/me/password` is deliberately left unpinned in
+  `schemathesis.toml` (a pinned `currentPassword` would change the admin's password mid-run — #66's
+  lockout by configuration).
 - **OpenAPI contract-first, no codegen**: `src/main/resources/static/openapi/servdesk-api.yaml` is
   hand-authored and is the source of truth; controllers are written to match it. Served as a static
   resource, viewable at `/docs/index.html` via a Swagger UI webjar (deliberately not `springdoc-openapi`,
