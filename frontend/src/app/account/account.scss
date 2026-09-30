@@ -1,0 +1,29 @@
+.spacer {
+  flex: 1;
+}
+
+.page {
+  max-width: 640px;
+  margin: 24px auto;
+  padding: 0 16px;
+}
+
+h1 {
+  font: var(--mat-sys-headline-small);
+  margin: 0;
+}
+
+dl {
+  display: grid;
+  grid-template-columns: max-content 1fr;
+  gap: 8px 24px;
+  margin: 16px 0 0;
+}
+
+dt {
+  color: var(--mat-sys-on-surface-variant);
+}
+
+dd {
+  margin: 0;
+}

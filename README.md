@@ -1,8 +1,8 @@
 # servdesk
 
 An ITSM (IT service management) ticketing application: a hypermedia REST API built as a modular
-monolith on Java 25 and Spring Boot 4.1, with PostgreSQL as part of the product rather than a
-swappable dependency.
+monolith on Java 25 and Spring Boot 4.1, with an Angular agent workbench built into the same jar and
+PostgreSQL as part of the product rather than a swappable dependency.
 
 The domain model, REST layer, security, CI, and OpenAPI contract testing are in place. Feature work
 is tracked in [GitHub Issues](https://github.com/alkolhar/servdesk/issues), not in this file.
@@ -28,9 +28,13 @@ is tracked in [GitHub Issues](https://github.com/alkolhar/servdesk/issues), not 
   response recorded from the first non-internal agent comment, `PENDING` pausing the clock, and a
   Quartz-driven scanner that flags breaches exactly once.
 - **Directory** — people (agents and customers in one entity, separated by role) and teams.
-- **Security** — HTTP Basic today, with role-based access control and row-level ownership: a
-  customer only ever sees tickets they requested, and a foreign ticket answers 404 rather than 403
-  so ids can't be probed. An OAuth2/OIDC path is staged but inactive.
+- **Security** — a browser session (`POST /api/login`, `HttpOnly` cookie, CSRF-protected writes)
+  alongside stateless HTTP Basic for scripts, with role-based access control and row-level
+  ownership: a customer only ever sees tickets they requested, and a foreign ticket answers 404
+  rather than 403 so ids can't be probed. An OAuth2/OIDC path is staged but inactive.
+- **UI** — an Angular SPA over the same public API, in German and English
+  ([ADR-0003](docs/adr/0003-ui-is-an-angular-spa-over-the-public-api.md)). So far: sign in, My
+  account, sign out.
 
 ## Quick start
 
@@ -49,7 +53,8 @@ curl -X POST http://localhost:8080/api/setup \
   -d '{"name":"Admin","email":"admin@example.com","username":"admin","password":"admin123"}'
 ```
 
-Every other endpoint needs credentials:
+Then open `http://localhost:8080` and sign in. From a script, every other endpoint takes HTTP
+Basic:
 
 ```bash
 curl -u admin:admin123 http://localhost:8080/api/tickets
@@ -100,7 +105,12 @@ running, browse it at `http://localhost:8080/docs/index.html`.
 
 **Docker** is the only hard requirement: integration tests run against a real PostgreSQL via
 Testcontainers, and Docker Compose is the simplest way to run the app. The Maven wrapper (`./mvnw`)
-bootstraps Maven itself; a local **JDK 25** is only needed for IDE work.
+bootstraps Maven itself; a local **JDK 25** is only needed for IDE work. `./mvnw package` downloads
+its own Node for the Angular build; a system **Node 24** is only needed for UI work with hot reload:
+
+```bash
+cd frontend && npm ci && npm start    # http://localhost:4200, proxying /api to the app on :8080
+```
 
 ### Tests
 
@@ -121,6 +131,9 @@ Two deliberately separate layers:
 If Docker isn't available, the integration tests error out on container startup. That's the
 environment talking, not the code.
 
+The UI has its own unit tests and lint, run from `frontend/` (`npm test`, `npm run lint`) and in
+CI's `frontend` job. `./mvnw test` never touches Node.
+
 ### Build and quality gates
 
 ```bash
@@ -128,7 +141,7 @@ environment talking, not the code.
 ./mvnw spotless:apply                           # fix formatting
 ./mvnw spotbugs:check                           # static analysis (not bound to verify)
 ./mvnw org.owasp:dependency-check-maven:check   # CVE scan (needs network access to the NVD feeds)
-./mvnw package                                  # executable jar
+./mvnw package                                  # executable jar, UI included
 docker build -t servdesk .                      # multi-stage, layered image
 ```
 

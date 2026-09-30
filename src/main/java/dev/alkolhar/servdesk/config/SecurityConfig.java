@@ -1,16 +1,21 @@
 package dev.alkolhar.servdesk.config;
 
+import jakarta.servlet.http.HttpServletRequest;
 import jakarta.servlet.http.HttpServletResponse;
 import java.io.IOException;
+import java.util.List;
 import java.util.Map;
+import java.util.Set;
 import org.springframework.context.annotation.Bean;
 import org.springframework.context.annotation.Configuration;
+import org.springframework.http.HttpHeaders;
 import org.springframework.http.HttpMethod;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.MediaType;
 import org.springframework.http.ProblemDetail;
+import org.springframework.security.authentication.AuthenticationManager;
+import org.springframework.security.config.annotation.authentication.configuration.AuthenticationConfiguration;
 import org.springframework.security.config.annotation.web.builders.HttpSecurity;
-import org.springframework.security.config.annotation.web.configurers.AbstractHttpConfigurer;
 import org.springframework.security.crypto.argon2.Argon2PasswordEncoder;
 import org.springframework.security.crypto.bcrypt.BCryptPasswordEncoder;
 import org.springframework.security.crypto.password.DelegatingPasswordEncoder;
@@ -18,7 +23,17 @@ import org.springframework.security.crypto.password.PasswordEncoder;
 import org.springframework.security.web.AuthenticationEntryPoint;
 import org.springframework.security.web.SecurityFilterChain;
 import org.springframework.security.web.access.AccessDeniedHandler;
+import org.springframework.security.web.authentication.logout.HttpStatusReturningLogoutSuccessHandler;
+import org.springframework.security.web.authentication.session.ChangeSessionIdAuthenticationStrategy;
+import org.springframework.security.web.authentication.session.CompositeSessionAuthenticationStrategy;
+import org.springframework.security.web.authentication.session.SessionAuthenticationStrategy;
+import org.springframework.security.web.context.HttpSessionSecurityContextRepository;
+import org.springframework.security.web.context.SecurityContextRepository;
+import org.springframework.security.web.csrf.CookieCsrfTokenRepository;
+import org.springframework.security.web.csrf.CsrfAuthenticationStrategy;
+import org.springframework.security.web.csrf.CsrfException;
 import org.springframework.security.web.firewall.RequestRejectedHandler;
+import org.springframework.security.web.savedrequest.NullRequestCache;
 import tools.jackson.databind.ObjectMapper;
 
 /**
@@ -39,11 +54,24 @@ public class SecurityConfig {
 	}
 
 	/**
-	 * CSRF protection guards cookie-authenticated browser sessions. This API is
-	 * authenticated via HTTP Basic (credentials sent explicitly on every request),
-	 * which isn't vulnerable to CSRF, and with the default config enabled, CSRF
-	 * checks run before the Basic Auth filter and reject unauthenticated-looking
-	 * POST/PUT/DELETE requests before credentials are even evaluated.
+	 * <b>Two ways in</b> (ADR-0005): a browser session established by
+	 * {@code POST /api/login} ({@code LoginController}), or an
+	 * {@code Authorization: Basic} header on every request — scripts, CI and the
+	 * contract tests. Basic stays stateless: {@code BasicAuthenticationFilter}
+	 * keeps its context in a request attribute, never the session, and the request
+	 * cache is off, so neither a Basic caller nor an unauthenticated one ever
+	 * creates a session.
+	 * <p>
+	 * <b>CSRF</b> guards only what a cookie can authenticate: a write whose session
+	 * cookie names a <i>live</i> session and that carries no Basic header (see
+	 * {@link #requiresCsrfProtection}). The token is Spring's cookie-based one
+	 * ({@code XSRF-TOKEN} cookie, {@code X-XSRF-TOKEN} header), which Angular's
+	 * {@code HttpClient} echoes automatically. {@code spa()} renders that cookie on
+	 * every response (its handler loads the deferred token), and a login rotates
+	 * it. A Basic header can't be forged cross-site, and a request with no live
+	 * session has nothing ambient to abuse, so both stay exempt — which is also
+	 * what keeps {@code /api/setup} and a first {@code /api/login} working without
+	 * a token.
 	 * <p>
 	 * <b>RBAC</b>: {@link dev.alkolhar.servdesk.directory.PersonUserDetailsService}
 	 * already maps {@code Person.role} to a
@@ -87,77 +115,170 @@ public class SecurityConfig {
 	 * see the deployment phase) before actually flipping this.
 	 */
 	@Bean
-	SecurityFilterChain filterChain(HttpSecurity http) throws Exception {
-		http.csrf(AbstractHttpConfigurer::disable).authorizeHttpRequests(auth -> auth
-				// reachable pre-auth: it's how the first Person gets created; see
-				// SetupController
-				.requestMatchers("/api/setup/**").permitAll()
-				// hand-written OpenAPI contract (/openapi), its Swagger UI viewer page
-				// (/docs) and the swagger-ui webjar's static assets (/webjars) —
-				// documentation should be discoverable without credentials, same as a
-				// public API reference
-				.requestMatchers("/openapi/**", "/docs/**", "/webjars/**").permitAll()
-				// RestExceptionHandler answers NotFoundException/ConflictException/
-				// DataIntegrityViolationException directly as a ProblemDetail body,
-				// without ever calling sendError, so those no longer forward here. /error
-				// still matters for everything that class doesn't handle: a 404 for a URL
-				// with no matching handler at all, or any other uncaught exception —
-				// reached via Tomcat's internal forward, which on an unauthenticated
-				// request carries no credentials, so without this permitAll entry
-				// AuthorizationFilter would reject the forwarded /error request and
-				// silently overwrite the real status with 401
-				.requestMatchers("/error").permitAll()
-				// person directory management is AGENT-only
-				.requestMatchers("/api/persons/**").hasRole("AGENT")
-				// classification lookup data (Category/Priority/Impact/Urgency/
-				// PriorityDefinition), custom-field definitions, and SLA policies: either
-				// role can read, only an AGENT can create/update/delete — same
-				// reference-data shape
-				.requestMatchers(HttpMethod.GET, "/api/categories/**", "/api/priorities/**", "/api/impacts/**",
-						"/api/urgencies/**", "/api/priority-definitions/**", "/api/attribute-definitions/**",
-						"/api/sla-policies/**")
-				.hasAnyRole("AGENT", "CUSTOMER")
-				.requestMatchers(HttpMethod.POST, "/api/categories/**", "/api/priorities/**", "/api/impacts/**",
-						"/api/urgencies/**", "/api/priority-definitions/**", "/api/attribute-definitions/**",
-						"/api/sla-policies/**")
-				.hasRole("AGENT")
-				.requestMatchers(HttpMethod.PUT, "/api/categories/**", "/api/priorities/**", "/api/impacts/**",
-						"/api/urgencies/**", "/api/priority-definitions/**", "/api/attribute-definitions/**",
-						"/api/sla-policies/**")
-				.hasRole("AGENT")
-				.requestMatchers(HttpMethod.DELETE, "/api/categories/**", "/api/priorities/**", "/api/impacts/**",
-						"/api/urgencies/**", "/api/priority-definitions/**", "/api/attribute-definitions/**",
-						"/api/sla-policies/**")
-				.hasRole("AGENT")
-				// ticket subtypes: either role can read, only an AGENT can create, change
-				// status, or delete (see ADR-0001; a deliberate narrowing from the old flat
-				// Ticket's policy — customer self-service creation is deferred)
-				.requestMatchers(HttpMethod.GET, "/api/incidents/**", "/api/problems/**", "/api/changes/**",
-						"/api/service-requests/**")
-				.hasAnyRole("AGENT", "CUSTOMER")
-				.requestMatchers(HttpMethod.POST, "/api/incidents/**", "/api/problems/**", "/api/changes/**",
-						"/api/service-requests/**")
-				.hasRole("AGENT")
-				.requestMatchers(HttpMethod.PUT, "/api/incidents/**", "/api/problems/**", "/api/changes/**",
-						"/api/service-requests/**")
-				.hasRole("AGENT")
-				.requestMatchers(HttpMethod.DELETE, "/api/incidents/**", "/api/problems/**", "/api/changes/**",
-						"/api/service-requests/**")
-				.hasRole("AGENT")
-				// comments: either role can read or add one (a customer needs to reply on
-				// their own ticket); the internal-flag-is-Agent-only rule is enforced by
-				// CommentCommandService, not here (see the class javadoc above)
-				.requestMatchers(HttpMethod.GET, "/api/tickets/*/comments").hasAnyRole("AGENT", "CUSTOMER")
-				.requestMatchers(HttpMethod.POST, "/api/tickets/*/comments").hasAnyRole("AGENT", "CUSTOMER")
-				// cross-subtype ticket overview (issue #30): read-only for either role —
-				// there is no write surface under /api/tickets itself, writes stay on the
-				// subtype endpoints above; row-level ownership is enforced by
-				// TicketQueryService like everywhere else
-				.requestMatchers(HttpMethod.GET, "/api/tickets/**").hasAnyRole("AGENT", "CUSTOMER").anyRequest()
-				.authenticated())
+	SecurityFilterChain filterChain(HttpSecurity http, CookieCsrfTokenRepository csrfTokenRepository) throws Exception {
+		http.csrf(csrf -> csrf.spa().csrfTokenRepository(csrfTokenRepository)
+				.requireCsrfProtectionMatcher(SecurityConfig::requiresCsrfProtection))
+				.logout(logout -> logout.logoutUrl("/api/logout")
+						.logoutSuccessHandler(new HttpStatusReturningLogoutSuccessHandler(HttpStatus.NO_CONTENT))
+						.deleteCookies(SESSION_COOKIE))
+				// no redirect-after-login in an API; left on, every unauthenticated
+				// request would create a session just to remember itself
+				.requestCache(cache -> cache.requestCache(new NullRequestCache())).authorizeHttpRequests(auth -> auth
+						// reachable pre-auth: it's how the first Person gets created; see
+						// SetupController
+						.requestMatchers("/api/setup/**").permitAll()
+						// the login itself (LoginController); /api/logout is answered by
+						// LogoutFilter before authorization is ever consulted
+						.requestMatchers(HttpMethod.POST, "/api/login").permitAll()
+						// hand-written OpenAPI contract (/openapi), its Swagger UI viewer page
+						// (/docs) and the swagger-ui webjar's static assets (/webjars) —
+						// documentation should be discoverable without credentials, same as a
+						// public API reference
+						.requestMatchers("/openapi/**", "/docs/**", "/webjars/**").permitAll()
+						// RestExceptionHandler answers NotFoundException/ConflictException/
+						// DataIntegrityViolationException directly as a ProblemDetail body,
+						// without ever calling sendError, so those no longer forward here. /error
+						// still matters for everything that class doesn't handle: a 404 for a URL
+						// with no matching handler at all, or any other uncaught exception —
+						// reached via Tomcat's internal forward, which on an unauthenticated
+						// request carries no credentials, so without this permitAll entry
+						// AuthorizationFilter would reject the forwarded /error request and
+						// silently overwrite the real status with 401
+						.requestMatchers("/error").permitAll()
+						// person directory management is AGENT-only
+						.requestMatchers("/api/persons/**").hasRole("AGENT")
+						// classification lookup data (Category/Priority/Impact/Urgency/
+						// PriorityDefinition), custom-field definitions, and SLA policies: either
+						// role can read, only an AGENT can create/update/delete — same
+						// reference-data shape
+						.requestMatchers(HttpMethod.GET, "/api/categories/**", "/api/priorities/**", "/api/impacts/**",
+								"/api/urgencies/**", "/api/priority-definitions/**", "/api/attribute-definitions/**",
+								"/api/sla-policies/**")
+						.hasAnyRole("AGENT", "CUSTOMER")
+						.requestMatchers(HttpMethod.POST, "/api/categories/**", "/api/priorities/**", "/api/impacts/**",
+								"/api/urgencies/**", "/api/priority-definitions/**", "/api/attribute-definitions/**",
+								"/api/sla-policies/**")
+						.hasRole("AGENT")
+						.requestMatchers(HttpMethod.PUT, "/api/categories/**", "/api/priorities/**", "/api/impacts/**",
+								"/api/urgencies/**", "/api/priority-definitions/**", "/api/attribute-definitions/**",
+								"/api/sla-policies/**")
+						.hasRole("AGENT")
+						.requestMatchers(HttpMethod.DELETE, "/api/categories/**", "/api/priorities/**",
+								"/api/impacts/**", "/api/urgencies/**", "/api/priority-definitions/**",
+								"/api/attribute-definitions/**", "/api/sla-policies/**")
+						.hasRole("AGENT")
+						// ticket subtypes: either role can read, only an AGENT can create, change
+						// status, or delete (see ADR-0001; a deliberate narrowing from the old flat
+						// Ticket's policy — customer self-service creation is deferred)
+						.requestMatchers(HttpMethod.GET, "/api/incidents/**", "/api/problems/**", "/api/changes/**",
+								"/api/service-requests/**")
+						.hasAnyRole("AGENT", "CUSTOMER")
+						.requestMatchers(HttpMethod.POST, "/api/incidents/**", "/api/problems/**", "/api/changes/**",
+								"/api/service-requests/**")
+						.hasRole("AGENT")
+						.requestMatchers(HttpMethod.PUT, "/api/incidents/**", "/api/problems/**", "/api/changes/**",
+								"/api/service-requests/**")
+						.hasRole("AGENT")
+						.requestMatchers(HttpMethod.DELETE, "/api/incidents/**", "/api/problems/**", "/api/changes/**",
+								"/api/service-requests/**")
+						.hasRole("AGENT")
+						// comments: either role can read or add one (a customer needs to reply on
+						// their own ticket); the internal-flag-is-Agent-only rule is enforced by
+						// CommentCommandService, not here (see the class javadoc above)
+						.requestMatchers(HttpMethod.GET, "/api/tickets/*/comments").hasAnyRole("AGENT", "CUSTOMER")
+						.requestMatchers(HttpMethod.POST, "/api/tickets/*/comments").hasAnyRole("AGENT", "CUSTOMER")
+						// cross-subtype ticket overview (issue #30): read-only for either role —
+						// there is no write surface under /api/tickets itself, writes stay on the
+						// subtype endpoints above; row-level ownership is enforced by
+						// TicketQueryService like everywhere else
+						.requestMatchers(HttpMethod.GET, "/api/tickets/**").hasAnyRole("AGENT", "CUSTOMER")
+						// the SPA (ADR-0003): its static assets, and every deep link
+						// SpaForwardingFilter hands to index.html, are public — only /api/** holds
+						// anything worth protecting
+						.requestMatchers(SecurityConfig::isPublicUiRequest).permitAll().anyRequest().authenticated())
 				.httpBasic(basic -> basic.authenticationEntryPoint(problemDetailAuthenticationEntryPoint()))
-				.exceptionHandling(exceptions -> exceptions.accessDeniedHandler(problemDetailAccessDeniedHandler()));
+				.exceptionHandling(
+						exceptions -> exceptions.authenticationEntryPoint(problemDetailAuthenticationEntryPoint())
+								.accessDeniedHandler(problemDetailAccessDeniedHandler()));
 		return http.build();
+	}
+
+	/**
+	 * Servlet containers' default session cookie name; {@code POST /api/logout}
+	 * expires it.
+	 */
+	private static final String SESSION_COOKIE = "JSESSIONID";
+
+	private static final Set<String> SAFE_METHODS = Set.of("GET", "HEAD", "OPTIONS", "TRACE");
+
+	/**
+	 * CSRF applies to a write only when a cookie is what authenticates it: the
+	 * request names a live session and carries no Basic header. A stale session
+	 * cookie (after a restart, or past the idle timeout) authenticates nothing, so
+	 * a fresh {@code /api/login} with one still needs no token.
+	 */
+	static boolean requiresCsrfProtection(HttpServletRequest request) {
+		return !SAFE_METHODS.contains(request.getMethod()) && request.isRequestedSessionIdValid()
+				&& !isBasicAuthenticated(request);
+	}
+
+	private static boolean isBasicAuthenticated(HttpServletRequest request) {
+		String authorization = request.getHeader(HttpHeaders.AUTHORIZATION);
+		return authorization != null && authorization.regionMatches(true, 0, "Basic ", 0, 6);
+	}
+
+	private static boolean isPublicUiRequest(HttpServletRequest request) {
+		if (!"GET".equals(request.getMethod())) {
+			return false;
+		}
+		String path = request.getRequestURI().substring(request.getContextPath().length());
+		return !(path.equals("/api") || path.startsWith("/api/") || path.equals("/actuator")
+				|| path.startsWith("/actuator/"));
+	}
+
+	/**
+	 * {@code XSRF-TOKEN} is readable by the SPA's JavaScript by design (that's how
+	 * the token reaches the header); {@code SameSite=Strict} matches the session
+	 * cookie, and {@code Secure} follows the request, as the repository does by
+	 * default.
+	 */
+	@Bean
+	CookieCsrfTokenRepository csrfTokenRepository() {
+		CookieCsrfTokenRepository repository = CookieCsrfTokenRepository.withHttpOnlyFalse();
+		repository.setCookieCustomizer(cookie -> cookie.sameSite("Strict"));
+		return repository;
+	}
+
+	/**
+	 * What {@code LoginController} applies on a successful login: a new session id
+	 * (session-fixation protection) and a new CSRF token, so neither a planted
+	 * session nor a planted token survives authentication.
+	 */
+	@Bean
+	SessionAuthenticationStrategy sessionAuthenticationStrategy(CookieCsrfTokenRepository csrfTokenRepository) {
+		return new CompositeSessionAuthenticationStrategy(List.of(new ChangeSessionIdAuthenticationStrategy(),
+				new CsrfAuthenticationStrategy(csrfTokenRepository)));
+	}
+
+	/**
+	 * Where {@code LoginController} stores the authenticated context. The filter
+	 * chain's own default repository already reads from the session, so a later
+	 * request finds it there.
+	 */
+	@Bean
+	SecurityContextRepository sessionSecurityContextRepository() {
+		return new HttpSessionSecurityContextRepository();
+	}
+
+	/**
+	 * The {@code AuthenticationManager} Spring Security already assembles from
+	 * {@code PersonUserDetailsService} and {@link #passwordEncoder()} — the same
+	 * one HTTP Basic authenticates against — exposed so {@code LoginController} can
+	 * use it too.
+	 */
+	@Bean
+	AuthenticationManager authenticationManager(AuthenticationConfiguration configuration) throws Exception {
+		return configuration.getAuthenticationManager();
 	}
 
 	/**
@@ -177,7 +298,9 @@ public class SecurityConfig {
 
 	private AccessDeniedHandler problemDetailAccessDeniedHandler() {
 		return (request, response, accessDeniedException) -> writeProblemDetail(response, HttpStatus.FORBIDDEN,
-				"Access is denied.");
+				accessDeniedException instanceof CsrfException
+						? "Missing or invalid CSRF token: a session-authenticated write must echo the XSRF-TOKEN cookie in the X-XSRF-TOKEN header."
+						: "Access is denied.");
 	}
 
 	/**

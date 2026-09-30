@@ -1,0 +1,30 @@
+<ng-container *transloco="let t">
+  <mat-toolbar>
+    <span class="brand">servdesk</span>
+    <span class="spacer"></span>
+    <button mat-button type="button" (click)="logout()">{{ t('account.logout') }}</button>
+  </mat-toolbar>
+  <main class="page">
+    @if (auth.me(); as me) {
+      <mat-card appearance="outlined">
+        <mat-card-header>
+          <mat-card-title
+            ><h1>{{ t('account.title') }}</h1></mat-card-title
+          >
+        </mat-card-header>
+        <mat-card-content>
+          <dl>
+            <dt>{{ t('account.name') }}</dt>
+            <dd data-testid="name">{{ me.name }}</dd>
+            <dt>{{ t('account.role') }}</dt>
+            <dd data-testid="role">{{ t('role.' + me.role) }}</dd>
+            <dt>{{ t('account.username') }}</dt>
+            <dd>{{ me.username }}</dd>
+            <dt>{{ t('account.email') }}</dt>
+            <dd>{{ me.email }}</dd>
+          </dl>
+        </mat-card-content>
+      </mat-card>
+    }
+  </main>
+</ng-container>

@@ -4,3 +4,8 @@ target/
 *.iml
 .mvn/wrapper/maven-wrapper.jar
 hook-debug.log
+# the image builds the frontend itself (npm ci + its own Node, via frontend-maven-plugin)
+frontend/node_modules/
+frontend/node/
+frontend/dist/
+frontend/.angular/

@@ -14,6 +14,9 @@ COPY mvnw pom.xml ./
 RUN ./mvnw -q dependency:go-offline
 
 COPY src/ src/
+# the Angular SPA (ADR-0003): built into the jar at prepare-package, with the Node that
+# frontend-maven-plugin downloads — nothing Node-related is needed in this image beforehand
+COPY frontend/ frontend/
 RUN ./mvnw -q package -DskipTests
 
 # Extract the layered jar (dependencies / spring-boot-loader / snapshot-dependencies / application)

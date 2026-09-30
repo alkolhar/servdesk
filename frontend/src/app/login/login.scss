@@ -1,0 +1,32 @@
+.page {
+  display: grid;
+  place-items: center;
+  min-height: 100%;
+  padding: 16px;
+  box-sizing: border-box;
+}
+
+.login-card {
+  width: min(400px, 100%);
+}
+
+h1 {
+  font: var(--mat-sys-headline-small);
+  margin: 0;
+}
+
+mat-card-content {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+  padding-top: 16px;
+}
+
+.error {
+  color: var(--mat-sys-error);
+  margin: 0;
+}
+
+mat-card-actions {
+  padding: 8px 16px 16px;
+}
