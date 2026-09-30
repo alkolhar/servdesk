@@ -35,6 +35,13 @@
         <dependency-check-maven.version>12.2.2</dependency-check-maven.version>
         <archunit-junit5.version>1.4.2</archunit-junit5.version>
         <frontend-maven-plugin.version>1.15.1</frontend-maven-plugin.version>
+        <!--
+            Built against Boot 4.0.2 / Framework 7.0.3; Boot 4.1 support is only on Flowable's
+            unreleased main. The gap touches only Kafka/RabbitMQ adapters servdesk doesn't load
+            (docs/research/2026-09-29-flowable-on-spring-boot-4.md). Move to the first release built
+            on Boot 4.1 when there is one.
+        -->
+        <flowable.version>8.0.0</flowable.version>
         <!-- the Node the Angular build runs on; keep within @angular/cli's engines range -->
         <frontend.node.version>v24.15.0</frontend.node.version>
         <!-- frontend-maven-plugin's own skip switch, also read by the copy-frontend execution -->
@@ -64,6 +71,12 @@
         <dependency>
             <groupId>org.springframework.boot</groupId>
             <artifactId>spring-boot-starter-quartz</artifactId>
+        </dependency>
+        <!-- the ticket lifecycle engine (ADR-0004); BPMN engine only, IDM off (application.properties) -->
+        <dependency>
+            <groupId>org.flowable</groupId>
+            <artifactId>flowable-spring-boot-starter-process</artifactId>
+            <version>${flowable.version}</version>
         </dependency>
         <dependency>
             <groupId>org.springframework.boot</groupId>

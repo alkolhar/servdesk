@@ -937,7 +937,7 @@ paths:
           $ref: "#/components/responses/NotFoundProblem"
     put:
       tags: [incidents]
-      summary: Replace an Incident's editable fields, including status. Agent-only.
+      summary: Replace an Incident's descriptive fields (not its status). Agent-only.
       requestBody:
         required: true
         content:
@@ -2630,7 +2630,8 @@ components:
       description: >
         An unplanned interruption or reduction in quality of a service (ADR-0001: composes with the
         shared Ticket record rather than extending it — `id` here is the same value as that shared
-        Ticket's id).
+        Ticket's id). Its `status` is set by its lifecycle process (ticket-incident, ADR-0004/0007):
+        a new Incident starts OPEN, and only the process moves it.
       properties:
         id:
           type: integer
@@ -2777,10 +2778,11 @@ components:
           nullable: true
     IncidentUpdateRequest:
       type: object
-      required: [status, subject, requesterId]
+      required: [subject, requesterId]
+      description: >
+        The descriptive fields only. No status: an Incident's status is its lifecycle process's
+        projection (ADR-0004) and moves only through the process. A status sent anyway is ignored.
       properties:
-        status:
-          $ref: "#/components/schemas/TicketStatus"
         subject:
           type: string
           minLength: 1

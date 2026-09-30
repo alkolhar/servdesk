@@ -58,6 +58,18 @@ OpenAPI contract testing (Redocly lint/bundle + Schemathesis) runs as its own CI
   fonts: the self-hosted product mustn't make browsers call out to a font CDN, so Material's
   typography uses the system font stack.
 - **Security**: `spring-boot-starter-security` + `spring-security-messaging`.
+- **Flowable 8.0.0** (`flowable-spring-boot-starter-process`, embedded BPMN engine) drives the ticket
+  lifecycle ([ADR-0004](docs/adr/0004-flowable-drives-the-ticket-lifecycle.md),
+  [ADR-0007](docs/adr/0007-one-bpmn-lifecycle-process-per-ticket-subtype.md)): one process definition per
+  subtype under `src/main/resources/processes/*.bpmn20.xml`, auto-deployed at startup. Built against
+  Boot 4.0.2, running on 4.1 (`docs/research/2026-09-29-flowable-on-spring-boot-4.md`; move to the first
+  release built on 4.1). IDM engine off (`flowable.idm.enabled=false` — identity stays with `Person`),
+  history `audit` (operations/debugging, not the product's audit trail), **async executor off** until
+  the auto-close timer (#116) needs it, so every process step runs synchronously **in its caller's
+  Spring transaction** (Flowable joins the `JpaTransactionManager`). Flowable owns its own
+  `act_*`/`flw_*` tables and creates/upgrades them at startup
+  ([ADR-0006](docs/adr/0006-flowable-owns-its-tables-flyway-owns-servdesks.md)); see the Flyway exception
+  below.
 - **Spring Integration** (`http`/`jpa`) is on the classpath for future integration flows, not yet
   used. **Quartz** got its first consumer with the SLA breach scanner (`sla.SlaSchedulingConfig`,
   default in-memory job store — a missed tick is harmless, the next pass is idempotent).
@@ -234,11 +246,29 @@ Controllers return a `*Model` (or `CollectionModel<...>`/`PagedModel<...>`), nev
     `Incident.relatedProblem` is an optional many-to-one to `Problem` (no reverse query). Creating any
     subtype is Agent-only.
   - `AbstractTicketSubtypeCommandService`/`QueryService` — shared base: resolves
-    requester/assignee/team/category/priority ids, derives `resolvedAt`/`closedAt` purely server-side
-    from a status transition (set entering RESOLVED/CLOSED, cleared on reopen to an earlier stage —
-    relies on `TicketStatus`'s enum order matching lifecycle order), publishes
-    `TicketStatusChangedEvent` only when status actually changed. Delete soft-deletes both the subtype
-    row and the shared `Ticket` row.
+    requester/assignee/team/category/priority ids and the descriptive fields — **never the status**.
+    Delete soft-deletes both the subtype row and the shared `Ticket` row.
+  - **`TicketLifecycle` is the only writer of `Ticket.status`** (ADR-0004): `enterStatus(ticketId,
+    status)` is what a BPMN stage's start execution listener calls
+    (`${ticketLifecycle.enterStatus(execution.processInstanceBusinessKey, 'IN_PROGRESS')}` — the process
+    decides *when*, Java decides *what it means*); `applyStatus(ticket, status)` is the same for a
+    caller holding the managed ticket (named apart because JUEL resolves by name + arity). It applies
+    every side effect with **explicit** previous/new statuses, no ordinals: `resolvedAt` set entering
+    RESOLVED, cleared entering OPEN/IN_PROGRESS/PENDING, kept entering CLOSED (so `cancel` closes
+    without ever resolving); `closedAt` set entering CLOSED, else cleared; the SLA pause/resume via
+    `SlaHooks.applyOnWrite(ticket, previous, currentPriorityId)`; `TicketStatusChangedEvent`. Entering
+    the current status is a no-op.
+  - **Incident is on its process** (`ticket-incident`, #110): `IncidentCommandService.create` starts
+    exactly one instance through `TicketProcesses`, **business key = the shared Ticket id**, in the
+    creation transaction (a failed start fails the create); stages `triage`/`work`/`on-hold`/
+    `confirm-resolution` are user tasks whose id is the task key, completed with an `outcome` variable
+    that exclusive gateways route on; the end event is CLOSED (terminal). `status` is gone from
+    `IncidentUpdateRequest` (sent anyway: ignored). Soft-delete ends the running instance ("Incident
+    deleted"); a closed Incident has none left. The API that moves stages (`/actions`) is #111; until
+    then only the engine's `TaskService` does. **Problem/Change/ServiceRequest still take `status` on
+    `PUT`** until their own slices, routed through `applyRequestedStatus` → `TicketLifecycle` *after*
+    the descriptive fields' SLA call — the order `SlaHooks` always had (re-derive for a new priority,
+    then shift for an ending pause).
     **Every subtype's `create`/`update`/`delete` — and `CommentCommandService.create` — is
     `@Transactional`** (#127): each writes the shared `Ticket` row plus another, and committed
     separately a failed second write (e.g. a nonexistent `relatedProblemId`) left an orphan `Ticket`
@@ -346,7 +376,12 @@ Controllers return a `*Model` (or `CollectionModel<...>`/`PagedModel<...>`), nev
   edit through the API. Seeded names are numbered (`"1 - High"`, `"P1 - Critical"`) so they never
   collide with the bare names (`"High"`, `"Critical"`) integration tests create under the partial
   unique indexes; keep new test fixtures off the numbered forms.
-- `application.properties`: `ddl-auto=validate` (Flyway is the only schema source of truth; this just
+- **Schema ownership** (ADR-0006): Flyway owns servdesk's tables, **Flowable owns its `act_*`/`flw_*`
+  tables** (`flowable.database-schema-update=true`, created/upgraded at startup, same schema); neither
+  touches the other's, and there are no foreign keys either way — a ticket's process is found by
+  business key. A Flowable upgrade is a dependency bump whose schema changes arrive with it.
+- `application.properties`: `ddl-auto=validate` (Flyway is the only schema source of truth for
+  servdesk's own tables; this just
   fails fast on drift — e.g. unbounded text columns are `TEXT` and must be mapped
   `@JdbcTypeCode(SqlTypes.LONGVARCHAR)`, not `@Lob`, which Postgres would map to `oid` large objects —
   see `TicketComment.body`), `open-in-view=false` (assemblers only call `.getId()`
@@ -452,9 +487,9 @@ Two deliberately separate layers:
 
 - **Unit tests** (`*CommandServiceTest`/`*QueryServiceTest`) — `@ExtendWith(MockitoExtension.class)`,
   every collaborator mocked, no Spring context/database. Cover internal decisions HTTP tests can't
-  easily observe: does `update()` leave an unset password alone, does status-transition derivation of
-  `resolvedAt`/`closedAt` only fire on an actual transition (exercised via `ProblemCommandService`,
-  since Problem carries no field of its own — the simplest concrete subtype), is a rejection thrown
+  easily observe: does `update()` leave the password alone, what each status transition means
+  (`TicketLifecycleTest`, and through a real `TicketLifecycle` in `ProblemCommandServiceTest`, since
+  Problem still takes status on `PUT` and carries no field of its own), is a rejection thrown
   *before* any repository call. A transient entity has no public id setter, so tests needing a "saved"
   fixture use `ReflectionTestUtils.setField(entity, "id", ...)` inside the mocked repository's `save`
   stub.
@@ -487,6 +522,12 @@ Two deliberately separate layers:
   on the entity, failing the exact pattern this codebase recommends.)
 - **Contract testing lives in CI, not `./mvnw verify`** — see the `contract-tests` job under Deployment
   below.
+- **Lifecycle processes**: `ticket.incident.IncidentLifecycleTest` drives a real engine — moving stages
+  by completing the current task with an `outcome` through `TaskService` (what `/actions` will do) —
+  and checks each stage's projection, resolve/reopen/close, cancel-without-resolving, the SLA pause
+  and resume, `TicketStatusChangedEvent`, process end on soft-delete, and that Flowable owns its tables.
+  `AbstractTicketSubtypeControllerTest.statusFollowsALifecycleProcess()` (true for Incident) swaps the
+  shared PUT-status test for one proving `PUT` can't move status; flip it per subtype with its slice.
 - **Sessions**: `session.SessionAuthenticationTest` drives login, the cookie's attributes, `/api/me`,
   CSRF-on-session vs Basic-exempt, logout and the challenge-free 401 through the real filter chain,
   carrying cookies by hand (`TestRestTemplate` keeps none).

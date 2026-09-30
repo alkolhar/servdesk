@@ -19,6 +19,7 @@ import dev.alkolhar.servdesk.customfield.AttributeValidator;
 import dev.alkolhar.servdesk.directory.Person;
 import dev.alkolhar.servdesk.ticket.SlaHooks;
 import dev.alkolhar.servdesk.ticket.Ticket;
+import dev.alkolhar.servdesk.ticket.TicketLifecycle;
 import dev.alkolhar.servdesk.ticket.TicketRepository;
 import dev.alkolhar.servdesk.ticket.TicketStatus;
 import dev.alkolhar.servdesk.ticket.event.TicketStatusChangedEvent;
@@ -40,8 +41,10 @@ import org.springframework.test.util.ReflectionTestUtils;
  * concrete subtype (Problem carries no field of its own beyond the shared ones)
  * — {@code ProblemControllerTest}/the shared abstract integration-test base
  * already cover this end-to-end; these pin down the internal
- * resolvedAt/closedAt derivation, priority derivation from an impact/urgency
- * pair, and display-number assignment that the HTTP level can't easily observe.
+ * resolvedAt/closedAt derivation (through a real {@link TicketLifecycle}, since
+ * a Problem's status still comes from its update request), priority derivation
+ * from an impact/urgency pair, and display-number assignment that the HTTP
+ * level can't easily observe.
  */
 @ExtendWith(MockitoExtension.class)
 class ProblemCommandServiceTest {
@@ -74,8 +77,11 @@ class ProblemCommandServiceTest {
 
 	@BeforeEach
 	void setUp() {
+		// a real lifecycle over the same mocks: Problem's status still comes from its
+		// update request, so these tests follow a status all the way through
+		TicketLifecycle lifecycle = new TicketLifecycle(ticketRepository, slaHooks, events);
 		commandService = new ProblemCommandService(problemRepository, problemQueryService, ticketRepository,
-				entityManager, events, priorityDefinitionRepository, attributeValidator, slaHooks);
+				entityManager, lifecycle, priorityDefinitionRepository, attributeValidator, slaHooks);
 	}
 
 	private void stubSavesToReturnTheirArgument() {

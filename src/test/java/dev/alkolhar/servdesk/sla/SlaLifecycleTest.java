@@ -172,13 +172,18 @@ class SlaLifecycleTest {
 
 	@Test
 	void pendingPausesTheClock() {
-		Number id = createUrgentIncident("Paused while pending");
-		Map<String, Object> fetched = asAdmin().getForEntity("/api/incidents/" + id, Map.class).getBody();
+		// a Problem, whose status is still set through PUT: an Incident's moves only
+		// through its lifecycle process, and IncidentLifecycleTest covers the pause
+		// there
+		Map<String, Object> create = Map.of("subject", "Paused while pending", "requesterId", requesterId, "impactId",
+				urgentImpactId, "urgencyId", urgentUrgencyId);
+		Number id = (Number) asAdmin().postForEntity("/api/problems", create, Map.class).getBody().get("id");
+		Map<String, Object> fetched = asAdmin().getForEntity("/api/problems/" + id, Map.class).getBody();
 		Instant originalRespondBy = Instant.parse((String) fetched.get("respondBy"));
 
 		Map<String, Object> toPending = Map.of("status", "PENDING", "subject", "Paused while pending", "requesterId",
 				requesterId, "impactId", urgentImpactId, "urgencyId", urgentUrgencyId);
-		asAdmin().exchange("/api/incidents/" + id, HttpMethod.PUT, new HttpEntity<>(toPending), Map.class);
+		asAdmin().exchange("/api/problems/" + id, HttpMethod.PUT, new HttpEntity<>(toPending), Map.class);
 
 		// backdate the pause start to make the shift observable
 		Ticket ticket = ticketRepository.findById(id.longValue()).orElseThrow();
@@ -188,7 +193,7 @@ class SlaLifecycleTest {
 		Map<String, Object> toInProgress = Map.of("status", "IN_PROGRESS", "subject", "Paused while pending",
 				"requesterId", requesterId, "impactId", urgentImpactId, "urgencyId", urgentUrgencyId);
 		Map<String, Object> resumed = asAdmin()
-				.exchange("/api/incidents/" + id, HttpMethod.PUT, new HttpEntity<>(toInProgress), Map.class).getBody();
+				.exchange("/api/problems/" + id, HttpMethod.PUT, new HttpEntity<>(toInProgress), Map.class).getBody();
 
 		Instant shiftedRespondBy = Instant.parse((String) resumed.get("respondBy"));
 		assertThat(java.time.Duration.between(originalRespondBy, shiftedRespondBy))
