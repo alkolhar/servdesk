@@ -34,6 +34,11 @@
         <jacoco-maven-plugin.version>0.8.15</jacoco-maven-plugin.version>
         <dependency-check-maven.version>12.2.2</dependency-check-maven.version>
         <archunit-junit5.version>1.4.2</archunit-junit5.version>
+        <frontend-maven-plugin.version>1.15.1</frontend-maven-plugin.version>
+        <!-- the Node the Angular build runs on; keep within @angular/cli's engines range -->
+        <frontend.node.version>v24.15.0</frontend.node.version>
+        <!-- frontend-maven-plugin's own skip switch, also read by the copy-frontend execution -->
+        <skip.npm>false</skip.npm>
     </properties>
     <dependencies>
         <dependency>
@@ -206,6 +211,79 @@
             <plugin>
                 <groupId>org.springframework.boot</groupId>
                 <artifactId>spring-boot-maven-plugin</artifactId>
+            </plugin>
+            <!--
+                The Angular SPA in frontend/ (ADR-0003), built into the same jar. Bound to
+                prepare-package, so `./mvnw package` (and the Dockerfile) produce the complete app
+                while `./mvnw compile`/`test` stay Java-only. Downloads its own Node into
+                frontend/node: no system Node needed. `npm run build` regenerates the TypeScript
+                models from servdesk-api.yaml first, so a contract change that breaks a screen fails
+                here. Skip the whole frontend with -Dskip.installnodenpm -Dskip.npm.
+            -->
+            <plugin>
+                <groupId>com.github.eirslett</groupId>
+                <artifactId>frontend-maven-plugin</artifactId>
+                <version>${frontend-maven-plugin.version}</version>
+                <configuration>
+                    <workingDirectory>frontend</workingDirectory>
+                    <installDirectory>frontend</installDirectory>
+                    <nodeVersion>${frontend.node.version}</nodeVersion>
+                </configuration>
+                <executions>
+                    <execution>
+                        <id>install-node-and-npm</id>
+                        <phase>prepare-package</phase>
+                        <goals>
+                            <goal>install-node-and-npm</goal>
+                        </goals>
+                    </execution>
+                    <execution>
+                        <id>npm-ci</id>
+                        <phase>prepare-package</phase>
+                        <goals>
+                            <goal>npm</goal>
+                        </goals>
+                        <configuration>
+                            <arguments>ci</arguments>
+                        </configuration>
+                    </execution>
+                    <execution>
+                        <id>npm-run-build</id>
+                        <phase>prepare-package</phase>
+                        <goals>
+                            <goal>npm</goal>
+                        </goals>
+                        <configuration>
+                            <arguments>run build</arguments>
+                        </configuration>
+                    </execution>
+                </executions>
+            </plugin>
+            <!--
+                Copies the Angular build output into the jar's static resources, next to /openapi
+                and /docs. Declared after frontend-maven-plugin: executions bound to the same phase
+                run in POM order, so the build has finished before this copies it.
+            -->
+            <plugin>
+                <artifactId>maven-resources-plugin</artifactId>
+                <executions>
+                    <execution>
+                        <id>copy-frontend</id>
+                        <phase>prepare-package</phase>
+                        <goals>
+                            <goal>copy-resources</goal>
+                        </goals>
+                        <configuration>
+                            <skip>${skip.npm}</skip>
+                            <outputDirectory>${project.build.outputDirectory}/static</outputDirectory>
+                            <resources>
+                                <resource>
+                                    <directory>frontend/dist/servdesk/browser</directory>
+                                </resource>
+                            </resources>
+                        </configuration>
+                    </execution>
+                </executions>
             </plugin>
             <!-- Formatting: enforced on `verify`, run `./mvnw spotless:apply` to auto-fix locally -->
             <plugin>

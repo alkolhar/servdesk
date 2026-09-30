@@ -1,0 +1,10 @@
+# dependencies and the Node that frontend-maven-plugin downloads
+/node_modules
+/node
+
+# build output (Maven copies dist/servdesk/browser into the jar)
+/dist
+/.angular
+
+# generated from servdesk-api.yaml on every build/test/lint — never edit by hand (ADR-0003)
+/src/app/api/servdesk-api.d.ts

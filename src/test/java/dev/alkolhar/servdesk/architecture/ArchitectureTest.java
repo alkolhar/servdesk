@@ -1,5 +1,7 @@
 package dev.alkolhar.servdesk.architecture;
 
+import static com.tngtech.archunit.core.domain.JavaClass.Predicates.resideInAPackage;
+import static com.tngtech.archunit.core.domain.JavaClass.Predicates.simpleNameEndingWith;
 import static com.tngtech.archunit.lang.syntax.ArchRuleDefinition.noClasses;
 import static com.tngtech.archunit.library.dependencies.SlicesRuleDefinition.slices;
 
@@ -26,10 +28,13 @@ class ArchitectureTest {
 	static final ArchRule feature_packages_are_free_of_cycles = slices().matching("dev.alkolhar.servdesk.(*)..")
 			.should().beFreeOfCycles();
 
+	// servdesk's own (Spring Data) repositories only: LoginController holds Spring
+	// Security's SecurityContextRepository, which shares the suffix, not the
+	// concern
 	@ArchTest
 	static final ArchRule controllers_do_not_access_repositories_directly = noClasses().that()
-			.haveSimpleNameEndingWith("Controller").should().dependOnClassesThat()
-			.haveSimpleNameEndingWith("Repository");
+			.haveSimpleNameEndingWith("Controller").should()
+			.dependOnClassesThat(simpleNameEndingWith("Repository").and(resideInAPackage("dev.alkolhar.servdesk..")));
 
 	@ArchTest
 	static final ArchRule command_and_query_services_stay_free_of_web_layer_types = noClasses().that()

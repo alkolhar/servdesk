@@ -18,8 +18,21 @@ Build/run via the Maven wrapper (no system Maven required):
 ./mvnw test -Dtest=ClassName   # run a single test class
 ./mvnw test -Dtest=ClassName#methodName   # run a single test method
 ./mvnw spring-boot:run         # run the app locally
-./mvnw package                 # build the jar
+./mvnw package                 # build the jar, Angular SPA included (prepare-package)
 ```
+
+The Angular SPA lives in `frontend/` (ADR-0003). `./mvnw compile`/`test` never touch it; for UI work,
+from `frontend/` with a system Node (the version in `pom.xml`'s `frontend.node.version`):
+
+```
+npm ci                         # install
+npm start                      # ng serve on :4200, proxying /api to the app on :8080
+npm test                       # unit tests (Vitest, via the Angular CLI)
+npm run lint                   # ESLint (angular-eslint)
+```
+
+Every one of those first regenerates `src/app/api/servdesk-api.d.ts` from the OpenAPI contract
+(gitignored, never hand-edited).
 
 Running the app or its integration tests requires Docker (Testcontainers — see Testing below).
 OpenAPI contract testing (Redocly lint/bundle + Schemathesis) runs as its own CI job, not via
@@ -33,6 +46,17 @@ OpenAPI contract testing (Redocly lint/bundle + Schemathesis) runs as its own CI
   Postgres-only by decision ([ADR-0002](docs/adr/0002-postgresql-only-product-owns-its-database.md)):
   the DB ships with the product, Postgres-specific features (partial indexes, `jsonb`) are fair game.
 - **Web**: Spring MVC + **Spring HATEOAS** for hypermedia responses.
+- **UI**: an **Angular 22** SPA in `frontend/` ([ADR-0003](docs/adr/0003-ui-is-an-angular-spa-over-the-public-api.md)),
+  a client of the public `/api/**` like any other — no second server-side web layer. Angular
+  Material + CDK, **Transloco** runtime i18n (German + English, `public/i18n/*.json`, language from the
+  browser, English fallback; every user-visible string externalised — a spec fails if the two files'
+  keys diverge), signals for state. TypeScript **models** are generated from the contract by
+  `openapi-typescript`; HTTP services are hand-written. `frontend-maven-plugin` downloads its own
+  Node and builds it at `prepare-package`; `maven-resources-plugin` copies `dist/servdesk/browser` into
+  the jar's `static/`. `openapi-typescript` 7 declares a TypeScript 5 peer; `package.json`'s
+  `overrides` points it at the project's TypeScript 6, which it generates correctly with. No web
+  fonts: the self-hosted product mustn't make browsers call out to a font CDN, so Material's
+  typography uses the system font stack.
 - **Security**: `spring-boot-starter-security` + `spring-security-messaging`.
 - **Spring Integration** (`http`/`jpa`) is on the classpath for future integration flows, not yet
   used. **Quartz** got its first consumer with the SLA breach scanner (`sla.SlaSchedulingConfig`,
@@ -226,10 +250,30 @@ Controllers return a `*Model` (or `CollectionModel<...>`/`PagedModel<...>`), nev
 - `setup` — `SetupController` (`GET`/`POST /api/setup`, `permitAll`) bootstraps the first agent;
   `createInitialAgent`/`isSetupRequired` refuse to run once any `Person` exists (409) — no seeded
   credentials ship in a migration.
+- `session` — `LoginController` (`POST /api/login`, JSON credentials → 204 + session cookie; unversioned,
+  like setup). Authenticates against the same `AuthenticationManager` Basic uses, applies the
+  `SessionAuthenticationStrategy` (new session id + rotated CSRF token) and saves the context to the
+  session. One 401 for wrong password, unknown user and disabled account alike. Logout is Spring
+  Security's `LogoutFilter` (`POST /api/logout` → 204). `GET /api/me` is `directory.MeController`
+  (`MeModel` — its own shape, not `PersonModel`, whose self link points into the Agent-only
+  directory); it reloads the person rather than trusting the login-time snapshot in the session.
 - `config.SecurityConfig` — auth and authz are separate concerns (swapping auth mechanisms shouldn't
   touch RBAC rules):
-  - CSRF disabled — HTTP Basic on every request, no cookies/sessions; CSRF's filter runs before Basic
-    Auth, so left enabled it rejects valid writes before credentials are checked.
+  - **Two ways in** ([ADR-0005](docs/adr/0005-browser-sessions-alongside-http-basic.md)): a browser
+    session from `POST /api/login` (in-memory, `HttpOnly`, `SameSite=Strict`, 8 h idle timeout via
+    `server.servlet.session.timeout`; `Secure` is the deployment's `server.servlet.session.cookie.secure`),
+    or `Authorization: Basic` on every request (scripts, CI, contract tests). Basic stays stateless —
+    `BasicAuthenticationFilter` keeps its context in a request attribute — and the request cache is off
+    (`NullRequestCache`), so neither a Basic nor an unauthenticated request ever creates a session.
+  - **CSRF** (`csrf.spa()`: `XSRF-TOKEN` cookie, `X-XSRF-TOKEN` header, which Angular's `HttpClient`
+    echoes by itself) applies only where a cookie is what authenticates: a write whose session cookie
+    names a *live* session and that carries no Basic header (`SecurityConfig.requiresCsrfProtection`,
+    pinned by `CsrfScopeTest`). A Basic header can't be forged cross-site; a request with no live
+    session has nothing ambient to abuse — which is what keeps `/api/setup` and a first `/api/login`
+    working tokenless. Login CSRF is still closed: `/api/login` only accepts JSON, which a cross-site
+    page can't send without a CORS preflight servdesk never answers (a form post gets 415). `spa()`
+    writes the token cookie on every response (its handler loads the deferred token); no extra filter
+    needed. A CSRF rejection is a 403 `ProblemDetail` with its own detail text.
   - **RBAC**: person directory (`/api/persons/**`) is Agent-only, all methods. Every ticket subtype:
     `GET` open to both roles, `POST`/`PUT`/`DELETE` Agent-only. Comments: `GET`/`POST` open to both
     (the `internal`-is-Agent-only rule is enforced in the service layer, not here, since it's
@@ -245,12 +289,20 @@ Controllers return a `*Model` (or `CollectionModel<...>`/`PagedModel<...>`), nev
     no-web-types-in-services rule intact). Verified per subtype in
     `AbstractTicketSubtypeControllerTest.customersOnlySeeTicketsTheyRequested`. Still out of scope:
     shared visibility beyond the requester (watchers — #25, org-based visibility).
-  - **OAuth2/OIDC migration path**: `spring-boot-starter-oauth2-resource-server` is on the classpath but
-    inert until `issuer-uri` is set. Migrating swaps `.httpBasic(...)` for
-    `.oauth2ResourceServer(oauth2 -> oauth2.jwt(...))` and replaces `PersonUserDetailsService` with a
-    `JwtAuthenticationConverter`; `authorizeHttpRequests` wouldn't change. Not wired up — no IdP in this
-    environment to verify against yet.
-  - `/api/setup/**`, `/openapi/**`+`/docs/**`+`/webjars/**`, and `/error` are `permitAll`. `/error`
+  - **OAuth2/OIDC migration path**: for the browser, `oauth2Login` would establish the same kind of
+    session, so the SPA doesn't change. For bearer-token API clients,
+    `spring-boot-starter-oauth2-resource-server` is on the classpath but inert until `issuer-uri` is
+    set: swap `.httpBasic(...)` for `.oauth2ResourceServer(oauth2 -> oauth2.jwt(...))` with a
+    `JwtAuthenticationConverter`; `authorizeHttpRequests` wouldn't change. Not wired up — no IdP in
+    this environment to verify against yet.
+  - **The SPA is public**: every `GET` outside `/api/**` and `/actuator/**` is `permitAll` (the static
+    assets, and the deep links `config.SpaForwardingFilter` forwards to `/index.html` — `GET`s outside
+    `/api`, `/docs`, `/openapi`, `/actuator`, `/error`, `/webjars` whose last segment has no file
+    extension, so a missing asset stays a 404 rather than HTML). A filter, not a catch-all
+    `@GetMapping`: a path pattern can't express "no dot in the last segment" under `/**`, and a
+    controller mapping would outrank the static-resource handler.
+  - `/api/setup/**`, `POST /api/login`, `/openapi/**`+`/docs/**`+`/webjars/**`, and `/error` are
+    `permitAll`. `/error`
     matters because any `sendError(...)`-based response (raw `ResponseStatusException`, an unmapped
     404) triggers Tomcat's internal forward to `/error`, re-entering the whole filter chain with no
     credentials on an unauthenticated request — without this entry that forward gets rejected and
@@ -322,7 +374,8 @@ Controllers return a `*Model` (or `CollectionModel<...>`/`PagedModel<...>`), nev
 
 ### Deployment
 
-- `Dockerfile` — multi-stage: build with `eclipse-temurin:25-jdk`, extract the Spring Boot layered jar
+- `Dockerfile` — multi-stage: build with `eclipse-temurin:25-jdk` (which also builds `frontend/`
+  through `frontend-maven-plugin`'s own Node — nothing Node-related in the image), extract the Spring Boot layered jar
   (`java -Djarmode=tools -jar app.jar extract --layers --launcher`) into
   `dependencies`/`spring-boot-loader`/`snapshot-dependencies`/`application` layers, copy into an
   `eclipse-temurin:25-jre` runtime image most-to-least-stable, run as non-root `servdesk`.
@@ -330,9 +383,11 @@ Controllers return a `*Model` (or `CollectionModel<...>`/`PagedModel<...>`), nev
   local JDK at all.
 - `.github/workflows/ci.yml`:
   - `build-and-test` — `./mvnw verify` (compile, unit + Testcontainers integration tests, ArchUnit,
-    Spotless, JaCoCo). SpotBugs runs here too, still under `continue-on-error: true` — not because
+    the Angular production build, Spotless, JaCoCo). SpotBugs runs here too, still under `continue-on-error: true` — not because
     findings are outstanding (they were triaged, see above) but because a green run in CI hasn't been
     observed yet. Issue #53 tracks turning it into a real gate.
+  - `frontend` — `npm ci`, `npm run lint`, `npm test` in `frontend/` on the same Node version as
+    `pom.xml`. (The production build itself runs in `build-and-test`.)
   - `docker-build` — validates the `Dockerfile` actually builds.
   - `contract-tests` — verifies the running app never drifts from
     `static/openapi/servdesk-api.yaml`, using each tool's own officially-supported CI integration rather
@@ -401,12 +456,20 @@ Two deliberately separate layers:
   running locally against a disposable PostgreSQL without Docker Compose.
 - `architecture.ArchitectureTest` (ArchUnit, `@AnalyzeClasses` over the whole base package) freezes the
   layering rules above as executable checks: feature packages stay cycle-free, controllers never
-  depend on a `*Repository`, `*CommandService`/`*QueryService` never depend on `org.springframework.web..`.
+  depend on one of servdesk's own `*Repository`s (scoped to the base package — `LoginController`
+  legitimately holds Spring Security's `SecurityContextRepository`), `*CommandService`/`*QueryService`
+  never depend on `org.springframework.web..`.
   ("Controllers must never reference an `@Entity`" was considered and dropped — ArchUnit's bytecode
   resolution flags the transient `assembler.toModel(queryService.findById(id))` chain as a dependency
   on the entity, failing the exact pattern this codebase recommends.)
 - **Contract testing lives in CI, not `./mvnw verify`** — see the `contract-tests` job under Deployment
   below.
+- **Sessions**: `session.SessionAuthenticationTest` drives login, the cookie's attributes, `/api/me`,
+  CSRF-on-session vs Basic-exempt, logout and the challenge-free 401 through the real filter chain,
+  carrying cookies by hand (`TestRestTemplate` keeps none).
+- **Frontend** (`frontend/src/**/*.spec.ts`, Vitest via `ng test`): components are tested against the
+  real translation files (`i18n/testing.ts`), so a spec asserts on what a user actually reads, in
+  either language.
 
 ## Agent skills
 

@@ -1,0 +1,25 @@
+{
+  "login": {
+    "title": "Bei servdesk anmelden",
+    "username": "Benutzername",
+    "password": "Passwort",
+    "submit": "Anmelden",
+    "required": "Pflichtfeld",
+    "error": {
+      "invalidCredentials": "Benutzername oder Passwort ist falsch.",
+      "unavailable": "servdesk ist gerade nicht erreichbar. Bitte versuchen Sie es erneut."
+    }
+  },
+  "account": {
+    "title": "Mein Konto",
+    "name": "Name",
+    "role": "Rolle",
+    "username": "Benutzername",
+    "email": "E-Mail",
+    "logout": "Abmelden"
+  },
+  "role": {
+    "AGENT": "Agent",
+    "CUSTOMER": "Kunde"
+  }
+}

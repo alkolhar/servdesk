@@ -1,0 +1,25 @@
+{
+  "login": {
+    "title": "Sign in to servdesk",
+    "username": "Username",
+    "password": "Password",
+    "submit": "Sign in",
+    "required": "Required",
+    "error": {
+      "invalidCredentials": "Wrong username or password.",
+      "unavailable": "servdesk can't be reached right now. Please try again."
+    }
+  },
+  "account": {
+    "title": "My account",
+    "name": "Name",
+    "role": "Role",
+    "username": "Username",
+    "email": "Email",
+    "logout": "Sign out"
+  },
+  "role": {
+    "AGENT": "Agent",
+    "CUSTOMER": "Customer"
+  }
+}

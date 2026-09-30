@@ -19,8 +19,9 @@ jobs:
           java-version: "25"
           cache: maven
 
-      # Runs compile, unit + Testcontainers/PostgreSQL integration tests, ArchUnit rules, Spotless
-      # format check and JaCoCo coverage reporting (all wired into the verify phase — see pom.xml).
+      # Runs compile, unit + Testcontainers/PostgreSQL integration tests, ArchUnit rules, the Angular
+      # production build (prepare-package), Spotless format check and JaCoCo coverage reporting (all
+      # wired into the verify phase — see pom.xml).
       # The Docker daemon Testcontainers needs is preinstalled on GitHub-hosted ubuntu runners.
       - name: Build and verify
         run: ./mvnw --batch-mode verify
@@ -39,6 +40,33 @@ jobs:
       - name: Static analysis (SpotBugs)
         continue-on-error: true
         run: ./mvnw --batch-mode spotbugs:check
+
+  # The Angular SPA's own checks (ADR-0003): lint and unit tests. Its production build runs inside
+  # build-and-test's `./mvnw verify` (bound to prepare-package), so a build break fails there.
+  frontend:
+    runs-on: ubuntu-latest
+    defaults:
+      run:
+        working-directory: frontend
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Set up Node
+        uses: actions/setup-node@v7.0.0
+        with:
+          # same Node as frontend.node.version in pom.xml
+          node-version: "24.15.0"
+          cache: npm
+          cache-dependency-path: frontend/package-lock.json
+
+      - run: npm ci
+
+      # both regenerate the TypeScript models from servdesk-api.yaml first (pre-scripts)
+      - name: Lint
+        run: npm run lint
+
+      - name: Unit tests
+        run: npm test
 
   docker-build:
     runs-on: ubuntu-latest
