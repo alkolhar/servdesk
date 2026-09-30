@@ -267,9 +267,14 @@ Controllers return a `*Model` (or `CollectionModel<...>`/`PagedModel<...>`), nev
     the injected `ObjectMapper`) fix this — found by Schemathesis's `content_type_conformance` check in
     the contract-tests CI job (see Deployment below), not by any hand-written test, since existing tests
     only asserted on status codes.
-- Migrations: a single `V1__init_schema.sql` under `src/main/resources/db/migration` creates the full
+- Migrations: `V1__init_schema.sql` under `src/main/resources/db/migration` creates the full
   schema (audit/soft-delete columns, each subtype's `*_number_seq`). Once anything is deployed, switch
-  back to versioned migrations rather than editing this one.
+  back to versioned migrations rather than editing this one. `V2__seed_reference_data.sql` (#101)
+  ships the ITIL-style starter set — 3 impacts × 3 urgencies, P1–P4, the matrix fully mapped, one SLA
+  policy per priority, five top-level categories — as ordinary rows (`created_by = 'system'`) admins
+  edit through the API. Seeded names are numbered (`"1 - High"`, `"P1 - Critical"`) so they never
+  collide with the bare names (`"High"`, `"Critical"`) integration tests create under the partial
+  unique indexes; keep new test fixtures off the numbered forms.
 - `application.properties`: `ddl-auto=validate` (Flyway is the only schema source of truth; this just
   fails fast on drift — e.g. unbounded text columns are `TEXT` and must be mapped
   `@JdbcTypeCode(SqlTypes.LONGVARCHAR)`, not `@Lob`, which Postgres would map to `oid` large objects —
