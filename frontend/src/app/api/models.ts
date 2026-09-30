@@ -23,3 +23,15 @@ export interface HalLink {
   href: string;
 }
 export type HalLinks = Record<string, HalLink>;
+export type CategoryModel = Schemas['CategoryModel'];
+export type ImpactModel = Schemas['ImpactModel'];
+export type UrgencyModel = Schemas['UrgencyModel'];
+export type ProblemModel = Schemas['ProblemModel'];
+export type AttributeDefinitionModel = Schemas['AttributeDefinitionModel'];
+
+/** One field-level problem in a 400 ProblemDetail's `errors` list (RestExceptionHandler). */
+export interface FieldProblem {
+  field: string;
+  code: string;
+  message?: string | null;
+}

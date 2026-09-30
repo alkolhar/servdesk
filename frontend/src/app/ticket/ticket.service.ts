@@ -1,7 +1,8 @@
 import { HttpClient } from '@angular/common/http';
 import { Injectable, inject } from '@angular/core';
 import { firstValueFrom } from 'rxjs';
-import { ActionRequest, HalLink, HalLinks, IncidentModel } from '../api/models';
+import { ActionRequest, HalLink, HalLinks, IncidentModel, TicketTaskModel } from '../api/models';
+import { SubtypePath } from './subtypes';
 
 /** The link relation prefix of a ticket action (ADR-0008): `action:resolve`, ... */
 export const ACTION_REL_PREFIX = 'action:';
@@ -34,14 +35,27 @@ export function pathOf(href: string): string {
   return url.pathname + url.search;
 }
 
-export type Incident = IncidentModel & { _links?: HalLinks };
+/**
+ * Any subtype's model: the shared fields every subtype has (IncidentModel's, minus its own
+ * `relatedProblemId`), plus `tasks` for a subtype on its lifecycle process.
+ */
+export type Ticket = Omit<IncidentModel, 'tasks' | 'relatedProblemId'> & {
+  tasks?: TicketTaskModel[];
+  relatedProblemId?: number | null;
+  _links?: HalLinks;
+};
 
 @Injectable({ providedIn: 'root' })
 export class TicketService {
   private readonly http = inject(HttpClient);
 
-  incident(id: number): Promise<Incident> {
-    return firstValueFrom(this.http.get<Incident>(`/api/incidents/${id}`));
+  ticket(path: SubtypePath, id: number): Promise<Ticket> {
+    return firstValueFrom(this.http.get<Ticket>(`/api/${path}/${id}`));
+  }
+
+  /** Creates a ticket of the subtype at `path`. Rejects with the HttpErrorResponse (400: see `errors`). */
+  create(path: SubtypePath, request: object): Promise<Ticket> {
+    return firstValueFrom(this.http.post<Ticket>(`/api/${path}`, request));
   }
 
   /** GETs whatever a link points at (a requester, a priority, ...). */

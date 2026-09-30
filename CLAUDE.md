@@ -61,6 +61,13 @@ OpenAPI contract testing (Redocly lint/bundle + Schemathesis) runs as its own CI
   budget, and dialogs/Material form code load with the first screen that needs them. HAL hrefs are
   absolute, but `HttpClient` only sends `X-XSRF-TOKEN` on *relative* URLs — so a followed link goes
   through `ticket.service.ts`'s `pathOf()`; used as-is, a session-authenticated action is a 403.
+  Screens so far: login, setup, My account, **`/tickets/new`** (subtype first, then the form; custom
+  fields rendered from `?target=TICKET` definitions by type — DATE is a native date input, which
+  yields exactly the `yyyy-MM-dd` the server accepts; a 400's `errors` land on their controls) and
+  **one `TicketDetail` for all four subtypes** (`/incidents|problems|changes|service-requests/:id`,
+  route data says which resource; the task panel shows only when the model has `tasks`). Reference
+  lists load whole (`size=1000`) — there's no server-side person search yet. No initial-team picker
+  until the Teams API (#106).
 - **Security**: `spring-boot-starter-security` + `spring-security-messaging`.
 - **Flowable 8.0.0** (`flowable-spring-boot-starter-process`, embedded BPMN engine) drives the ticket
   lifecycle ([ADR-0004](docs/adr/0004-flowable-drives-the-ticket-lifecycle.md),
@@ -134,6 +141,9 @@ Controllers return a `*Model` (or `CollectionModel<...>`/`PagedModel<...>`), nev
     data-dependent rejections a static URL+role rule can't express (e.g. a Customer marking their own
     comment internal) — distinct from `SecurityConfig`'s static rules. Keeping these free of HTTP types
     is what lets `ArchitectureTest.command_and_query_services_stay_free_of_web_layer_types` hold.
+  - `exception.FieldRejectedException` (an `IllegalArgumentException`) — unusable input that belongs to
+    one request field: carries the field's path (`attributes.cost_centre`) and a stable code.
+    `customfield.InvalidAttributeException` extends it (codes `unknown`/`required`/`type`/`not_allowed`).
   - `web.RestExceptionHandler` — the only place that translates those exceptions to RFC 7807
     `ProblemDetail` HTTP responses (not `sendError`, so these never trigger Tomcat's `/error` forward —
     see `SecurityConfig` below). Also maps `DataIntegrityViolationException` → 409, and
@@ -143,7 +153,12 @@ Controllers return a `*Model` (or `CollectionModel<...>`/`PagedModel<...>`), nev
     `IllegalArgumentException` case, issue #38, is the resolver's own re-URI-decoding blowing up on a
     literal `%` in a sort segment before any controller code. Convention this relies on:
     `IllegalArgumentException` = unusable input → 400, `IllegalStateException` = broken server
-    invariant → 500).
+    invariant → 500). It **extends `ResponseEntityExceptionHandler`** (the base Boot's own ProblemDetail
+    handler uses, which backs off), so framework 400/405/415 bodies are unchanged; what it adds is an
+    **`errors` list on field-level 400s** (#118) — `[{field, code, message}]` from Bean Validation
+    (code = constraint name: `NotBlank`, `Email`, `PasswordPolicy`, ...) and from
+    `FieldRejectedException` alike — so the UI can put each error next to its field. `message` is
+    English for humans; clients translate `code`.
 - `directory` — `Person` (single entity for agents and customers, distinguished by `role`;
   `username`/`password`/`enabled` only populated for login-capable people), `Team`.
   `PersonCommandService`/`PersonQueryService` — CQRS-light split (command depends on query, not vice

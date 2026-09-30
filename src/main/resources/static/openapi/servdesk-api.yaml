@@ -1808,7 +1808,9 @@ components:
           schema:
             $ref: "#/components/schemas/ProblemDetail"
     ValidationProblem:
-      description: Request body failed Jakarta Bean Validation.
+      description: >
+        Request body failed validation — Jakarta Bean Validation or a custom-field rule. `errors` names
+        each refused field.
       content:
         application/problem+json:
           schema:
@@ -1867,6 +1869,29 @@ components:
         instance:
           type: string
           format: uri-reference
+        errors:
+          type: array
+          description: >
+            On a field-level 400 only: which request fields were refused and why, so a form can show
+            each next to its field. Bean Validation failures (code = the constraint, e.g. NotBlank,
+            Email, PasswordPolicy) and custom-field rejections (field `attributes.<key>`, code
+            unknown/required/type/not_allowed) share this shape.
+          items:
+            $ref: "#/components/schemas/FieldProblem"
+    FieldProblem:
+      type: object
+      required: [field, code]
+      properties:
+        field:
+          type: string
+          description: The field's path in the request body, e.g. `subject` or `attributes.costCentre`.
+        code:
+          type: string
+          description: Stable, for clients to translate.
+        message:
+          type: string
+          nullable: true
+          description: English, for humans reading the raw response.
     PersonRole:
       type: string
       enum: [AGENT, CUSTOMER]

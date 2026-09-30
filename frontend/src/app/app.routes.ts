@@ -2,6 +2,7 @@ import { Routes } from '@angular/router';
 import { loggedInGuard, loggedOutGuard } from './auth/auth.guards';
 import { setupDoneGuard, setupPendingGuard } from './setup/setup.guards';
 import { Shell } from './shell/shell';
+import { SUBTYPES } from './ticket/subtypes';
 
 // setupDoneGuard runs first everywhere: on an empty database every screen leads to setup.
 // Every screen is lazy: the initial bundle is the shell, the router and i18n; Material's form
@@ -31,11 +32,17 @@ export const routes: Routes = [
         title: 'servdesk',
       },
       {
-        // lazy: dialogs and snack bars stay out of the initial bundle
-        path: 'incidents/:id',
-        loadComponent: () => import('./ticket/incident-detail').then((m) => m.IncidentDetail),
+        path: 'tickets/new',
+        loadComponent: () => import('./ticket/create-ticket').then((m) => m.CreateTicket),
         title: 'servdesk',
       },
+      // one screen for every subtype; the route says which resource to load
+      ...SUBTYPES.map((subtype) => ({
+        path: `${subtype.path}/:id`,
+        loadComponent: () => import('./ticket/ticket-detail').then((m) => m.TicketDetail),
+        data: { path: subtype.path },
+        title: 'servdesk',
+      })),
       { path: '', pathMatch: 'full', redirectTo: 'account' },
     ],
   },

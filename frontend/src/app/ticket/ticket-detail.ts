@@ -8,47 +8,49 @@ import { ActivatedRoute } from '@angular/router';
 import { TranslocoDirective, TranslocoService } from '@jsverse/transloco';
 import { firstValueFrom } from 'rxjs';
 import { PersonModel, PriorityModel } from '../api/models';
+import { SubtypePath } from './subtypes';
 import { CommentDialog, CommentDialogData } from './comment-dialog';
-import {
-  COMMENT_REQUIRED,
-  Incident,
-  TicketAction,
-  TicketService,
-  actionsOf,
-} from './ticket.service';
+import { COMMENT_REQUIRED, Ticket, TicketAction, TicketService, actionsOf } from './ticket.service';
 
 type LoadState = 'loading' | 'loaded' | 'notFound' | 'unavailable';
 
 /**
- * One Incident: its fields, what it's waiting on, and one button per action the server offers
- * this caller now (ADR-0003: no link, no button — the UI never decides what's allowed).
+ * One ticket of any subtype (the route's `path` data says which resource): its fields, what it's
+ * waiting on, and one button per action the server offers this caller now (ADR-0003: no link, no
+ * button — the UI never decides what's allowed). The task panel only shows for a subtype whose
+ * model carries `tasks`, i.e. one that runs on its lifecycle process.
  */
 @Component({
-  selector: 'app-incident-detail',
+  selector: 'app-ticket-detail',
   imports: [MatButtonModule, MatCardModule, TranslocoDirective],
-  templateUrl: './incident-detail.html',
-  styleUrl: './incident-detail.scss',
+  templateUrl: './ticket-detail.html',
+  styleUrl: './ticket-detail.scss',
   changeDetection: ChangeDetectionStrategy.OnPush,
 })
-export class IncidentDetail {
+export class TicketDetail {
   private readonly tickets = inject(TicketService);
   private readonly dialog = inject(MatDialog);
   private readonly snackBar = inject(MatSnackBar);
   private readonly transloco = inject(TranslocoService);
 
   protected readonly state = signal<LoadState>('loading');
-  protected readonly incident = signal<Incident | null>(null);
+  protected readonly ticket = signal<Ticket | null>(null);
   protected readonly requester = signal<string | null>(null);
   protected readonly priority = signal<string | null>(null);
   protected readonly busy = signal(false);
 
-  protected readonly actions = computed(() => actionsOf(this.incident()?._links));
-  protected readonly task = computed(() => this.incident()?.tasks?.[0] ?? null);
+  protected readonly actions = computed(() => actionsOf(this.ticket()?._links));
+  /** Whether this subtype runs on a lifecycle process at all (its model has `tasks`). */
+  protected readonly hasLifecycle = computed(() => Array.isArray(this.ticket()?.tasks));
+  protected readonly task = computed(() => this.ticket()?.tasks?.[0] ?? null);
 
   private id = 0;
+  private readonly path: SubtypePath;
 
   constructor() {
-    inject(ActivatedRoute).paramMap.subscribe((params) => {
+    const route = inject(ActivatedRoute);
+    this.path = (route.snapshot?.data?.['path'] as SubtypePath | undefined) ?? 'incidents';
+    route.paramMap.subscribe((params) => {
       this.id = Number(params.get('id'));
       void this.load();
     });
@@ -56,10 +58,10 @@ export class IncidentDetail {
 
   protected async load(): Promise<void> {
     try {
-      const incident = await this.tickets.incident(this.id);
-      this.incident.set(incident);
+      const ticket = await this.tickets.ticket(this.path, this.id);
+      this.ticket.set(ticket);
       this.state.set('loaded');
-      await this.loadNames(incident);
+      await this.loadNames(ticket);
     } catch (error) {
       this.state.set(
         error instanceof HttpErrorResponse && error.status === 404 ? 'notFound' : 'unavailable',
@@ -68,12 +70,12 @@ export class IncidentDetail {
   }
 
   /** Names for the ids the model carries; a failure here only leaves the id showing. */
-  private async loadNames(incident: Incident): Promise<void> {
-    const requesterLink = incident._links?.['requester'];
+  private async loadNames(ticket: Ticket): Promise<void> {
+    const requesterLink = ticket._links?.['requester'];
     const [requester, priority] = await Promise.allSettled([
       requesterLink ? this.tickets.follow<PersonModel>(requesterLink) : Promise.reject(),
-      incident.priorityId != null
-        ? this.tickets.follow<PriorityModel>({ href: `/api/priorities/${incident.priorityId}` })
+      ticket.priorityId != null
+        ? this.tickets.follow<PriorityModel>({ href: `/api/priorities/${ticket.priorityId}` })
         : Promise.reject(),
     ]);
     this.requester.set(requester.status === 'fulfilled' ? (requester.value.name ?? null) : null);

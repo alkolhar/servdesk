@@ -133,8 +133,11 @@ public abstract class AbstractTicketSubtypeControllerTest {
 	@Test
 	void rejectsInvalidPayload() {
 		Map<String, Object> body = createBody("");
-		ResponseEntity<String> response = asAdmin().postForEntity(basePath(), body, String.class);
+		ResponseEntity<Map> response = asAdmin().postForEntity(basePath(), body, Map.class);
 		assertThat(response.getStatusCode()).isEqualTo(HttpStatus.BAD_REQUEST);
+		// #118: the 400 names the field, so a form can show the error next to it
+		assertThat((List<Map<String, Object>>) response.getBody().get("errors")).anySatisfy(
+				error -> assertThat(error).containsEntry("field", "subject").containsEntry("code", "NotBlank"));
 	}
 
 	@Test

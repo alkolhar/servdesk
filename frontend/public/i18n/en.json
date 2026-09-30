@@ -3,7 +3,8 @@
     "required": "Required",
     "email": "Not a valid email address",
     "passwordLength": "{{min}} to {{max}} characters",
-    "passwordMismatch": "The passwords don't match."
+    "passwordMismatch": "The passwords don't match.",
+    "invalid": "Not a valid value"
   },
   "login": {
     "title": "Sign in to servdesk",
@@ -58,7 +59,8 @@
   },
   "shell": {
     "account": "My account",
-    "logout": "Sign out"
+    "logout": "Sign out",
+    "newTicket": "New ticket"
   },
   "status": {
     "OPEN": "Open",
@@ -119,6 +121,31 @@
       "unavailable": "servdesk can't be reached right now. Please try again.",
       "movedOn": "Someone else moved this ticket on in the meantime. Here is where it stands now.",
       "commentRequired": "This action needs a comment."
+    }
+  },
+  "subtype": {
+    "incident": "Incident",
+    "problem": "Problem",
+    "change": "Change",
+    "service-request": "Service request"
+  },
+  "create": {
+    "title": "New ticket",
+    "subtype": "What kind of ticket is it?",
+    "subject": "Subject",
+    "description": "Description",
+    "category": "Category",
+    "impact": "Impact",
+    "urgency": "Urgency",
+    "priorityHint": "The priority follows from impact and urgency.",
+    "assignee": "Assignee",
+    "relatedProblem": "Related problem",
+    "customFields": "Further details",
+    "submit": "Create {{subtype}}",
+    "error": {
+      "invalid": "Please check the highlighted fields.",
+      "conflict": "Something this ticket refers to no longer exists. Please reload and try again.",
+      "unavailable": "servdesk can't be reached right now. Please try again."
     }
   }
 }
