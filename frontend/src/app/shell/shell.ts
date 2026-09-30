@@ -14,6 +14,7 @@ import { AuthService } from '../auth/auth.service';
       <mat-toolbar>
         <a class="brand" routerLink="/account">servdesk</a>
         <span class="spacer"></span>
+        <a mat-flat-button routerLink="/tickets/new">{{ t('shell.newTicket') }}</a>
         <a mat-button routerLink="/account">{{ t('shell.account') }}</a>
         <button mat-button type="button" (click)="logout()">{{ t('shell.logout') }}</button>
       </mat-toolbar>

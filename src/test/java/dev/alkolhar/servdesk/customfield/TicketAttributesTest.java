@@ -95,6 +95,32 @@ class TicketAttributesTest {
 				String.class).getStatusCode()).isEqualTo(HttpStatus.BAD_REQUEST);
 	}
 
+	/**
+	 * #118: each rejection names the request field it belongs to, so a form can
+	 * show it next to that field.
+	 */
+	@Test
+	void eachRejectionNamesItsAttributeField() {
+		assertThat(errorsOf(Map.of("no_such_key", "x")))
+				.containsExactly(Map.of("field", "attributes.no_such_key", "code", "unknown"));
+		assertThat(errorsOf(Map.of("environment", "staging")))
+				.containsExactly(Map.of("field", "attributes.environment", "code", "not_allowed"));
+		assertThat(errorsOf(Map.of("impacted_users", "many")))
+				.containsExactly(Map.of("field", "attributes.impacted_users", "code", "type"));
+	}
+
+	/**
+	 * The {@code errors} of a 400, reduced to field and code (messages are for
+	 * humans).
+	 */
+	private List<Map<String, Object>> errorsOf(Map<String, Object> attributes) {
+		ResponseEntity<Map> response = asAdmin().postForEntity("/api/incidents", incidentBody("Rejected", attributes),
+				Map.class);
+		assertThat(response.getStatusCode()).isEqualTo(HttpStatus.BAD_REQUEST);
+		return ((List<Map<String, Object>>) response.getBody().get("errors")).stream()
+				.map(error -> Map.of("field", error.get("field"), "code", error.get("code"))).toList();
+	}
+
 	@Test
 	void filtersTheOverviewByAttributeValue() {
 		Number prodId = (Number) asAdmin().postForEntity("/api/incidents",
@@ -121,10 +147,8 @@ class TicketAttributesTest {
 	void requiredAttributesAreEnforcedOnWrite() {
 		defineAttribute("triage_note", "STRING", Map.of("required", true));
 		try {
-			assertThat(
-					asAdmin().postForEntity("/api/incidents", incidentBody("Missing required", Map.of()), String.class)
-							.getStatusCode())
-					.isEqualTo(HttpStatus.BAD_REQUEST);
+			assertThat(errorsOf(Map.of()))
+					.containsExactly(Map.of("field", "attributes.triage_note", "code", "required"));
 			assertThat(
 					asAdmin()
 							.postForEntity("/api/incidents",

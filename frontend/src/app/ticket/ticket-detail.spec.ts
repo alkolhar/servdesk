@@ -5,10 +5,10 @@ import { ActivatedRoute, convertToParamMap } from '@angular/router';
 import { of } from 'rxjs';
 import { vi } from 'vitest';
 import { translocoTesting } from '../i18n/testing';
-import { IncidentDetail } from './incident-detail';
-import { Incident, TicketService } from './ticket.service';
+import { TicketDetail } from './ticket-detail';
+import { Ticket, TicketService } from './ticket.service';
 
-function incidentIn(status: string, taskKey: string | null, actions: string[]): Incident {
+function incidentIn(status: string, taskKey: string | null, actions: string[]): Ticket {
   const links: Record<string, { href: string }> = {
     self: { href: 'http://localhost/api/incidents/7' },
   };
@@ -18,17 +18,17 @@ function incidentIn(status: string, taskKey: string | null, actions: string[]): 
   return {
     id: 7,
     displayNumber: 'INC-000007',
-    status: status as Incident['status'],
+    status: status as Ticket['status'],
     subject: 'Printer on fire',
     requesterId: 2,
     createdAt: '2026-09-30T10:00:00Z',
     tasks: taskKey ? [{ key: taskKey, createdAt: '2026-09-30T10:00:00Z' }] : [],
     _links: links,
-  } as Incident;
+  } as Ticket;
 }
 
-describe('IncidentDetail', () => {
-  const incident = vi.fn<TicketService['incident']>();
+describe('TicketDetail', () => {
+  const incident = vi.fn<TicketService['ticket']>();
   const perform = vi.fn<TicketService['perform']>();
   const follow = vi.fn<TicketService['follow']>();
   let dialogResult: string | undefined;
@@ -39,12 +39,15 @@ describe('IncidentDetail', () => {
     follow.mockReset().mockRejectedValue(new Error('no names in this test'));
     dialogResult = undefined;
     await TestBed.configureTestingModule({
-      imports: [IncidentDetail, translocoTesting()],
+      imports: [TicketDetail, translocoTesting()],
       providers: [
-        { provide: TicketService, useValue: { incident, perform, follow } },
+        { provide: TicketService, useValue: { ticket: incident, perform, follow } },
         {
           provide: ActivatedRoute,
-          useValue: { paramMap: of(convertToParamMap({ id: '7' })) },
+          useValue: {
+            snapshot: { data: { path: 'incidents' } },
+            paramMap: of(convertToParamMap({ id: '7' })),
+          },
         },
         {
           provide: MatDialog,
@@ -55,7 +58,7 @@ describe('IncidentDetail', () => {
   });
 
   async function render(): Promise<{ element: HTMLElement; settle: () => Promise<void> }> {
-    const fixture = TestBed.createComponent(IncidentDetail);
+    const fixture = TestBed.createComponent(TicketDetail);
     const settle = async () => {
       await fixture.whenStable();
       fixture.detectChanges();
@@ -156,5 +159,24 @@ describe('IncidentDetail', () => {
     const { element } = await render();
 
     expect(element.querySelector('[role="alert"]')?.textContent).toContain('no such ticket');
+  });
+
+  it('asks for the resource its route names', async () => {
+    incident.mockResolvedValue(incidentIn('OPEN', 'triage', []));
+
+    await render();
+
+    expect(incident).toHaveBeenCalledWith('incidents', 7);
+  });
+
+  it('shows no task panel for a subtype not on a lifecycle process yet', async () => {
+    const problem = incidentIn('OPEN', null, []);
+    delete problem.tasks;
+    incident.mockResolvedValue(problem);
+
+    const { element } = await render();
+
+    expect(element.querySelector('[data-testid="task-panel"]')).toBeNull();
+    expect(element.querySelector('[data-testid="status"]')?.textContent).toContain('Open');
   });
 });

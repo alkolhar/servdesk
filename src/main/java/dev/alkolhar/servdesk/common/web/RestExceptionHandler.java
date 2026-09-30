@@ -1,27 +1,68 @@
 package dev.alkolhar.servdesk.common.web;
 
 import dev.alkolhar.servdesk.common.exception.ConflictException;
+import dev.alkolhar.servdesk.common.exception.FieldRejectedException;
 import dev.alkolhar.servdesk.common.exception.ForbiddenException;
 import dev.alkolhar.servdesk.common.exception.NotFoundException;
+import java.util.List;
+import org.jspecify.annotations.Nullable;
 import org.springframework.dao.DataIntegrityViolationException;
 import org.springframework.dao.InvalidDataAccessApiUsageException;
 import org.springframework.data.core.PropertyReferenceException;
+import org.springframework.http.HttpHeaders;
 import org.springframework.http.HttpStatus;
+import org.springframework.http.HttpStatusCode;
 import org.springframework.http.ProblemDetail;
+import org.springframework.http.ResponseEntity;
+import org.springframework.web.bind.MethodArgumentNotValidException;
 import org.springframework.web.bind.annotation.ExceptionHandler;
 import org.springframework.web.bind.annotation.RestControllerAdvice;
+import org.springframework.web.context.request.WebRequest;
+import org.springframework.web.servlet.mvc.method.annotation.ResponseEntityExceptionHandler;
 
 /**
  * Translates exceptions to RFC 7807 {@code application/problem+json} bodies via
  * {@link ProblemDetail}. {@code /error} stays permitAll in
  * {@code SecurityConfig} regardless: it's still reached by errors this class
- * doesn't handle (e.g. a 404 for a URL with no matching handler at all), and by
- * Spring Boot's own default {@code MethodArgumentNotValidException} handling,
- * which already produces a {@code application/problem+json} body without any
- * code here.
+ * doesn't handle (e.g. a 404 for a URL with no matching handler at all).
+ * <p>
+ * Extends {@link ResponseEntityExceptionHandler} — the class Boot's own
+ * ProblemDetail handler extends, which backs off once one exists — so every
+ * framework exception it covers (405, 415, malformed JSON, ...) keeps exactly
+ * the ProblemDetail body it had. What this adds is <b>{@code errors}</b> on a
+ * field-level 400 (#118): a list of {@link FieldProblem}s naming the request
+ * field that failed and a stable code, from Bean Validation
+ * ({@code subject}/{@code NotBlank}) and from {@link FieldRejectedException}
+ * ({@code attributes.costCentre}/{@code required}) alike, so a form can show
+ * each one next to its field.
  */
 @RestControllerAdvice
-public class RestExceptionHandler {
+public class RestExceptionHandler extends ResponseEntityExceptionHandler {
+
+	/**
+	 * One field-level problem. {@code code} is stable (a Bean Validation
+	 * constraint's name, or a {@link FieldRejectedException} code) for clients to
+	 * translate; {@code message} is English, for humans reading the raw response.
+	 */
+	public record FieldProblem(String field, String code, @Nullable String message) {
+	}
+
+	@Override
+	protected @Nullable ResponseEntity<Object> handleMethodArgumentNotValid(MethodArgumentNotValidException ex,
+			HttpHeaders headers, HttpStatusCode status, WebRequest request) {
+		ProblemDetail body = ex.getBody();
+		body.setProperty("errors", ex.getBindingResult().getFieldErrors().stream().map(
+				error -> new FieldProblem(error.getField(), String.valueOf(error.getCode()), error.getDefaultMessage()))
+				.toList());
+		return handleExceptionInternal(ex, body, headers, status, request);
+	}
+
+	@ExceptionHandler(FieldRejectedException.class)
+	ProblemDetail handleFieldRejected(FieldRejectedException ex) {
+		ProblemDetail problem = ProblemDetail.forStatusAndDetail(HttpStatus.BAD_REQUEST, ex.getMessage());
+		problem.setProperty("errors", List.of(new FieldProblem(ex.getField(), ex.getCode(), ex.getMessage())));
+		return problem;
+	}
 
 	@ExceptionHandler(NotFoundException.class)
 	ProblemDetail handleNotFound(NotFoundException ex) {

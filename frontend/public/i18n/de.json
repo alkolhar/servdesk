@@ -3,7 +3,8 @@
     "required": "Pflichtfeld",
     "email": "Keine gültige E-Mail-Adresse",
     "passwordLength": "{{min}} bis {{max}} Zeichen",
-    "passwordMismatch": "Die Passwörter stimmen nicht überein."
+    "passwordMismatch": "Die Passwörter stimmen nicht überein.",
+    "invalid": "Kein gültiger Wert"
   },
   "login": {
     "title": "Bei servdesk anmelden",
@@ -58,7 +59,8 @@
   },
   "shell": {
     "account": "Mein Konto",
-    "logout": "Abmelden"
+    "logout": "Abmelden",
+    "newTicket": "Neues Ticket"
   },
   "status": {
     "OPEN": "Offen",
@@ -119,6 +121,31 @@
       "unavailable": "servdesk ist gerade nicht erreichbar. Bitte versuchen Sie es erneut.",
       "movedOn": "Jemand anderes hat das Ticket inzwischen weiterbewegt. Hier ist der aktuelle Stand.",
       "commentRequired": "Diese Aktion braucht einen Kommentar."
+    }
+  },
+  "subtype": {
+    "incident": "Störung",
+    "problem": "Problem",
+    "change": "Änderung",
+    "service-request": "Serviceanfrage"
+  },
+  "create": {
+    "title": "Neues Ticket",
+    "subtype": "Welche Art von Ticket ist es?",
+    "subject": "Betreff",
+    "description": "Beschreibung",
+    "category": "Kategorie",
+    "impact": "Auswirkung",
+    "urgency": "Dringlichkeit",
+    "priorityHint": "Die Priorität ergibt sich aus Auswirkung und Dringlichkeit.",
+    "assignee": "Zuständige Person",
+    "relatedProblem": "Zugehöriges Problem",
+    "customFields": "Weitere Angaben",
+    "submit": "{{subtype}} anlegen",
+    "error": {
+      "invalid": "Bitte prüfen Sie die markierten Felder.",
+      "conflict": "Etwas, worauf dieses Ticket verweist, gibt es nicht mehr. Bitte laden Sie neu und versuchen Sie es erneut.",
+      "unavailable": "servdesk ist gerade nicht erreichbar. Bitte versuchen Sie es erneut."
     }
   }
 }

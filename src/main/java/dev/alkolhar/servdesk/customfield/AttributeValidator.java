@@ -32,14 +32,15 @@ public class AttributeValidator {
 		for (Map.Entry<String, Object> entry : attributes.entrySet()) {
 			AttributeDefinition definition = byKey.get(entry.getKey());
 			if (definition == null) {
-				throw new IllegalArgumentException(
+				throw new InvalidAttributeException(entry.getKey(), InvalidAttributeException.Reason.UNKNOWN,
 						"Unknown attribute '" + entry.getKey() + "' — no definition exists for target " + target);
 			}
 			validateValue(definition, entry.getValue());
 		}
 		for (AttributeDefinition definition : definitions) {
 			if (definition.isRequired() && attributes.get(definition.getKey()) == null) {
-				throw new IllegalArgumentException("Required attribute '" + definition.getKey() + "' is missing");
+				throw new InvalidAttributeException(definition.getKey(), InvalidAttributeException.Reason.REQUIRED,
+						"Required attribute '" + definition.getKey() + "' is missing");
 			}
 		}
 	}
@@ -64,8 +65,9 @@ public class AttributeValidator {
 				require(value instanceof String, definition, "one of its enum values", value);
 				List<String> allowed = definition.getEnumValues();
 				if (allowed == null || !allowed.contains(value)) {
-					throw new IllegalArgumentException("Attribute '" + definition.getKey() + "' must be one of "
-							+ allowed + " but was '" + value + "'");
+					throw new InvalidAttributeException(definition.getKey(),
+							InvalidAttributeException.Reason.NOT_ALLOWED, "Attribute '" + definition.getKey()
+									+ "' must be one of " + allowed + " but was '" + value + "'");
 				}
 			}
 		}
@@ -77,8 +79,8 @@ public class AttributeValidator {
 		}
 	}
 
-	private IllegalArgumentException mismatch(AttributeDefinition definition, String expected, Object value) {
-		return new IllegalArgumentException(
+	private InvalidAttributeException mismatch(AttributeDefinition definition, String expected, Object value) {
+		return new InvalidAttributeException(definition.getKey(), InvalidAttributeException.Reason.TYPE,
 				"Attribute '" + definition.getKey() + "' must be " + expected + " but was '" + value + "'");
 	}
 }

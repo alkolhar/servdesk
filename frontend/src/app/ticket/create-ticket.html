@@ -1,0 +1,188 @@
+<ng-container *transloco="let t">
+  <mat-card appearance="outlined">
+    <mat-card-header>
+      <mat-card-title
+        ><h1>{{ t('create.title') }}</h1></mat-card-title
+      >
+    </mat-card-header>
+    <mat-card-content>
+      <p id="subtype-label" class="step">{{ t('create.subtype') }}</p>
+      <mat-button-toggle-group
+        aria-labelledby="subtype-label"
+        [value]="subtype()?.type"
+        class="subtypes"
+      >
+        @for (candidate of subtypes; track candidate.type) {
+          <mat-button-toggle
+            [value]="candidate.type"
+            [attr.data-subtype]="candidate.type"
+            (change)="choose(candidate)"
+          >
+            {{ t('subtype.' + candidate.type) }}
+          </mat-button-toggle>
+        }
+      </mat-button-toggle-group>
+    </mat-card-content>
+  </mat-card>
+
+  @if (subtype(); as subtype) {
+    <mat-card appearance="outlined">
+      <form [formGroup]="form" (ngSubmit)="submit()">
+        <mat-card-content class="fields">
+          <mat-form-field appearance="outline">
+            <mat-label>{{ t('ticket.requester') }}</mat-label>
+            <input
+              matInput
+              formControlName="requester"
+              [matAutocomplete]="requesterAuto"
+              data-field="requester"
+              required
+            />
+            <mat-autocomplete #requesterAuto [displayWith]="displayPerson">
+              @for (person of requesterOptions(); track person.id) {
+                <mat-option [value]="person">
+                  {{ person.name }} <span class="muted">· {{ person.email }}</span>
+                </mat-option>
+              }
+            </mat-autocomplete>
+            <mat-error>{{ t(messageFor(form.controls.requester)) }}</mat-error>
+          </mat-form-field>
+
+          <mat-form-field appearance="outline">
+            <mat-label>{{ t('create.subject') }}</mat-label>
+            <input matInput formControlName="subject" data-field="subject" required />
+            <mat-error>{{ t(messageFor(form.controls.subject)) }}</mat-error>
+          </mat-form-field>
+
+          <mat-form-field appearance="outline">
+            <mat-label>{{ t('create.description') }}</mat-label>
+            <textarea matInput formControlName="description" rows="4"></textarea>
+          </mat-form-field>
+
+          <mat-form-field appearance="outline">
+            <mat-label>{{ t('create.category') }}</mat-label>
+            <mat-select formControlName="categoryId">
+              <mat-option [value]="null">—</mat-option>
+              @for (category of categoryOptions(); track category.id) {
+                <mat-option [value]="category.id">{{ category.label }}</mat-option>
+              }
+            </mat-select>
+          </mat-form-field>
+
+          <div class="pair">
+            <mat-form-field appearance="outline">
+              <mat-label>{{ t('create.impact') }}</mat-label>
+              <mat-select formControlName="impactId">
+                <mat-option [value]="null">—</mat-option>
+                @for (impact of impacts(); track impact.id) {
+                  <mat-option [value]="impact.id">{{ impact.name }}</mat-option>
+                }
+              </mat-select>
+            </mat-form-field>
+            <mat-form-field appearance="outline">
+              <mat-label>{{ t('create.urgency') }}</mat-label>
+              <mat-select formControlName="urgencyId">
+                <mat-option [value]="null">—</mat-option>
+                @for (urgency of urgencies(); track urgency.id) {
+                  <mat-option [value]="urgency.id">{{ urgency.name }}</mat-option>
+                }
+              </mat-select>
+            </mat-form-field>
+          </div>
+          <p class="hint">{{ t('create.priorityHint') }}</p>
+
+          <mat-form-field appearance="outline">
+            <mat-label>{{ t('create.assignee') }}</mat-label>
+            <mat-select formControlName="assigneeId">
+              <mat-option [value]="null">—</mat-option>
+              @for (agent of agents(); track agent.id) {
+                <mat-option [value]="agent.id">{{ agent.name }}</mat-option>
+              }
+            </mat-select>
+          </mat-form-field>
+
+          @if (subtype.type === 'incident') {
+            <mat-form-field appearance="outline">
+              <mat-label>{{ t('create.relatedProblem') }}</mat-label>
+              <mat-select formControlName="relatedProblemId">
+                <mat-option [value]="null">—</mat-option>
+                @for (problem of problems(); track problem.id) {
+                  <mat-option [value]="problem.id">
+                    {{ problem.displayNumber }} · {{ problem.subject }}
+                  </mat-option>
+                }
+              </mat-select>
+            </mat-form-field>
+          }
+
+          @if (attributeDefinitions().length) {
+            <h2>{{ t('create.customFields') }}</h2>
+            <div formGroupName="attributes" class="fields">
+              @for (definition of attributeDefinitions(); track definition.key) {
+                @switch (definition.type) {
+                  @case ('BOOLEAN') {
+                    <mat-checkbox
+                      [formControlName]="definition.key!"
+                      [attr.data-attribute]="definition.key"
+                    >
+                      {{ definition.label }}{{ definition.required ? ' *' : '' }}
+                    </mat-checkbox>
+                    @if (attributeControl(definition.key!).errors?.['server']; as key) {
+                      <p class="error" role="alert">{{ t(key) }}</p>
+                    }
+                  }
+                  @case ('ENUM') {
+                    <mat-form-field appearance="outline">
+                      <mat-label>{{ definition.label }}</mat-label>
+                      <mat-select
+                        [formControlName]="definition.key!"
+                        [required]="definition.required ?? false"
+                        [attr.data-attribute]="definition.key"
+                      >
+                        @if (!definition.required) {
+                          <mat-option [value]="null">—</mat-option>
+                        }
+                        @for (option of definition.enumValues ?? []; track option) {
+                          <mat-option [value]="option">{{ option }}</mat-option>
+                        }
+                      </mat-select>
+                      <mat-error>{{ t(messageFor(attributeControl(definition.key!))) }}</mat-error>
+                    </mat-form-field>
+                  }
+                  @default {
+                    <mat-form-field appearance="outline">
+                      <mat-label>{{ definition.label }}</mat-label>
+                      <input
+                        matInput
+                        [type]="
+                          definition.type === 'NUMBER'
+                            ? 'number'
+                            : definition.type === 'DATE'
+                              ? 'date'
+                              : 'text'
+                        "
+                        [formControlName]="definition.key!"
+                        [required]="definition.required ?? false"
+                        [attr.data-attribute]="definition.key"
+                      />
+                      <mat-error>{{ t(messageFor(attributeControl(definition.key!))) }}</mat-error>
+                    </mat-form-field>
+                  }
+                }
+              }
+            </div>
+          }
+
+          @if (error(); as key) {
+            <p class="error" role="alert">{{ t(key) }}</p>
+          }
+        </mat-card-content>
+        <mat-card-actions align="end">
+          <button mat-flat-button type="submit" [disabled]="submitting()">
+            {{ t('create.submit', { subtype: t('subtype.' + subtype.type) }) }}
+          </button>
+        </mat-card-actions>
+      </form>
+    </mat-card>
+  }
+</ng-container>

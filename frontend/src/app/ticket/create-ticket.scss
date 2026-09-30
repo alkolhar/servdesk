@@ -1,0 +1,55 @@
+:host {
+  display: flex;
+  flex-direction: column;
+  gap: 24px;
+}
+
+h1 {
+  font: var(--mat-sys-headline-small);
+  margin: 0;
+}
+
+h2 {
+  font: var(--mat-sys-title-medium);
+  margin: 8px 0 0;
+}
+
+.step {
+  margin: 16px 0 8px;
+}
+
+.subtypes {
+  flex-wrap: wrap;
+}
+
+.fields {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+  padding-top: 16px;
+}
+
+.pair {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 16px;
+}
+
+.hint,
+.muted {
+  color: var(--mat-sys-on-surface-variant);
+}
+
+.hint {
+  margin: -8px 0 12px;
+  font: var(--mat-sys-body-small);
+}
+
+.error {
+  color: var(--mat-sys-error);
+  margin: 0;
+}
+
+mat-card-actions {
+  padding: 8px 16px 16px;
+}
