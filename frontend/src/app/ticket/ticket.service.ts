@@ -1,7 +1,15 @@
 import { HttpClient } from '@angular/common/http';
 import { Injectable, inject } from '@angular/core';
 import { firstValueFrom } from 'rxjs';
-import { ActionRequest, HalLink, HalLinks, IncidentModel, TicketTaskModel } from '../api/models';
+import {
+  ActionRequest,
+  CommentModel,
+  HalLink,
+  HalLinks,
+  IncidentModel,
+  PersonModel,
+  TicketTaskModel,
+} from '../api/models';
 import { SubtypePath } from './subtypes';
 
 /** The link relation prefix of a ticket action (ADR-0008): `action:resolve`, ... */
@@ -67,5 +75,26 @@ export class TicketService {
   async perform(action: TicketAction, comment?: string): Promise<void> {
     const body: ActionRequest | null = comment ? { comment } : null;
     await firstValueFrom(this.http.post<void>(pathOf(action.link.href), body));
+  }
+
+  /** The ticket's comment stream, oldest first (the server's order), internal notes included. */
+  async comments(ticketId: number): Promise<CommentModel[]> {
+    const stream = await firstValueFrom(
+      this.http.get<{ _embedded?: Record<string, CommentModel[]> }>(
+        `/api/tickets/${ticketId}/comments`,
+      ),
+    );
+    // an empty stream has no _embedded at all
+    return Object.values(stream._embedded ?? {})[0] ?? [];
+  }
+
+  addComment(ticketId: number, body: string, internal: boolean): Promise<CommentModel> {
+    return firstValueFrom(
+      this.http.post<CommentModel>(`/api/tickets/${ticketId}/comments`, { body, internal }),
+    );
+  }
+
+  person(id: number): Promise<PersonModel> {
+    return firstValueFrom(this.http.get<PersonModel>(`/api/persons/${id}`));
   }
 }

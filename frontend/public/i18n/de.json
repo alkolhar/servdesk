@@ -121,6 +121,18 @@
       "unavailable": "servdesk ist gerade nicht erreichbar. Bitte versuchen Sie es erneut.",
       "movedOn": "Jemand anderes hat das Ticket inzwischen weiterbewegt. Hier ist der aktuelle Stand.",
       "commentRequired": "Diese Aktion braucht einen Kommentar."
+    },
+    "comments": {
+      "title": "Kommentare",
+      "empty": "Noch keine Kommentare.",
+      "internal": "Intern",
+      "unknownAuthor": "Jemand",
+      "new": "Neuer Kommentar",
+      "internalToggle": "Interne Notiz – die anfragende Person sieht sie nicht",
+      "add": "Kommentar hinzufügen",
+      "error": {
+        "add": "Der Kommentar konnte nicht gespeichert werden. Bitte versuchen Sie es erneut."
+      }
     }
   },
   "subtype": {

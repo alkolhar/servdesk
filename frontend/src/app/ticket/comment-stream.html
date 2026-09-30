@@ -1,0 +1,53 @@
+<mat-card appearance="outlined" *transloco="let t">
+  <mat-card-header>
+    <mat-card-title
+      ><h2>{{ t('ticket.comments.title') }}</h2></mat-card-title
+    >
+  </mat-card-header>
+  <mat-card-content>
+    @if (loadFailed()) {
+      <p class="error" role="alert">{{ t('ticket.error.unavailable') }}</p>
+    } @else if (!comments().length) {
+      <p class="muted" data-testid="no-comments">{{ t('ticket.comments.empty') }}</p>
+    } @else {
+      <ol class="stream">
+        @for (comment of comments(); track comment.id) {
+          <li
+            class="comment"
+            [class.internal]="comment.internal"
+            [attr.data-internal]="comment.internal"
+            data-testid="comment"
+          >
+            <p class="meta">
+              <span class="author">{{ authorOf(comment) }}</span>
+              · {{ formatDateTime(comment.createdAt) }}
+              @if (comment.internal) {
+                <span class="badge">{{ t('ticket.comments.internal') }}</span>
+              }
+            </p>
+            <p class="body">{{ comment.body }}</p>
+          </li>
+        }
+      </ol>
+    }
+
+    <form [formGroup]="form" #formDirective="ngForm" (ngSubmit)="add(formDirective)" class="add">
+      <mat-form-field appearance="outline">
+        <mat-label>{{ t('ticket.comments.new') }}</mat-label>
+        <textarea matInput formControlName="body" rows="3" data-field="comment"></textarea>
+        <mat-error>{{ t('form.required') }}</mat-error>
+      </mat-form-field>
+      <div class="add-actions">
+        <mat-slide-toggle formControlName="internal" data-field="internal">
+          {{ t('ticket.comments.internalToggle') }}
+        </mat-slide-toggle>
+        <button mat-flat-button type="submit" [disabled]="submitting()">
+          {{ t('ticket.comments.add') }}
+        </button>
+      </div>
+      @if (error(); as key) {
+        <p class="error" role="alert">{{ t(key) }}</p>
+      }
+    </form>
+  </mat-card-content>
+</mat-card>

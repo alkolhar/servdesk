@@ -10,6 +10,7 @@ import { firstValueFrom } from 'rxjs';
 import { PersonModel, PriorityModel } from '../api/models';
 import { SubtypePath } from './subtypes';
 import { CommentDialog, CommentDialogData } from './comment-dialog';
+import { CommentStream } from './comment-stream';
 import { COMMENT_REQUIRED, Ticket, TicketAction, TicketService, actionsOf } from './ticket.service';
 
 type LoadState = 'loading' | 'loaded' | 'notFound' | 'unavailable';
@@ -22,7 +23,7 @@ type LoadState = 'loading' | 'loaded' | 'notFound' | 'unavailable';
  */
 @Component({
   selector: 'app-ticket-detail',
-  imports: [MatButtonModule, MatCardModule, TranslocoDirective],
+  imports: [CommentStream, MatButtonModule, MatCardModule, TranslocoDirective],
   templateUrl: './ticket-detail.html',
   styleUrl: './ticket-detail.scss',
   changeDetection: ChangeDetectionStrategy.OnPush,
@@ -38,6 +39,8 @@ export class TicketDetail {
   protected readonly requester = signal<string | null>(null);
   protected readonly priority = signal<string | null>(null);
   protected readonly busy = signal(false);
+  /** Bumped after every action, so the comment stream shows what the action wrote. */
+  protected readonly commentsVersion = signal(0);
 
   protected readonly actions = computed(() => actionsOf(this.ticket()?._links));
   /** Whether this subtype runs on a lifecycle process at all (its model has `tasks`). */
@@ -113,6 +116,7 @@ export class TicketDetail {
       );
     } finally {
       await this.load();
+      this.commentsVersion.update((version) => version + 1);
       this.busy.set(false);
     }
   }

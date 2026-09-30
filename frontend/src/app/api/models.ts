@@ -35,3 +35,4 @@ export interface FieldProblem {
   code: string;
   message?: string | null;
 }
+export type CommentModel = Schemas['CommentModel'];

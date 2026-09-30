@@ -65,7 +65,12 @@ OpenAPI contract testing (Redocly lint/bundle + Schemathesis) runs as its own CI
   fields rendered from `?target=TICKET` definitions by type — DATE is a native date input, which
   yields exactly the `yyyy-MM-dd` the server accepts; a 400's `errors` land on their controls) and
   **one `TicketDetail` for all four subtypes** (`/incidents|problems|changes|service-requests/:id`,
-  route data says which resource; the task panel shows only when the model has `tasks`). Reference
+  route data says which resource; the task panel shows only when the model has `tasks`), which also
+  holds the **comment stream** (`CommentStream`, #119: oldest first as the server returns it, internal
+  notes marked, an add box with an internal toggle). It reloads whenever the screen bumps its
+  `reloadKey` after an action — that's how a resolution note written by `resolve` shows up. Author
+  names are resolved per distinct `authorId` via `/api/persons/{id}` (Agent-only, fine for the
+  Agent-only UI). Reference
   lists load whole (`size=1000`) — there's no server-side person search yet. No initial-team picker
   until the Teams API (#106).
 - **Security**: `spring-boot-starter-security` + `spring-security-messaging`.

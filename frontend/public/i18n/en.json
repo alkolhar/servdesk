@@ -121,6 +121,18 @@
       "unavailable": "servdesk can't be reached right now. Please try again.",
       "movedOn": "Someone else moved this ticket on in the meantime. Here is where it stands now.",
       "commentRequired": "This action needs a comment."
+    },
+    "comments": {
+      "title": "Comments",
+      "empty": "No comments yet.",
+      "internal": "Internal",
+      "unknownAuthor": "Someone",
+      "new": "New comment",
+      "internalToggle": "Internal note — the requester won't see it",
+      "add": "Add comment",
+      "error": {
+        "add": "The comment couldn't be saved. Please try again."
+      }
     }
   },
   "subtype": {

@@ -41,7 +41,16 @@ describe('TicketDetail', () => {
     await TestBed.configureTestingModule({
       imports: [TicketDetail, translocoTesting()],
       providers: [
-        { provide: TicketService, useValue: { ticket: incident, perform, follow } },
+        {
+          provide: TicketService,
+          useValue: {
+            ticket: incident,
+            perform,
+            follow,
+            comments: async () => [],
+            person: vi.fn(),
+          },
+        },
         {
           provide: ActivatedRoute,
           useValue: {
