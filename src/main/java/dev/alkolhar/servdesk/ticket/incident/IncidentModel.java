@@ -1,7 +1,9 @@
 package dev.alkolhar.servdesk.ticket.incident;
 
 import dev.alkolhar.servdesk.ticket.TicketStatus;
+import dev.alkolhar.servdesk.ticket.TicketTaskModel;
 import java.time.Instant;
+import java.util.List;
 import java.util.Map;
 import org.jspecify.annotations.Nullable;
 import org.springframework.hateoas.RepresentationModel;
@@ -40,6 +42,7 @@ public class IncidentModel extends RepresentationModel<IncidentModel> {
 	private Instant updatedAt;
 	private @Nullable String createdBy;
 	private @Nullable String updatedBy;
+	private List<TicketTaskModel> tasks = List.of();
 
 	public Long getId() {
 		return id;
@@ -240,4 +243,14 @@ public class IncidentModel extends RepresentationModel<IncidentModel> {
 	public void setUpdatedBy(@Nullable String updatedBy) {
 		this.updatedBy = updatedBy;
 	}
+
+	/** What the Incident is waiting on (ADR-0008); empty once it's closed. */
+	public List<TicketTaskModel> getTasks() {
+		return tasks;
+	}
+
+	public void setTasks(List<TicketTaskModel> tasks) {
+		this.tasks = tasks;
+	}
+
 }

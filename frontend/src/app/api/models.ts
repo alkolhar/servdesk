@@ -11,3 +11,15 @@ export type PersonRole = Schemas['PersonRole'];
 export type SetupStatus = Schemas['SetupStatus'];
 export type SetupRequest = Schemas['SetupRequest'];
 export type ChangePasswordRequest = Schemas['ChangePasswordRequest'];
+export type IncidentModel = Schemas['IncidentModel'];
+export type TicketTaskModel = Schemas['TicketTaskModel'];
+export type ActionRequest = Schemas['ActionRequest'];
+export type TicketStatus = Schemas['TicketStatus'];
+export type PersonModel = Schemas['PersonModel'];
+export type PriorityModel = Schemas['PriorityModel'];
+
+/** A HAL link. The generated `_links` types are opaque objects; this is their actual shape. */
+export interface HalLink {
+  href: string;
+}
+export type HalLinks = Record<string, HalLink>;

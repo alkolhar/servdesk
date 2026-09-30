@@ -56,7 +56,11 @@ OpenAPI contract testing (Redocly lint/bundle + Schemathesis) runs as its own CI
   the jar's `static/`. `openapi-typescript` 7 declares a TypeScript 5 peer; `package.json`'s
   `overrides` points it at the project's TypeScript 6, which it generates correctly with. No web
   fonts: the self-hosted product mustn't make browsers call out to a font CDN, so Material's
-  typography uses the system font stack.
+  typography uses the system font stack. **Every route is lazy** (`loadComponent`) except the
+  `Shell` (toolbar + outlet around every logged-in screen): the initial bundle stays under the 500 kB
+  budget, and dialogs/Material form code load with the first screen that needs them. HAL hrefs are
+  absolute, but `HttpClient` only sends `X-XSRF-TOKEN` on *relative* URLs — so a followed link goes
+  through `ticket.service.ts`'s `pathOf()`; used as-is, a session-authenticated action is a 403.
 - **Security**: `spring-boot-starter-security` + `spring-security-messaging`.
 - **Flowable 8.0.0** (`flowable-spring-boot-starter-process`, embedded BPMN engine) drives the ticket
   lifecycle ([ADR-0004](docs/adr/0004-flowable-drives-the-ticket-lifecycle.md),
@@ -264,8 +268,21 @@ Controllers return a `*Model` (or `CollectionModel<...>`/`PagedModel<...>`), nev
     `confirm-resolution` are user tasks whose id is the task key, completed with an `outcome` variable
     that exclusive gateways route on; the end event is CLOSED (terminal). `status` is gone from
     `IncidentUpdateRequest` (sent anyway: ignored). Soft-delete ends the running instance ("Incident
-    deleted"); a closed Incident has none left. The API that moves stages (`/actions`) is #111; until
-    then only the engine's `TaskService` does. **Problem/Change/ServiceRequest still take `status` on
+    deleted"); a closed Incident has none left.
+  - **Task-backed actions** (ADR-0008, #111): `POST /api/tickets/{ticketId}/actions/{action}`
+    (`TicketActionController` → `TicketActionService`, Agent-only by `SecurityConfig`) completes the
+    ticket's current task with that outcome, in one transaction with the optional comment (saved as an
+    ordinary non-internal comment by the caller; **required** for `resolve`/`cancel`/`reject` → 400).
+    Not offered by the current stage, or the process ended → **409** (state, not caller); a task someone
+    completed a moment earlier → 409 too. **The action catalogue is read from the BPMN**, never kept in
+    Java (`TicketTasks`): the exclusive gateway after a stage's user task has one outgoing flow per
+    outcome, *named* after it — every process must follow that convention. `TicketTasks.complete`
+    passes the caller's Person id as Flowable's `userId` (that's what fills `completedBy`) *and* sets it
+    as the authenticated user (ADR-0009). Models carry `tasks` (`TicketTaskModel`: `key`,
+    `assigneeId`, `teamId`, `createdAt`, per-task links) and `action:<name>` links, rendered by
+    `TicketTaskModels` — for the MVP "may act" = "is an Agent"; #113's assignee/team rules change only
+    that class. Flowable task ids never leave `TicketTasks`. Only `IncidentModel` has `tasks` so far;
+    each subtype gains them with its lifecycle slice. **Problem/Change/ServiceRequest still take `status` on
     `PUT`** until their own slices, routed through `applyRequestedStatus` → `TicketLifecycle` *after*
     the descriptive fields' SLA call — the order `SlaHooks` always had (re-derive for a new priority,
     then shift for an ending pause).

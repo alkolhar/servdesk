@@ -188,6 +188,10 @@ public class SecurityConfig {
 						// CommentCommandService, not here (see the class javadoc above)
 						.requestMatchers(HttpMethod.GET, "/api/tickets/*/comments").hasAnyRole("AGENT", "CUSTOMER")
 						.requestMatchers(HttpMethod.POST, "/api/tickets/*/comments").hasAnyRole("AGENT", "CUSTOMER")
+						// ticket actions (ADR-0008) move a ticket through its lifecycle: Agent-only.
+						// Who among the Agents may act on a given task is data-dependent and comes
+						// with task assignment (#113)
+						.requestMatchers(HttpMethod.POST, "/api/tickets/*/actions/*").hasRole("AGENT")
 						// cross-subtype ticket overview (issue #30): read-only for either role —
 						// there is no write surface under /api/tickets itself, writes stay on the
 						// subtype endpoints above; row-level ownership is enforced by

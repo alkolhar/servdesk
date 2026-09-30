@@ -58,6 +58,11 @@ tags:
     description: >
       Admin-editable custom-field definitions (which keys a target aggregate accepts, their type
       and validation facts). Values live in the target's own `attributes` map.
+  - name: actions
+    description: >
+      Task-backed ticket actions (ADR-0008): an action completes the ticket's current lifecycle task
+      with that outcome, and the process moves the ticket on. Follow a ticket model's `action:*`
+      links rather than building these URLs.
   - name: comments
     description: >
       Activity/conversation entries on a ticket, nested under the shared Ticket id (ADR-0001) —
@@ -1640,6 +1645,59 @@ paths:
                 $ref: "#/components/schemas/TicketModel"
         "404":
           $ref: "#/components/responses/NotFoundProblem"
+  /api/tickets/{ticketId}/actions/{action}:
+    parameters:
+      - $ref: "#/components/parameters/ApiVersionHeader"
+      - name: ticketId
+        in: path
+        required: true
+        description: The shared Ticket id (ADR-0001) — same value as any subtype's own `id`.
+        schema:
+          type: integer
+          format: int64
+      - name: action
+        in: path
+        required: true
+        description: >
+          An action of the ticket's current stage. The Incident lifecycle's: start-work, put-on-hold,
+          resume, resolve, close, reopen, cancel.
+        schema:
+          type: string
+          enum: [start-work, put-on-hold, resume, resolve, close, reopen, cancel]
+    post:
+      tags: [actions]
+      summary: Perform an action on a ticket's current lifecycle stage. Agent-only.
+      requestBody:
+        required: false
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/ActionRequest"
+      responses:
+        "default":
+          $ref: "#/components/responses/DefaultProblem"
+        "204":
+          description: Done; reload the ticket to see where the process took it.
+        "400":
+          description: The action requires a comment (resolve, cancel) and none was given, or the body is malformed.
+          content:
+            application/problem+json:
+              schema:
+                $ref: "#/components/schemas/ProblemDetail"
+        "401":
+          $ref: "#/components/responses/Unauthorized"
+        "403":
+          $ref: "#/components/responses/ForbiddenProblem"
+        "404":
+          $ref: "#/components/responses/NotFoundProblem"
+        "409":
+          description: >
+            The action isn't available on this ticket now — its current stage doesn't offer it, its
+            process has ended (closed), or someone else moved it on a moment earlier.
+          content:
+            application/problem+json:
+              schema:
+                $ref: "#/components/schemas/ProblemDetail"
   /api/tickets/{ticketId}/comments:
     parameters:
       - $ref: "#/components/parameters/ApiVersionHeader"
@@ -1902,6 +1960,37 @@ components:
           maxLength: 72
           format: password
           description: The password policy — 12 to 72 characters, no composition rules.
+    TicketTaskModel:
+      type: object
+      description: >
+        One open lifecycle task (ADR-0008). `key` is the stage's stable task key (triage, work,
+        on-hold, confirm-resolution, ...), for display; Flowable's own task ids never appear.
+      properties:
+        key:
+          type: string
+        assigneeId:
+          type: integer
+          format: int64
+          nullable: true
+        teamId:
+          type: integer
+          format: int64
+          nullable: true
+        createdAt:
+          type: string
+          format: date-time
+        _links:
+          type: object
+          description: The `action:<name>` links this caller may use on this task now.
+    ActionRequest:
+      type: object
+      properties:
+        comment:
+          type: string
+          nullable: true
+          description: >
+            Saved as an ordinary (non-internal) comment by the caller. Required for resolve (the
+            resolution note) and cancel (why it's closed without being fixed).
     PersonCreateRequest:
       type: object
       required: [role, name, email]
@@ -2728,9 +2817,20 @@ components:
         updatedBy:
           type: string
           nullable: true
+        tasks:
+          type: array
+          description: >
+            What the Incident is waiting on (ADR-0008): its lifecycle process's open tasks. One entry
+            while it's open, none once it's closed.
+          items:
+            $ref: "#/components/schemas/TicketTaskModel"
         _links:
           type: object
-          description: HATEOAS links (self, requester, assignee, relatedProblem — as available).
+          description: >
+            HATEOAS links (self, requester, assignee, relatedProblem — as available), plus one
+            `action:<name>` link (e.g. `action:resolve`) for each action this caller may perform now,
+            pointing at POST /api/tickets/{ticketId}/actions/{name}. No link, no action: the server is
+            the only judge of what is allowed (ADR-0003).
     IncidentCreateRequest:
       type: object
       required: [subject, requesterId]

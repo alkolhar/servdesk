@@ -24,7 +24,6 @@
     "role": "Role",
     "username": "Username",
     "email": "Email",
-    "logout": "Sign out",
     "password": {
       "title": "Change password",
       "current": "Current password",
@@ -55,6 +54,71 @@
     "error": {
       "invalid": "The server rejected these details. Please check them and try again.",
       "unavailable": "servdesk can't be reached right now. Please try again."
+    }
+  },
+  "shell": {
+    "account": "My account",
+    "logout": "Sign out"
+  },
+  "status": {
+    "OPEN": "Open",
+    "IN_PROGRESS": "In progress",
+    "PENDING": "Pending",
+    "RESOLVED": "Resolved",
+    "CLOSED": "Closed"
+  },
+  "task": {
+    "triage": "Triage",
+    "work": "Work on it",
+    "on-hold": "On hold",
+    "confirm-resolution": "Confirm the resolution"
+  },
+  "action": {
+    "start-work": "Start work",
+    "put-on-hold": "Put on hold",
+    "resume": "Resume",
+    "resolve": "Resolve",
+    "close": "Close",
+    "reopen": "Reopen",
+    "cancel": "Cancel ticket"
+  },
+  "ticket": {
+    "status": "Status",
+    "priority": "Priority",
+    "requester": "Requester",
+    "createdAt": "Created",
+    "respondBy": "Respond by",
+    "resolveBy": "Resolve by",
+    "resolvedAt": "Resolved",
+    "closedAt": "Closed",
+    "task": {
+      "title": "Waiting on",
+      "since": "since {{when}}",
+      "none": "Nothing — this ticket is closed."
+    },
+    "comment": {
+      "label": "Comment",
+      "back": "Back",
+      "why": {
+        "resolve": "Describe how it was resolved. The requester will see this note.",
+        "cancel": "Say why this ticket is closed without being fixed.",
+        "reject": "Say why this is rejected."
+      }
+    },
+    "done": {
+      "start-work": "Work started.",
+      "put-on-hold": "Put on hold.",
+      "resume": "Resumed.",
+      "resolve": "Resolved.",
+      "close": "Closed.",
+      "reopen": "Reopened.",
+      "cancel": "Ticket cancelled."
+    },
+    "error": {
+      "notFound": "There is no such ticket.",
+      "unavailable": "servdesk can't be reached right now. Please try again.",
+      "movedOn": "Someone else moved this ticket on in the meantime. Here is where it stands now.",
+      "commentRequired": "This action needs a comment."
     }
   }
 }

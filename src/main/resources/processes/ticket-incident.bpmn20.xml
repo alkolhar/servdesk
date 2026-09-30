@@ -14,6 +14,10 @@
 
   Every stage maps to exactly one of the five statuses, in every version of this file (ADR-0007):
   running tickets stay on the version they started with, and listings and SLA must not notice.
+  Convention the API relies on (TicketTasks): the exclusive gateway after a stage's user task has
+  one outgoing flow per outcome, *named* after it. Those names are the stage's actions — the
+  catalogue is read from this file, never duplicated in Java.
+
   The auto-close timer on confirm-resolution comes with #116.
 -->
 <definitions xmlns="http://www.omg.org/spec/BPMN/20100524/MODEL"
@@ -32,10 +36,10 @@
     </userTask>
     <sequenceFlow id="triage-done" sourceRef="triage" targetRef="triage-outcome"/>
     <exclusiveGateway id="triage-outcome"/>
-    <sequenceFlow id="triage-start-work" sourceRef="triage-outcome" targetRef="work">
+    <sequenceFlow name="start-work" id="triage-start-work" sourceRef="triage-outcome" targetRef="work">
       <conditionExpression xsi:type="tFormalExpression">${outcome == 'start-work'}</conditionExpression>
     </sequenceFlow>
-    <sequenceFlow id="triage-cancel" sourceRef="triage-outcome" targetRef="closed">
+    <sequenceFlow name="cancel" id="triage-cancel" sourceRef="triage-outcome" targetRef="closed">
       <conditionExpression xsi:type="tFormalExpression">${outcome == 'cancel'}</conditionExpression>
     </sequenceFlow>
 
@@ -47,13 +51,13 @@
     </userTask>
     <sequenceFlow id="work-done" sourceRef="work" targetRef="work-outcome"/>
     <exclusiveGateway id="work-outcome"/>
-    <sequenceFlow id="work-resolve" sourceRef="work-outcome" targetRef="confirm-resolution">
+    <sequenceFlow name="resolve" id="work-resolve" sourceRef="work-outcome" targetRef="confirm-resolution">
       <conditionExpression xsi:type="tFormalExpression">${outcome == 'resolve'}</conditionExpression>
     </sequenceFlow>
-    <sequenceFlow id="work-put-on-hold" sourceRef="work-outcome" targetRef="on-hold">
+    <sequenceFlow name="put-on-hold" id="work-put-on-hold" sourceRef="work-outcome" targetRef="on-hold">
       <conditionExpression xsi:type="tFormalExpression">${outcome == 'put-on-hold'}</conditionExpression>
     </sequenceFlow>
-    <sequenceFlow id="work-cancel" sourceRef="work-outcome" targetRef="closed">
+    <sequenceFlow name="cancel" id="work-cancel" sourceRef="work-outcome" targetRef="closed">
       <conditionExpression xsi:type="tFormalExpression">${outcome == 'cancel'}</conditionExpression>
     </sequenceFlow>
 
@@ -65,10 +69,10 @@
     </userTask>
     <sequenceFlow id="on-hold-done" sourceRef="on-hold" targetRef="on-hold-outcome"/>
     <exclusiveGateway id="on-hold-outcome"/>
-    <sequenceFlow id="on-hold-resume" sourceRef="on-hold-outcome" targetRef="work">
+    <sequenceFlow name="resume" id="on-hold-resume" sourceRef="on-hold-outcome" targetRef="work">
       <conditionExpression xsi:type="tFormalExpression">${outcome == 'resume'}</conditionExpression>
     </sequenceFlow>
-    <sequenceFlow id="on-hold-cancel" sourceRef="on-hold-outcome" targetRef="closed">
+    <sequenceFlow name="cancel" id="on-hold-cancel" sourceRef="on-hold-outcome" targetRef="closed">
       <conditionExpression xsi:type="tFormalExpression">${outcome == 'cancel'}</conditionExpression>
     </sequenceFlow>
 
@@ -80,10 +84,10 @@
     </userTask>
     <sequenceFlow id="confirm-resolution-done" sourceRef="confirm-resolution" targetRef="confirm-resolution-outcome"/>
     <exclusiveGateway id="confirm-resolution-outcome"/>
-    <sequenceFlow id="confirm-resolution-close" sourceRef="confirm-resolution-outcome" targetRef="closed">
+    <sequenceFlow name="close" id="confirm-resolution-close" sourceRef="confirm-resolution-outcome" targetRef="closed">
       <conditionExpression xsi:type="tFormalExpression">${outcome == 'close'}</conditionExpression>
     </sequenceFlow>
-    <sequenceFlow id="confirm-resolution-reopen" sourceRef="confirm-resolution-outcome" targetRef="work">
+    <sequenceFlow name="reopen" id="confirm-resolution-reopen" sourceRef="confirm-resolution-outcome" targetRef="work">
       <conditionExpression xsi:type="tFormalExpression">${outcome == 'reopen'}</conditionExpression>
     </sequenceFlow>
 
