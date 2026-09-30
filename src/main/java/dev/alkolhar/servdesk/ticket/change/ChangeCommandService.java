@@ -9,6 +9,7 @@ import dev.alkolhar.servdesk.ticket.TicketRepository;
 import jakarta.persistence.EntityManager;
 import org.springframework.context.ApplicationEventPublisher;
 import org.springframework.stereotype.Service;
+import org.springframework.transaction.annotation.Transactional;
 
 @Service
 public class ChangeCommandService extends AbstractTicketSubtypeCommandService<Change> {
@@ -25,21 +26,24 @@ public class ChangeCommandService extends AbstractTicketSubtypeCommandService<Ch
 		this.changeQueryService = changeQueryService;
 	}
 
+	@Transactional
 	public Change create(ChangeCreateRequest request) {
 		Ticket savedTicket = ticketRepository.save(newTicket(request));
 		Change change = new Change();
 		change.setTicket(savedTicket);
 		change.setDisplayNumber(nextDisplayNumber("RFC-", "change_number_seq"));
-		return changeRepository.save(change);
+		return changeRepository.saveAndFlush(change);
 	}
 
+	@Transactional
 	public Change update(Long id, ChangeUpdateRequest request) {
 		Change existing = changeQueryService.findById(id);
 		applySharedUpdate(existing.getTicket(), request);
 		ticketRepository.save(existing.getTicket());
-		return changeRepository.save(existing);
+		return changeRepository.saveAndFlush(existing);
 	}
 
+	@Transactional
 	public void delete(Long id) {
 		Change existing = changeQueryService.findById(id);
 		deleteTicketAndSubtype(existing, existing.getTicket(), changeRepository);

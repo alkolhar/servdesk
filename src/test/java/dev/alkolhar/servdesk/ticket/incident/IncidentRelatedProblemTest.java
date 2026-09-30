@@ -92,4 +92,49 @@ class IncidentRelatedProblemTest {
 		assertThat(((Number) updated.getBody().get("relatedProblemId")).longValue())
 				.isEqualTo(secondProblemId.longValue());
 	}
+
+	private long ticketCount() {
+		ResponseEntity<Map> tickets = asAdmin().getForEntity("/api/tickets", Map.class);
+		assertThat(tickets.getStatusCode()).isEqualTo(HttpStatus.OK);
+		return ((Number) ((Map<?, ?>) tickets.getBody().get("page")).get("totalElements")).longValue();
+	}
+
+	/**
+	 * Issue #127: the shared Ticket row and the Incident row are one unit. A
+	 * related problem that doesn't exist fails the Incident insert; the Ticket
+	 * written just before it must go too, or /api/tickets answers 500 for every
+	 * page that includes the orphan.
+	 */
+	@Test
+	void aFailedCreateLeavesNoOrphanTicketBehind() {
+		long before = ticketCount();
+
+		ResponseEntity<String> created = asAdmin().postForEntity("/api/incidents",
+				Map.of("subject", "Points at nothing", "requesterId", requesterId, "relatedProblemId", 999_999),
+				String.class);
+
+		assertThat(created.getStatusCode()).isEqualTo(HttpStatus.CONFLICT);
+		assertThat(ticketCount()).isEqualTo(before);
+	}
+
+	/**
+	 * The same for an update: the shared fields don't change if the Incident's own
+	 * write fails.
+	 */
+	@Test
+	void aFailedUpdateLeavesTheSharedFieldsUntouched() {
+		Number id = (Number) asAdmin().postForEntity("/api/incidents",
+				Map.of("subject", "Original subject", "requesterId", requesterId), Map.class).getBody().get("id");
+
+		ResponseEntity<String> updated = asAdmin()
+				.exchange(
+						"/api/incidents/" + id, HttpMethod.PUT, new HttpEntity<>(Map.of("subject", "Changed subject",
+								"status", "IN_PROGRESS", "requesterId", requesterId, "relatedProblemId", 999_999)),
+						String.class);
+
+		assertThat(updated.getStatusCode()).isEqualTo(HttpStatus.CONFLICT);
+		Map<?, ?> incident = asAdmin().getForEntity("/api/incidents/" + id, Map.class).getBody();
+		assertThat(incident.get("subject")).isEqualTo("Original subject");
+		assertThat(incident.get("status")).isNotEqualTo("IN_PROGRESS");
+	}
 }

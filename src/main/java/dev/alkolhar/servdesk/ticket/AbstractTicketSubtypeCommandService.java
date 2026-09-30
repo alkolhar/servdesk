@@ -33,6 +33,18 @@ import org.springframework.data.jpa.repository.JpaRepository;
  * what's genuinely subtype-specific: instantiating its own entity, assigning
  * its own prefixed display number from its own DB sequence, and any field of
  * its own (e.g. {@code Incident.relatedProblem}).
+ * <p>
+ * <b>Every subtype's {@code create}/{@code update}/{@code delete} is
+ * {@code @Transactional}</b> (issue #127): each writes the shared
+ * {@link Ticket} row and the subtype row, and the two are one unit. Committed
+ * separately, a failed subtype insert (e.g. a {@code relatedProblemId} that
+ * doesn't exist) left an orphan {@code Ticket} behind, and
+ * {@code GET /api/tickets} then answered 500 for every page that included it.
+ * The last write is {@code saveAndFlush}, so a constraint violation still
+ * surfaces inside the method as {@code DataIntegrityViolationException} (409)
+ * rather than at commit. Being inside a transaction is also what lets
+ * {@link TicketStatusChangedEvent} reach its
+ * {@code @TransactionalEventListener}s.
  */
 public abstract class AbstractTicketSubtypeCommandService<T extends MapsIdBaseEntity> {
 

@@ -80,7 +80,7 @@ class ProblemCommandServiceTest {
 
 	private void stubSavesToReturnTheirArgument() {
 		when(ticketRepository.save(any(Ticket.class))).thenAnswer(invocation -> invocation.getArgument(0));
-		when(problemRepository.save(any(Problem.class))).thenAnswer(invocation -> invocation.getArgument(0));
+		when(problemRepository.saveAndFlush(any(Problem.class))).thenAnswer(invocation -> invocation.getArgument(0));
 	}
 
 	@Test
