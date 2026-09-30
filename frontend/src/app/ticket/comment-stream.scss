@@ -1,0 +1,71 @@
+h2 {
+  font: var(--mat-sys-title-large);
+  margin: 0;
+}
+
+.stream {
+  list-style: none;
+  margin: 16px 0 0;
+  padding: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+}
+
+.comment {
+  padding: 8px 12px;
+  border-radius: 8px;
+  border-left: 4px solid var(--mat-sys-outline-variant);
+}
+
+/* internal notes stand apart: only Agents see them, never the requester */
+.comment.internal {
+  background: var(--mat-sys-tertiary-container);
+  border-left-color: var(--mat-sys-tertiary);
+}
+
+.meta {
+  margin: 0 0 4px;
+  font: var(--mat-sys-body-small);
+  color: var(--mat-sys-on-surface-variant);
+}
+
+.author {
+  color: var(--mat-sys-on-surface);
+  font-weight: 500;
+}
+
+.badge {
+  margin-left: 8px;
+  padding: 0 8px;
+  border-radius: 8px;
+  background: var(--mat-sys-tertiary);
+  color: var(--mat-sys-on-tertiary);
+}
+
+.body {
+  margin: 0;
+  white-space: pre-line;
+}
+
+.add {
+  margin-top: 16px;
+  display: flex;
+  flex-direction: column;
+}
+
+.add-actions {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 16px;
+}
+
+.muted {
+  color: var(--mat-sys-on-surface-variant);
+}
+
+.error {
+  color: var(--mat-sys-error);
+  margin: 8px 0 0;
+}
