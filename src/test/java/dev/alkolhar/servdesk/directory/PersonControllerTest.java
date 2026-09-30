@@ -32,12 +32,12 @@ class PersonControllerTest {
 	@BeforeAll
 	void bootstrapAgent() {
 		ResponseEntity<Map> created = restTemplate.postForEntity("/api/setup",
-				new SetupRequest("Administrator", "admin@example.com", null, "admin", "admin123"), Map.class);
+				new SetupRequest("Administrator", "admin@example.com", null, "admin", "admin-password"), Map.class);
 		adminId = (Number) created.getBody().get("id");
 	}
 
 	private TestRestTemplate asAdmin() {
-		return restTemplate.withBasicAuth("admin", "admin123");
+		return restTemplate.withBasicAuth("admin", "admin-password");
 	}
 
 	@Test
@@ -101,9 +101,9 @@ class PersonControllerTest {
 	@Test
 	void updatingAPersonWithoutEchoingCredentialsLeavesTheLoginIntact() {
 		Map<String, Object> createRequest = Map.of("role", "AGENT", "name", "Ida Agent", "email", "ida@example.com",
-				"username", "ida", "password", "ida12345");
+				"username", "ida", "password", "ida-password");
 		Number id = (Number) asAdmin().postForEntity("/api/persons", createRequest, Map.class).getBody().get("id");
-		assertThat(restTemplate.withBasicAuth("ida", "ida12345").getForEntity("/api/persons", String.class)
+		assertThat(restTemplate.withBasicAuth("ida", "ida-password").getForEntity("/api/persons", String.class)
 				.getStatusCode()).isEqualTo(HttpStatus.OK);
 
 		Map<String, Object> rename = Map.of("role", "AGENT", "name", "Ida Renamed", "email", "ida@example.com");
@@ -114,7 +114,7 @@ class PersonControllerTest {
 		assertThat(updated.getBody().get("username")).isEqualTo("ida");
 		assertThat(updated.getBody().get("enabled")).isEqualTo(true);
 
-		assertThat(restTemplate.withBasicAuth("ida", "ida12345").getForEntity("/api/persons", String.class)
+		assertThat(restTemplate.withBasicAuth("ida", "ida-password").getForEntity("/api/persons", String.class)
 				.getStatusCode()).isEqualTo(HttpStatus.OK);
 
 		// a second login-capable agent would change the count the last-agent tests
@@ -156,7 +156,7 @@ class PersonControllerTest {
 	@Test
 	void anAgentIsRemovableWhileAnotherCanStillLogIn() {
 		Map<String, Object> second = Map.of("role", "AGENT", "name", "Second Agent", "email", "second@example.com",
-				"username", "second", "password", "second12345");
+				"username", "second", "password", "second-password");
 		Number id = (Number) asAdmin().postForEntity("/api/persons", second, Map.class).getBody().get("id");
 
 		ResponseEntity<String> deleted = asAdmin().exchange("/api/persons/" + id,
@@ -198,11 +198,11 @@ class PersonControllerTest {
 	@Test
 	void customersCannotManageThePersonDirectory() {
 		Map<String, Object> customerRequest = Map.of("role", "CUSTOMER", "name", "Cara Customer", "email",
-				"cara@example.com", "username", "cara", "password", "cara12345");
+				"cara@example.com", "username", "cara", "password", "cara-password");
 		asAdmin().postForEntity("/api/persons", customerRequest, Map.class);
 
-		ResponseEntity<String> response = restTemplate.withBasicAuth("cara", "cara12345").getForEntity("/api/persons",
-				String.class);
+		ResponseEntity<String> response = restTemplate.withBasicAuth("cara", "cara-password")
+				.getForEntity("/api/persons", String.class);
 		assertThat(response.getStatusCode()).isEqualTo(HttpStatus.FORBIDDEN);
 	}
 }

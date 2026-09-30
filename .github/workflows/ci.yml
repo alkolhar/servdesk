@@ -131,11 +131,11 @@ jobs:
           exit 1
 
       # Fixture-only credentials for this CI run's disposable PostgreSQL service container — not a
-      # real secret, same admin/admin123 pattern the integration tests already bootstrap with.
+      # real secret, same admin/admin-password pattern the integration tests already bootstrap with.
       - name: Bootstrap the first agent
         run: |
           curl -sf -X POST http://localhost:8080/api/setup -H "Content-Type: application/json" \
-            -d '{"name":"Administrator","email":"admin@example.com","username":"admin","password":"admin123"}'
+            -d '{"name":"Administrator","email":"admin@example.com","username":"admin","password":"admin-password"}'
 
       # Creates the rows every {id} in schemathesis.toml is pinned to, and exports their ids to
       # $GITHUB_ENV. Without this the fuzzer draws ids across the full int64 range and 28 operations
@@ -144,7 +144,7 @@ jobs:
         run: .github/scripts/seed-contract-fixtures.sh
         env:
           BASE_URL: http://localhost:8080
-          AUTH: admin:admin123
+          AUTH: admin:admin-password
 
       - name: Lint and bundle the OpenAPI contract (Redocly CLI)
         run: |
@@ -157,8 +157,8 @@ jobs:
           schema: /tmp/bundled-openapi.yaml
           base-url: http://localhost:8080
           checks: not_a_server_error,status_code_conformance,content_type_conformance,response_schema_conformance
-          # base64 of admin:admin123 — the fixture credentials bootstrapped above
-          authorization: "Basic YWRtaW46YWRtaW4xMjM="
+          # base64 of admin:admin-password — the fixture credentials bootstrapped above
+          authorization: "Basic YWRtaW46YWRtaW4tcGFzc3dvcmQ="
           # Pins every {id} to a row the step above created, via ${SERVDESK_*} interpolation. An
           # unset variable is a hard error, so broken wiring fails the run rather than silently
           # reverting to 404s.

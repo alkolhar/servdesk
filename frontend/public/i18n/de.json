@@ -1,7 +1,9 @@
 {
   "form": {
     "required": "Pflichtfeld",
-    "email": "Keine gültige E-Mail-Adresse"
+    "email": "Keine gültige E-Mail-Adresse",
+    "passwordLength": "{{min}} bis {{max}} Zeichen",
+    "passwordMismatch": "Die Passwörter stimmen nicht überein."
   },
   "login": {
     "title": "Bei servdesk anmelden",
@@ -22,7 +24,20 @@
     "role": "Rolle",
     "username": "Benutzername",
     "email": "E-Mail",
-    "logout": "Abmelden"
+    "logout": "Abmelden",
+    "password": {
+      "title": "Passwort ändern",
+      "current": "Aktuelles Passwort",
+      "new": "Neues Passwort",
+      "repeat": "Neues Passwort wiederholen",
+      "submit": "Passwort ändern",
+      "changed": "Ihr Passwort wurde geändert.",
+      "error": {
+        "wrongCurrent": "Das aktuelle Passwort ist falsch.",
+        "invalid": "Der Server hat das neue Passwort abgelehnt. Bitte prüfen Sie es und versuchen Sie es erneut.",
+        "unavailable": "servdesk ist gerade nicht erreichbar. Bitte versuchen Sie es erneut."
+      }
+    }
   },
   "role": {
     "AGENT": "Agent",
@@ -36,7 +51,6 @@
     "username": "Benutzername",
     "password": "Passwort",
     "passwordConfirmation": "Passwort wiederholen",
-    "passwordMismatch": "Die Passwörter stimmen nicht überein.",
     "submit": "Konto anlegen und anmelden",
     "error": {
       "invalid": "Der Server hat diese Angaben abgelehnt. Bitte prüfen Sie sie und versuchen Sie es erneut.",

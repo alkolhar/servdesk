@@ -36,9 +36,9 @@ describe('Login', () => {
     login.mockResolvedValue();
     const navigate = vi.spyOn(TestBed.inject(Router), 'navigateByUrl').mockResolvedValue(true);
 
-    await submit('admin', 'admin123');
+    await submit('admin', 'admin-password');
 
-    expect(login).toHaveBeenCalledWith('admin', 'admin123');
+    expect(login).toHaveBeenCalledWith('admin', 'admin-password');
     expect(navigate).toHaveBeenCalledWith('/account');
   });
 
@@ -55,7 +55,7 @@ describe('Login', () => {
   it('tells a server failure apart from wrong credentials', async () => {
     login.mockRejectedValue(new HttpErrorResponse({ status: 503 }));
 
-    const element = await submit('admin', 'admin123');
+    const element = await submit('admin', 'admin-password');
 
     expect(element.querySelector('[role="alert"]')?.textContent).toContain("can't be reached");
   });

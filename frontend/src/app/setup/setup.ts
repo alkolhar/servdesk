@@ -1,12 +1,6 @@
 import { HttpErrorResponse } from '@angular/common/http';
 import { ChangeDetectionStrategy, Component, inject, signal } from '@angular/core';
-import {
-  AbstractControl,
-  NonNullableFormBuilder,
-  ReactiveFormsModule,
-  ValidationErrors,
-  Validators,
-} from '@angular/forms';
+import { NonNullableFormBuilder, ReactiveFormsModule, Validators } from '@angular/forms';
 import { MatButtonModule } from '@angular/material/button';
 import { MatCardModule } from '@angular/material/card';
 import { MatFormFieldModule } from '@angular/material/form-field';
@@ -14,13 +8,13 @@ import { MatInputModule } from '@angular/material/input';
 import { Router } from '@angular/router';
 import { TranslocoDirective } from '@jsverse/transloco';
 import { AuthService } from '../auth/auth.service';
+import {
+  PASSWORD_MAX_LENGTH,
+  PASSWORD_MIN_LENGTH,
+  passwordPolicy,
+  passwordsMatch,
+} from '../auth/password-policy';
 import { SetupService } from './setup.service';
-
-function passwordsMatch(group: AbstractControl): ValidationErrors | null {
-  const password = group.get('password')?.value;
-  const confirmation = group.get('passwordConfirmation')?.value;
-  return password === confirmation ? null : { passwordMismatch: true };
-}
 
 @Component({
   selector: 'app-setup',
@@ -47,11 +41,13 @@ export class Setup {
       email: ['', [Validators.required, Validators.email]],
       username: ['', Validators.required],
       // asked twice: this is the only administrator, and there is no password reset yet
-      password: ['', Validators.required],
+      password: ['', passwordPolicy],
       passwordConfirmation: ['', Validators.required],
     },
-    { validators: passwordsMatch },
+    { validators: passwordsMatch('password', 'passwordConfirmation') },
   );
+
+  protected readonly passwordLength = { min: PASSWORD_MIN_LENGTH, max: PASSWORD_MAX_LENGTH };
 
   /** A translation key, never server text. */
   protected readonly error = signal<string | null>(null);

@@ -171,6 +171,37 @@ paths:
                 $ref: "#/components/schemas/MeModel"
         "401":
           $ref: "#/components/responses/Unauthorized"
+  /api/me/password:
+    parameters:
+      - $ref: "#/components/parameters/ApiVersionHeader"
+    put:
+      tags: [session]
+      summary: Change your own password.
+      description: >-
+        Any logged-in person, for their own account. currentPassword must match
+        (403 otherwise — not 401, the caller is authenticated). The new password
+        must meet the policy: 12 to 72 characters. Other sessions stay logged in.
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/ChangePasswordRequest"
+      responses:
+        "default":
+          $ref: "#/components/responses/DefaultProblem"
+        "204":
+          description: Changed.
+        "400":
+          $ref: "#/components/responses/ValidationProblem"
+        "401":
+          $ref: "#/components/responses/Unauthorized"
+        "403":
+          description: currentPassword is wrong (or a session write without its CSRF token).
+          content:
+            application/problem+json:
+              schema:
+                $ref: "#/components/schemas/ProblemDetail"
   /api/persons:
     parameters:
       - $ref: "#/components/parameters/ApiVersionHeader"
@@ -1855,6 +1886,22 @@ components:
         _links:
           type: object
           description: HATEOAS links (self).
+    ChangePasswordRequest:
+      type: object
+      required: [currentPassword, newPassword]
+      properties:
+        currentPassword:
+          type: string
+          minLength: 1
+          pattern: '\S'
+          format: password
+          description: Only compared, never held to the policy — an older, shorter password can still be changed.
+        newPassword:
+          type: string
+          minLength: 12
+          maxLength: 72
+          format: password
+          description: The password policy — 12 to 72 characters, no composition rules.
     PersonCreateRequest:
       type: object
       required: [role, name, email]
@@ -1877,6 +1924,9 @@ components:
         password:
           type: string
           nullable: true
+          minLength: 12
+          maxLength: 72
+          description: The password policy — 12 to 72 characters, no composition rules.
         teamId:
           type: integer
           format: int64
@@ -1885,10 +1935,11 @@ components:
       type: object
       required: [role, name, email]
       description: >-
-        Every field replaces the stored value except the three that carry a
-        login (username, password, enabled), where null means "leave unchanged".
-        Omitting one must never revoke a login, so none of the three can be
-        cleared through this endpoint.
+        Every field replaces the stored value except the two that carry a
+        login (username, enabled), where null means "leave unchanged".
+        Omitting one must never revoke a login, so neither can be cleared
+        through this endpoint. No password: a person changes their own with
+        PUT /api/me/password.
       properties:
         role:
           $ref: "#/components/schemas/PersonRole"
@@ -1906,10 +1957,6 @@ components:
           type: string
           nullable: true
           description: Null leaves the existing username unchanged.
-        password:
-          type: string
-          nullable: true
-          description: Null leaves the existing password unchanged.
         enabled:
           type: boolean
           nullable: true
@@ -3487,6 +3534,8 @@ components:
           pattern: '\S'
         password:
           type: string
-          minLength: 1
+          minLength: 12
+          maxLength: 72
           pattern: '\S'
           format: password
+          description: The password policy — 12 to 72 characters, no composition rules.

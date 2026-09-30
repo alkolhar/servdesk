@@ -38,7 +38,13 @@ class SetupControllerTest {
 		ResponseEntity<String> beforeSetup = restTemplate.getForEntity("/api/persons", String.class);
 		assertThat(beforeSetup.getStatusCode()).isEqualTo(HttpStatus.UNAUTHORIZED);
 
-		SetupRequest request = new SetupRequest("Administrator", "admin@example.com", null, "admin", "admin123");
+		// the first password is held to the policy like every other (12-72 chars)
+		ResponseEntity<String> tooShort = restTemplate.postForEntity("/api/setup",
+				new SetupRequest("Administrator", "admin@example.com", null, "admin", "admin123"), String.class);
+		assertThat(tooShort.getStatusCode()).isEqualTo(HttpStatus.BAD_REQUEST);
+		assertThat(restTemplate.getForEntity("/api/setup", SetupStatus.class).getBody().setupRequired()).isTrue();
+
+		SetupRequest request = new SetupRequest("Administrator", "admin@example.com", null, "admin", "admin-password");
 		ResponseEntity<String> created = restTemplate.postForEntity("/api/setup", request, String.class);
 		assertThat(created.getStatusCode()).isEqualTo(HttpStatus.CREATED);
 		assertThat(created.getBody()).doesNotContain("password").contains("\"admin\"");
@@ -47,8 +53,8 @@ class SetupControllerTest {
 		assertThat(after.getBody().setupRequired()).isFalse();
 
 		// the created agent can now authenticate against the rest of the API
-		ResponseEntity<String> authed = restTemplate.withBasicAuth("admin", "admin123").getForEntity("/api/persons",
-				String.class);
+		ResponseEntity<String> authed = restTemplate.withBasicAuth("admin", "admin-password")
+				.getForEntity("/api/persons", String.class);
 		assertThat(authed.getStatusCode()).isEqualTo(HttpStatus.OK);
 
 		// setup can't be used to mint a second account once the first exists

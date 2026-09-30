@@ -21,7 +21,7 @@
 set -euo pipefail
 
 BASE_URL="${BASE_URL:-http://localhost:8080}"
-AUTH="${AUTH:-admin:admin123}"
+AUTH="${AUTH:-admin:admin-password}"
 
 # POSTs $2 to $1 and echoes the created id. Any non-2xx aborts the script with the body, since a
 # missing fixture surfaces later as an inscrutable 404 storm rather than an obvious failure.

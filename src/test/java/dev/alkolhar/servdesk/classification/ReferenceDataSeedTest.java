@@ -50,14 +50,14 @@ class ReferenceDataSeedTest {
 		// only people — no impact, urgency, priority, matrix cell or SLA policy is
 		// created here; everything the incident below needs has to come from the seed
 		restTemplate.postForEntity("/api/setup",
-				new SetupRequest("Administrator", "admin@example.com", null, "admin", "admin123"), String.class);
+				new SetupRequest("Administrator", "admin@example.com", null, "admin", "admin-password"), String.class);
 		Map<String, Object> customerRequest = Map.of("role", "CUSTOMER", "name", "Carla Customer", "email",
-				"carla@example.com", "username", "carla", "password", "carla12345");
+				"carla@example.com", "username", "carla", "password", "carla-password");
 		requesterId = (Number) asAdmin().postForEntity("/api/persons", customerRequest, Map.class).getBody().get("id");
 	}
 
 	private TestRestTemplate asAdmin() {
-		return restTemplate.withBasicAuth("admin", "admin123");
+		return restTemplate.withBasicAuth("admin", "admin-password");
 	}
 
 	private long seededId(String table, String name) {

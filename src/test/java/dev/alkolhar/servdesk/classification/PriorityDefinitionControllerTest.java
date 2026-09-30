@@ -37,9 +37,9 @@ class PriorityDefinitionControllerTest {
 	@BeforeAll
 	void bootstrapFixtures() {
 		restTemplate.postForEntity("/api/setup",
-				new SetupRequest("Administrator", "admin@example.com", null, "admin", "admin123"), String.class);
+				new SetupRequest("Administrator", "admin@example.com", null, "admin", "admin-password"), String.class);
 		Map<String, Object> customerRequest = Map.of("role", "CUSTOMER", "name", "Carla Customer", "email",
-				"carla@example.com", "username", "carla", "password", "carla12345");
+				"carla@example.com", "username", "carla", "password", "carla-password");
 		asAdmin().postForEntity("/api/persons", customerRequest, Map.class);
 
 		impactId = (Number) asAdmin().postForEntity("/api/impacts", Map.of("name", "High", "sortOrder", 0), Map.class)
@@ -52,11 +52,11 @@ class PriorityDefinitionControllerTest {
 	}
 
 	private TestRestTemplate asAdmin() {
-		return restTemplate.withBasicAuth("admin", "admin123");
+		return restTemplate.withBasicAuth("admin", "admin-password");
 	}
 
 	private TestRestTemplate asCustomer() {
-		return restTemplate.withBasicAuth("carla", "carla12345");
+		return restTemplate.withBasicAuth("carla", "carla-password");
 	}
 
 	private Map<String, Object> body(Number impactId, Number urgencyId, Number priorityId) {

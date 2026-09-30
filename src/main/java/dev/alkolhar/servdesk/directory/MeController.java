@@ -2,9 +2,14 @@ package dev.alkolhar.servdesk.directory;
 
 import static org.springframework.hateoas.server.mvc.WebMvcLinkBuilder.linkTo;
 
+import jakarta.validation.Valid;
+import org.springframework.http.HttpStatus;
 import org.springframework.security.core.Authentication;
 import org.springframework.web.bind.annotation.GetMapping;
+import org.springframework.web.bind.annotation.PutMapping;
+import org.springframework.web.bind.annotation.RequestBody;
 import org.springframework.web.bind.annotation.RequestMapping;
+import org.springframework.web.bind.annotation.ResponseStatus;
 import org.springframework.web.bind.annotation.RestController;
 
 /**
@@ -20,15 +25,16 @@ import org.springframework.web.bind.annotation.RestController;
 public class MeController {
 
 	private final PersonQueryService queryService;
+	private final PersonCommandService commandService;
 
-	public MeController(PersonQueryService queryService) {
+	public MeController(PersonQueryService queryService, PersonCommandService commandService) {
 		this.queryService = queryService;
+		this.commandService = commandService;
 	}
 
 	@GetMapping
 	public MeModel me(Authentication authentication) {
-		Person caller = ((PersonUserDetails) authentication.getPrincipal()).getPerson();
-		Person person = queryService.findById(caller.getId());
+		Person person = queryService.findById(callerId(authentication));
 		MeModel model = new MeModel();
 		model.setId(person.getId());
 		model.setRole(person.getRole());
@@ -37,6 +43,21 @@ public class MeController {
 		model.setUsername(person.getUsername());
 		model.add(linkTo(MeController.class).withSelfRel());
 		return model;
+	}
+
+	/**
+	 * Your own password, any logged-in person (#89). 204 on success; 403 when
+	 * {@code currentPassword} doesn't match (see
+	 * {@link PersonCommandService#changeOwnPassword}).
+	 */
+	@PutMapping("/password")
+	@ResponseStatus(HttpStatus.NO_CONTENT)
+	public void changePassword(Authentication authentication, @Valid @RequestBody ChangePasswordRequest request) {
+		commandService.changeOwnPassword(callerId(authentication), request.currentPassword(), request.newPassword());
+	}
+
+	private static Long callerId(Authentication authentication) {
+		return ((PersonUserDetails) authentication.getPrincipal()).getPerson().getId();
 	}
 
 }

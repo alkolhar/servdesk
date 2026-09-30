@@ -58,9 +58,9 @@ class SlaLifecycleTest {
 	@BeforeAll
 	void bootstrapFixtures() {
 		restTemplate.postForEntity("/api/setup",
-				new SetupRequest("Administrator", "admin@example.com", null, "admin", "admin123"), String.class);
+				new SetupRequest("Administrator", "admin@example.com", null, "admin", "admin-password"), String.class);
 		Map<String, Object> customerRequest = Map.of("role", "CUSTOMER", "name", "Carla Customer", "email",
-				"carla@example.com", "username", "carla", "password", "carla12345");
+				"carla@example.com", "username", "carla", "password", "carla-password");
 		requesterId = (Number) asAdmin().postForEntity("/api/persons", customerRequest, Map.class).getBody().get("id");
 		urgentPriorityId = (Number) asAdmin()
 				.postForEntity("/api/priorities", Map.of("name", "Urgent", "sortOrder", 0), Map.class).getBody()
@@ -84,7 +84,7 @@ class SlaLifecycleTest {
 	}
 
 	private TestRestTemplate asAdmin() {
-		return restTemplate.withBasicAuth("admin", "admin123");
+		return restTemplate.withBasicAuth("admin", "admin-password");
 	}
 
 	private Number createUrgentIncident(String subject) {

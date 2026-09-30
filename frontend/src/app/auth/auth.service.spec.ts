@@ -49,10 +49,10 @@ describe('AuthService', () => {
   });
 
   it('logs in with JSON credentials, then loads who that is', async () => {
-    const done = auth.login('admin', 'admin123');
+    const done = auth.login('admin', 'admin-password');
     const login = http.expectOne('/api/login');
     expect(login.request.method).toBe('POST');
-    expect(login.request.body).toEqual({ username: 'admin', password: 'admin123' });
+    expect(login.request.body).toEqual({ username: 'admin', password: 'admin-password' });
     login.flush(null, { status: 204, statusText: 'No Content' });
     await Promise.resolve();
     http.expectOne('/api/me').flush(ada);
@@ -71,5 +71,16 @@ describe('AuthService', () => {
       .flush(null, { status: 204, statusText: 'No Content' });
     await done;
     expect(auth.me()).toBeNull();
+  });
+
+  it('changes the password with PUT /api/me/password', async () => {
+    const done = auth.changePassword('the-old-password', 'a-brand-new-password');
+    const put = http.expectOne({ method: 'PUT', url: '/api/me/password' });
+    expect(put.request.body).toEqual({
+      currentPassword: 'the-old-password',
+      newPassword: 'a-brand-new-password',
+    });
+    put.flush(null, { status: 204, statusText: 'No Content' });
+    await done;
   });
 });

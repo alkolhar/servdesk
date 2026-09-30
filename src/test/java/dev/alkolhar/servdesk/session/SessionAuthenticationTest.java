@@ -44,7 +44,7 @@ class SessionAuthenticationTest {
 	@BeforeAll
 	void bootstrapAgent() {
 		restTemplate.postForEntity("/api/setup",
-				new SetupRequest("Ada Admin", "ada@example.com", null, "admin", "admin123"), String.class);
+				new SetupRequest("Ada Admin", "ada@example.com", null, "admin", "admin-password"), String.class);
 	}
 
 	/** The two cookies a successful login leaves the browser holding. */
@@ -72,7 +72,7 @@ class SessionAuthenticationTest {
 	}
 
 	private Session loginAsAdmin() {
-		ResponseEntity<String> response = login("admin", "admin123");
+		ResponseEntity<String> response = login("admin", "admin-password");
 		assertThat(response.getStatusCode()).isEqualTo(HttpStatus.NO_CONTENT);
 		return new Session(cookieValue(response, "JSESSIONID"), cookieValue(response, "XSRF-TOKEN"));
 	}
@@ -96,7 +96,7 @@ class SessionAuthenticationTest {
 
 	@Test
 	void loginSetsAnHttpOnlySameSiteStrictSessionCookie() {
-		ResponseEntity<String> response = login("admin", "admin123");
+		ResponseEntity<String> response = login("admin", "admin-password");
 
 		assertThat(response.getStatusCode()).isEqualTo(HttpStatus.NO_CONTENT);
 		assertThat(setCookieHeaders(response)).anySatisfy(header -> assertThat(header).startsWith("JSESSIONID=")
@@ -117,7 +117,8 @@ class SessionAuthenticationTest {
 
 	@Test
 	void basicAuthenticatesMeToo() {
-		ResponseEntity<Map> me = restTemplate.withBasicAuth("admin", "admin123").getForEntity("/api/me", Map.class);
+		ResponseEntity<Map> me = restTemplate.withBasicAuth("admin", "admin-password").getForEntity("/api/me",
+				Map.class);
 
 		assertThat(me.getStatusCode()).isEqualTo(HttpStatus.OK);
 		assertThat(me.getBody()).containsEntry("name", "Ada Admin");
@@ -167,7 +168,7 @@ class SessionAuthenticationTest {
 	@Test
 	void theSameWriteWithBasicNeedsNoCsrfToken() {
 		HttpHeaders basic = new HttpHeaders();
-		basic.setBasicAuth("admin", "admin123");
+		basic.setBasicAuth("admin", "admin-password");
 
 		ResponseEntity<String> response = createCategory("Basic", basic);
 

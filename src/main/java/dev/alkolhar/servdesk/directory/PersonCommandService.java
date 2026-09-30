@@ -1,6 +1,7 @@
 package dev.alkolhar.servdesk.directory;
 
 import dev.alkolhar.servdesk.common.exception.ConflictException;
+import dev.alkolhar.servdesk.common.exception.ForbiddenException;
 import dev.alkolhar.servdesk.directory.event.PersonCreatedEvent;
 import jakarta.persistence.EntityManager;
 import org.jspecify.annotations.Nullable;
@@ -43,13 +44,13 @@ public class PersonCommandService {
 	}
 
 	/**
-	 * Every field replaces what the row holds, as PUT implies — except the three
-	 * that carry a login. A null {@code username}, {@code password} or
-	 * {@code enabled} leaves the stored value alone, so a client that updates a
-	 * name or a team without echoing back credentials cannot revoke access by
-	 * omission (issue #66). The cost of that choice is that none of the three can
-	 * be *cleared* through this endpoint; revoking a login needs an operation that
-	 * says so.
+	 * Every field replaces what the row holds, as PUT implies — except the two that
+	 * carry a login. A null {@code username} or {@code enabled} leaves the stored
+	 * value alone, so a client that updates a name or a team without echoing back
+	 * credentials cannot revoke access by omission (issue #66). The cost of that
+	 * choice is that neither can be *cleared* through this endpoint; revoking a
+	 * login needs an operation that says so. The password isn't reachable from here
+	 * at all (see {@link #changeOwnPassword}).
 	 *
 	 * @see PersonUpdateRequest
 	 */
@@ -66,14 +67,30 @@ public class PersonCommandService {
 		if (request.username() != null) {
 			existing.setUsername(request.username());
 		}
-		if (request.password() != null) {
-			existing.setPassword(passwordEncoder.encode(request.password()));
-		}
 		if (request.enabled() != null) {
 			existing.setEnabled(request.enabled());
 		}
 		existing.setTeam(resolveTeam(request.teamId()));
 		return personRepository.save(existing);
+	}
+
+	/**
+	 * A person changing their own password (#89). The current password has to match
+	 * first — a session left open on someone else's screen must not be enough to
+	 * take the account over. 403 rather than 401 for a mismatch: the caller is
+	 * authenticated, and a 401 would tell the SPA the session is gone. Other
+	 * sessions stay logged in; ending them is for the changes that have to take
+	 * effect immediately (ADR-0005), and a self-chosen password isn't one.
+	 */
+	@Transactional
+	public void changeOwnPassword(Long personId, String currentPassword, String newPassword) {
+		Person person = personQueryService.findById(personId);
+		String stored = person.getPassword();
+		if (stored == null || !passwordEncoder.matches(currentPassword, stored)) {
+			throw new ForbiddenException("The current password is wrong.");
+		}
+		person.setPassword(passwordEncoder.encode(newPassword));
+		personRepository.save(person);
 	}
 
 	@Transactional
@@ -131,15 +148,14 @@ public class PersonCommandService {
 	/**
 	 * What the person would be once {@code request} is applied — evaluated before
 	 * anything is mutated, so the rejection never depends on a rollback to undo a
-	 * half-applied change. Null {@code username}/{@code password}/{@code enabled}
-	 * leave the stored values in place (issue #66), which is why each term falls
-	 * back to what the row already holds.
+	 * half-applied change. Null {@code username}/{@code enabled} leave the stored
+	 * values in place (issue #66), which is why each term falls back to what the
+	 * row already holds; the password can't change here at all.
 	 */
 	private static boolean wouldRemainLoginCapable(Person existing, PersonUpdateRequest request) {
 		boolean enabled = request.enabled() == null ? existing.isEnabled() : request.enabled();
 		String username = request.username() == null ? existing.getUsername() : request.username();
-		String password = request.password() == null ? existing.getPassword() : request.password();
-		return request.role() == PersonRole.AGENT && username != null && password != null && enabled;
+		return request.role() == PersonRole.AGENT && username != null && existing.getPassword() != null && enabled;
 	}
 
 	/**

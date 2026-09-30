@@ -9,6 +9,7 @@ import static org.mockito.Mockito.verifyNoInteractions;
 import static org.mockito.Mockito.when;
 
 import dev.alkolhar.servdesk.common.exception.ConflictException;
+import dev.alkolhar.servdesk.common.exception.ForbiddenException;
 import dev.alkolhar.servdesk.directory.event.PersonCreatedEvent;
 import jakarta.persistence.EntityManager;
 import org.junit.jupiter.api.BeforeEach;
@@ -25,8 +26,9 @@ import org.springframework.test.util.ReflectionTestUtils;
  * Pure Mockito unit tests: no Spring context, no database.
  * {@link PersonControllerTest} already covers this service end-to-end through
  * the real HTTP/security/persistence stack — these tests exist for the internal
- * decisions that class can't easily pin down (does an unset password stay
- * unset, exactly what does the published event carry, is a repeat setup attempt
+ * decisions that class can't easily pin down (does an update leave the password
+ * alone, is a wrong current password refused before anything is encoded,
+ * exactly what does the published event carry, is a repeat setup attempt
  * rejected before ever touching the repository).
  */
 @ExtendWith(MockitoExtension.class)
@@ -114,41 +116,14 @@ class PersonCommandServiceTest {
 	}
 
 	@Test
-	void updateKeepsExistingPasswordWhenRequestPasswordIsNull() {
-		Person existing = new Person();
-		existing.setPassword("already-encoded");
-		when(personQueryService.findById(1L)).thenReturn(existing);
-		when(personRepository.save(existing)).thenReturn(existing);
-
-		Person updated = commandService.update(1L, new PersonUpdateRequest(PersonRole.AGENT, "Ada Agent",
-				"ada@example.com", null, null, null, true, null));
-
-		assertThat(updated.getPassword()).isEqualTo("already-encoded");
-		verifyNoInteractions(passwordEncoder);
-	}
-
-	@Test
-	void updateEncodesPasswordWhenRequestPasswordIsPresent() {
-		Person existing = new Person();
-		when(personQueryService.findById(1L)).thenReturn(existing);
-		when(personRepository.save(existing)).thenReturn(existing);
-		when(passwordEncoder.encode("newpass")).thenReturn("newly-encoded");
-
-		Person updated = commandService.update(1L, new PersonUpdateRequest(PersonRole.AGENT, "Ada Agent",
-				"ada@example.com", null, null, "newpass", true, null));
-
-		assertThat(updated.getPassword()).isEqualTo("newly-encoded");
-	}
-
-	@Test
 	void updateKeepsExistingUsernameWhenRequestUsernameIsNull() {
 		Person existing = new Person();
 		existing.setUsername("ada");
 		when(personQueryService.findById(1L)).thenReturn(existing);
 		when(personRepository.save(existing)).thenReturn(existing);
 
-		Person updated = commandService.update(1L, new PersonUpdateRequest(PersonRole.AGENT, "Ada Agent",
-				"ada@example.com", null, null, null, true, null));
+		Person updated = commandService.update(1L,
+				new PersonUpdateRequest(PersonRole.AGENT, "Ada Agent", "ada@example.com", null, null, true, null));
 
 		assertThat(updated.getUsername()).isEqualTo("ada");
 	}
@@ -161,7 +136,7 @@ class PersonCommandServiceTest {
 		when(personRepository.save(existing)).thenReturn(existing);
 
 		Person updated = commandService.update(1L, new PersonUpdateRequest(PersonRole.AGENT, "Ada Agent",
-				"ada@example.com", null, "ada.lovelace", null, true, null));
+				"ada@example.com", null, "ada.lovelace", true, null));
 
 		assertThat(updated.getUsername()).isEqualTo("ada.lovelace");
 	}
@@ -173,8 +148,8 @@ class PersonCommandServiceTest {
 		when(personQueryService.findById(1L)).thenReturn(existing);
 		when(personRepository.save(existing)).thenReturn(existing);
 
-		Person updated = commandService.update(1L, new PersonUpdateRequest(PersonRole.AGENT, "Ada Agent",
-				"ada@example.com", null, null, null, null, null));
+		Person updated = commandService.update(1L,
+				new PersonUpdateRequest(PersonRole.AGENT, "Ada Agent", "ada@example.com", null, null, null, null));
 
 		assertThat(updated.isEnabled()).isTrue();
 	}
@@ -186,10 +161,66 @@ class PersonCommandServiceTest {
 		when(personQueryService.findById(1L)).thenReturn(existing);
 		when(personRepository.save(existing)).thenReturn(existing);
 
-		Person updated = commandService.update(1L, new PersonUpdateRequest(PersonRole.AGENT, "Ada Agent",
-				"ada@example.com", null, null, null, false, null));
+		Person updated = commandService.update(1L,
+				new PersonUpdateRequest(PersonRole.AGENT, "Ada Agent", "ada@example.com", null, null, false, null));
 
 		assertThat(updated.isEnabled()).isFalse();
+	}
+
+	@Test
+	void changeOwnPasswordStoresTheNewPasswordWhenTheCurrentOneMatches() {
+		Person existing = loginCapableAgent();
+		when(personQueryService.findById(1L)).thenReturn(existing);
+		when(passwordEncoder.matches("current-password", "already-encoded")).thenReturn(true);
+		when(passwordEncoder.encode("brand-new-password")).thenReturn("newly-encoded");
+
+		commandService.changeOwnPassword(1L, "current-password", "brand-new-password");
+
+		assertThat(existing.getPassword()).isEqualTo("newly-encoded");
+		verify(personRepository).save(existing);
+	}
+
+	@Test
+	void changeOwnPasswordRejectsAWrongCurrentPasswordAndChangesNothing() {
+		Person existing = loginCapableAgent();
+		when(personQueryService.findById(1L)).thenReturn(existing);
+		when(passwordEncoder.matches("wrong-password", "already-encoded")).thenReturn(false);
+
+		assertThatThrownBy(() -> commandService.changeOwnPassword(1L, "wrong-password", "brand-new-password"))
+				.isInstanceOf(ForbiddenException.class);
+
+		assertThat(existing.getPassword()).isEqualTo("already-encoded");
+		verify(passwordEncoder, never()).encode(any());
+		verifyNoInteractions(personRepository);
+	}
+
+	/**
+	 * A person without a password (a customer who can't log in) has nothing to
+	 * match.
+	 */
+	@Test
+	void changeOwnPasswordRejectsAPersonWithoutAPassword() {
+		Person existing = loginCapableAgent();
+		existing.setPassword(null);
+		when(personQueryService.findById(1L)).thenReturn(existing);
+
+		assertThatThrownBy(() -> commandService.changeOwnPassword(1L, "anything-at-all", "brand-new-password"))
+				.isInstanceOf(ForbiddenException.class);
+
+		verifyNoInteractions(passwordEncoder, personRepository);
+	}
+
+	@Test
+	void updateNeverTouchesThePassword() {
+		Person existing = loginCapableAgent();
+		when(personQueryService.findById(1L)).thenReturn(existing);
+		when(personRepository.save(existing)).thenReturn(existing);
+
+		Person updated = commandService.update(1L,
+				new PersonUpdateRequest(PersonRole.AGENT, "Ada Lovelace", "ada@example.com", null, null, null, null));
+
+		assertThat(updated.getPassword()).isEqualTo("already-encoded");
+		verifyNoInteractions(passwordEncoder);
 	}
 
 	@Test
@@ -234,8 +265,9 @@ class PersonCommandServiceTest {
 		when(personQueryService.findById(1L)).thenReturn(loginCapableAgent());
 		when(personQueryService.anotherLoginCapableAgentExists(null)).thenReturn(false);
 
-		assertThatThrownBy(() -> commandService.update(1L, new PersonUpdateRequest(PersonRole.CUSTOMER, "Ada Agent",
-				"ada@example.com", null, null, null, null, null))).isInstanceOf(ConflictException.class);
+		assertThatThrownBy(() -> commandService.update(1L,
+				new PersonUpdateRequest(PersonRole.CUSTOMER, "Ada Agent", "ada@example.com", null, null, null, null)))
+				.isInstanceOf(ConflictException.class);
 
 		verifyNoInteractions(personRepository);
 	}
@@ -245,8 +277,9 @@ class PersonCommandServiceTest {
 		when(personQueryService.findById(1L)).thenReturn(loginCapableAgent());
 		when(personQueryService.anotherLoginCapableAgentExists(null)).thenReturn(false);
 
-		assertThatThrownBy(() -> commandService.update(1L, new PersonUpdateRequest(PersonRole.AGENT, "Ada Agent",
-				"ada@example.com", null, null, null, false, null))).isInstanceOf(ConflictException.class);
+		assertThatThrownBy(() -> commandService.update(1L,
+				new PersonUpdateRequest(PersonRole.AGENT, "Ada Agent", "ada@example.com", null, null, false, null)))
+				.isInstanceOf(ConflictException.class);
 
 		verifyNoInteractions(personRepository);
 	}
@@ -261,8 +294,8 @@ class PersonCommandServiceTest {
 		when(personQueryService.findById(1L)).thenReturn(existing);
 		when(personRepository.save(existing)).thenReturn(existing);
 
-		Person updated = commandService.update(1L, new PersonUpdateRequest(PersonRole.AGENT, "Ada Lovelace",
-				"ada@example.com", null, null, null, null, null));
+		Person updated = commandService.update(1L,
+				new PersonUpdateRequest(PersonRole.AGENT, "Ada Lovelace", "ada@example.com", null, null, null, null));
 
 		assertThat(updated.getName()).isEqualTo("Ada Lovelace");
 		verify(personQueryService, never()).anotherLoginCapableAgentExists(any());

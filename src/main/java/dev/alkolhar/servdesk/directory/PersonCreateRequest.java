@@ -6,5 +6,6 @@ import jakarta.validation.constraints.NotNull;
 import org.jspecify.annotations.Nullable;
 
 public record PersonCreateRequest(@NotNull PersonRole role, @NotBlank String name, @NotBlank @Email String email,
-		@Nullable String phone, @Nullable String username, @Nullable String password, @Nullable Long teamId) {
+		@Nullable String phone, @Nullable String username, @Nullable @PasswordPolicy String password,
+		@Nullable Long teamId) {
 }
