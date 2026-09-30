@@ -34,7 +34,7 @@ is tracked in [GitHub Issues](https://github.com/alkolhar/servdesk/issues), not 
   rather than 403 so ids can't be probed. An OAuth2/OIDC path is staged but inactive.
 - **UI** — an Angular SPA over the same public API, in German and English
   ([ADR-0003](docs/adr/0003-ui-is-an-angular-spa-over-the-public-api.md)). So far: sign in, My
-  account, sign out.
+  account, sign out, and first-run setup.
 
 ## Quick start
 
@@ -44,8 +44,11 @@ is tracked in [GitHub Issues](https://github.com/alkolhar/servdesk/issues), not 
 docker compose up --build
 ```
 
-Brings up PostgreSQL and the application on `http://localhost:8080`. Create the first agent account
-(this endpoint is open until exactly one person exists, then it refuses):
+Brings up PostgreSQL and the application on `http://localhost:8080`. Open it in a browser: on an
+empty database, servdesk asks you to create the first agent account and signs you in.
+
+Setting up from a script instead (this endpoint is open until exactly one person exists, then it
+refuses):
 
 ```bash
 curl -X POST http://localhost:8080/api/setup \
@@ -53,8 +56,7 @@ curl -X POST http://localhost:8080/api/setup \
   -d '{"name":"Admin","email":"admin@example.com","username":"admin","password":"admin123"}'
 ```
 
-Then open `http://localhost:8080` and sign in. From a script, every other endpoint takes HTTP
-Basic:
+From a script, every other endpoint takes HTTP Basic:
 
 ```bash
 curl -u admin:admin123 http://localhost:8080/api/tickets

@@ -1,6 +1,6 @@
 import { HttpErrorResponse } from '@angular/common/http';
 import { TestBed } from '@angular/core/testing';
-import { Router, provideRouter } from '@angular/router';
+import { ActivatedRoute, Router, convertToParamMap, provideRouter } from '@angular/router';
 import { vi } from 'vitest';
 import { AuthService } from '../auth/auth.service';
 import { translocoTesting } from '../i18n/testing';
@@ -64,5 +64,40 @@ describe('Login', () => {
     await submit('', '');
 
     expect(login).not.toHaveBeenCalled();
+  });
+});
+
+describe('Login notices', () => {
+  async function render(notice: string): Promise<HTMLElement> {
+    await TestBed.configureTestingModule({
+      imports: [Login, translocoTesting()],
+      providers: [
+        provideRouter([]),
+        { provide: AuthService, useValue: { login: vi.fn() } },
+        {
+          provide: ActivatedRoute,
+          useValue: { snapshot: { queryParamMap: convertToParamMap({ notice }) } },
+        },
+      ],
+    }).compileComponents();
+    const fixture = TestBed.createComponent(Login);
+    await fixture.whenStable();
+    return fixture.nativeElement as HTMLElement;
+  }
+
+  it('says why the user was sent here', async () => {
+    const element = await render('setupAlreadyDone');
+
+    expect(element.querySelector('[role="status"]')?.textContent).toContain(
+      'servdesk has already been set up.',
+    );
+  });
+
+  it('ignores notices it does not know', async () => {
+    for (const notice of ['whatever', 'constructor', '__proto__']) {
+      TestBed.resetTestingModule();
+      const element = await render(notice);
+      expect(element.querySelector('[role="status"]')).toBeNull();
+    }
   });
 });

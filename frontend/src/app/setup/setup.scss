@@ -6,8 +6,8 @@
   box-sizing: border-box;
 }
 
-.login-card {
-  width: min(400px, 100%);
+.setup-card {
+  width: min(440px, 100%);
 }
 
 h1 {
@@ -22,15 +22,11 @@ mat-card-content {
   padding-top: 16px;
 }
 
-.error {
-  color: var(--mat-sys-error);
-  margin: 0;
-}
-
 mat-card-actions {
   padding: 8px 16px 16px;
 }
 
-.notice {
-  margin: 0 0 8px;
+.error {
+  color: var(--mat-sys-error);
+  margin: 0;
 }

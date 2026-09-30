@@ -5,9 +5,12 @@ import { MatButtonModule } from '@angular/material/button';
 import { MatCardModule } from '@angular/material/card';
 import { MatFormFieldModule } from '@angular/material/form-field';
 import { MatInputModule } from '@angular/material/input';
-import { Router } from '@angular/router';
+import { ActivatedRoute, Router } from '@angular/router';
 import { TranslocoDirective } from '@jsverse/transloco';
 import { AuthService } from '../auth/auth.service';
+
+/** Notices another screen may send here via `?notice=`, and the key each one shows. */
+const NOTICES = new Map<string, string>([['setupAlreadyDone', 'login.notice.setupAlreadyDone']]);
 
 @Component({
   selector: 'app-login',
@@ -26,6 +29,11 @@ import { AuthService } from '../auth/auth.service';
 export class Login {
   private readonly auth = inject(AuthService);
   private readonly router = inject(Router);
+
+  /** Only known notices: a crafted link can't make the login screen say arbitrary things. */
+  protected readonly notice = signal<string | null>(
+    NOTICES.get(inject(ActivatedRoute).snapshot.queryParamMap.get('notice') ?? '') ?? null,
+  );
 
   protected readonly form = inject(NonNullableFormBuilder).group({
     username: ['', Validators.required],
