@@ -9,6 +9,7 @@ import dev.alkolhar.servdesk.ticket.TicketRepository;
 import jakarta.persistence.EntityManager;
 import org.springframework.context.ApplicationEventPublisher;
 import org.springframework.stereotype.Service;
+import org.springframework.transaction.annotation.Transactional;
 
 @Service
 public class ProblemCommandService extends AbstractTicketSubtypeCommandService<Problem> {
@@ -25,21 +26,24 @@ public class ProblemCommandService extends AbstractTicketSubtypeCommandService<P
 		this.problemQueryService = problemQueryService;
 	}
 
+	@Transactional
 	public Problem create(ProblemCreateRequest request) {
 		Ticket savedTicket = ticketRepository.save(newTicket(request));
 		Problem problem = new Problem();
 		problem.setTicket(savedTicket);
 		problem.setDisplayNumber(nextDisplayNumber("PRB-", "problem_number_seq"));
-		return problemRepository.save(problem);
+		return problemRepository.saveAndFlush(problem);
 	}
 
+	@Transactional
 	public Problem update(Long id, ProblemUpdateRequest request) {
 		Problem existing = problemQueryService.findById(id);
 		applySharedUpdate(existing.getTicket(), request);
 		ticketRepository.save(existing.getTicket());
-		return problemRepository.save(existing);
+		return problemRepository.saveAndFlush(existing);
 	}
 
+	@Transactional
 	public void delete(Long id) {
 		Problem existing = problemQueryService.findById(id);
 		deleteTicketAndSubtype(existing, existing.getTicket(), problemRepository);

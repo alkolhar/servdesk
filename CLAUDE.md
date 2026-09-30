@@ -239,6 +239,12 @@ Controllers return a `*Model` (or `CollectionModel<...>`/`PagedModel<...>`), nev
     relies on `TicketStatus`'s enum order matching lifecycle order), publishes
     `TicketStatusChangedEvent` only when status actually changed. Delete soft-deletes both the subtype
     row and the shared `Ticket` row.
+    **Every subtype's `create`/`update`/`delete` — and `CommentCommandService.create` — is
+    `@Transactional`** (#127): each writes the shared `Ticket` row plus another, and committed
+    separately a failed second write (e.g. a nonexistent `relatedProblemId`) left an orphan `Ticket`
+    that made `GET /api/tickets` answer 500. The last write is `saveAndFlush` so a constraint violation
+    still surfaces in the method as `DataIntegrityViolationException` (409), not at commit. A new
+    subtype must follow suit.
   - `ticket.overview` — read-only cross-subtype surface `GET /api/tickets`(+`/{id}`) (issue #30,
     amending ADR-0001's "no cross-type listing" consequence): pages the shared `ticket` table
     (optional filters: status/requester/assignee/team/category/priority, plus an

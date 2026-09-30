@@ -5,6 +5,7 @@ import dev.alkolhar.servdesk.common.exception.NotFoundException;
 import dev.alkolhar.servdesk.directory.Person;
 import jakarta.persistence.EntityManager;
 import org.springframework.stereotype.Service;
+import org.springframework.transaction.annotation.Transactional;
 
 /**
  * {@code authorId}/{@code authorIsAgent} are resolved by
@@ -29,6 +30,7 @@ public class CommentCommandService {
 		this.slaHooks = slaHooks;
 	}
 
+	@Transactional
 	public TicketComment create(Long ticketId, CommentCreateRequest request, Long authorId, boolean authorIsAgent) {
 		if (request.internal() && !authorIsAgent) {
 			throw new ForbiddenException("Only an Agent can mark a comment internal");
@@ -51,6 +53,6 @@ public class CommentCommandService {
 		comment.setAuthor(entityManager.getReference(Person.class, authorId));
 		comment.setBody(request.body());
 		comment.setInternal(request.internal());
-		return commentRepository.save(comment);
+		return commentRepository.saveAndFlush(comment);
 	}
 }

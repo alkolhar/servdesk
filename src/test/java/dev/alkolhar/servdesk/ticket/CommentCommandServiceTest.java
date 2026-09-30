@@ -64,7 +64,8 @@ class CommentCommandServiceTest {
 		ReflectionTestUtils.setField(ticket, "id", 1L);
 		when(ticketRepository.findById(1L)).thenReturn(Optional.of(ticket));
 		when(entityManager.getReference(Person.class, 3L)).thenReturn(mock(Person.class));
-		when(commentRepository.save(any(TicketComment.class))).thenAnswer(invocation -> invocation.getArgument(0));
+		when(commentRepository.saveAndFlush(any(TicketComment.class)))
+				.thenAnswer(invocation -> invocation.getArgument(0));
 
 		TicketComment saved = commandService.create(1L, new CommentCreateRequest("Working on it", true), 3L, true);
 
@@ -76,7 +77,8 @@ class CommentCommandServiceTest {
 		Ticket ticket = ticketRequestedBy(3L);
 		when(ticketRepository.findById(1L)).thenReturn(Optional.of(ticket));
 		when(entityManager.getReference(Person.class, 3L)).thenReturn(mock(Person.class));
-		when(commentRepository.save(any(TicketComment.class))).thenAnswer(invocation -> invocation.getArgument(0));
+		when(commentRepository.saveAndFlush(any(TicketComment.class)))
+				.thenAnswer(invocation -> invocation.getArgument(0));
 
 		TicketComment saved = commandService.create(1L, new CommentCreateRequest("Thanks!", false), 3L, false);
 
